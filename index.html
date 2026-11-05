@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Simple Soundboard · Retrac.Space</title>
+  <meta name="description" content="Fun sound effects without the bloat. Part of the Retrac.Space collection.">
+  <meta name="theme-color" content="#07060d">
+  <meta property="og:title" content="Simple Soundboard">
+  <meta property="og:description" content="Fun sound effects without the bloat. Part of the Retrac.Space collection.">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="assets/fonts/bagel-fat-one-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- Shared icons. Every icon on the page references one of these symbols. -->
+  <svg class="icon-sprite" aria-hidden="true" focusable="false">
+    <symbol id="icon-note-quarter" viewBox="0 0 24 24"><path d="M13 3v11.55A4 4 0 1 0 15 18V3z"/></symbol>
+    <symbol id="icon-note-eighth" viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3z"/></symbol>
+    <symbol id="icon-note-beamed" viewBox="0 0 24 24"><path d="M9 5v9.55A3.5 3.5 0 1 0 11 18V8.6l8-1.8v5.75A3.5 3.5 0 1 0 21 16V3z"/></symbol>
+    <symbol id="icon-speaker" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9z"/><path d="M15 8.5a5 5 0 0 1 0 7z"/><path d="M15 4.5v2.1a7.5 7.5 0 0 1 0 10.8v2.1a9.5 9.5 0 0 0 0-15z"/></symbol>
+    <symbol id="icon-search" viewBox="0 0 24 24"><path d="M10.5 3a7.5 7.5 0 0 1 5.93 12.09l4.74 4.74-1.66 1.66-4.74-4.74A7.5 7.5 0 1 1 10.5 3zm0 2.4a5.1 5.1 0 1 0 0 10.2 5.1 5.1 0 0 0 0-10.2z"/></symbol>
+    <symbol id="icon-stop" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="3"/></symbol>
+  </svg>
+
+  <header class="topbar">
+    <a class="topbar__logo" href="https://retrac.space">
+      <img src="assets/retrac-space-logo.png" alt="Retrac.Space" width="168" height="26">
+    </a>
+    <a class="topbar__link" href="https://retrac.space">Part of the Retrac.Space collection <span aria-hidden="true">↗</span></a>
+  </header>
+
+  <section class="hero">
+    <div class="hero__notes" id="heroNotes" aria-hidden="true"></div>
+    <h1 class="title">
+      <span class="sr-only">Simple Soundboard</span>
+      <span class="title__art" id="titleArt" aria-hidden="true"></span>
+    </h1>
+    <p class="hero__tag">Fun sound effects without the bloat.</p>
+    <div class="ribbon" aria-hidden="true">
+      <div class="ribbon__track" id="ribbonTrack"></div>
+    </div>
+  </section>
+
+  <main class="deck">
+    <section class="console" aria-label="Find sounds">
+      <div class="console__row">
+        <label class="search">
+          <span class="sr-only">Search sounds</span>
+          <svg class="search__icon" aria-hidden="true"><use href="#icon-search"/></svg>
+          <input id="search" type="search" placeholder="Search sounds" autocomplete="off" spellcheck="false">
+          <kbd class="search__hint" aria-hidden="true">/</kbd>
+        </label>
+        <div class="mixer">
+          <label class="volume">
+            <span class="sr-only">Volume</span>
+            <svg class="volume__icon" aria-hidden="true"><use href="#icon-speaker"/></svg>
+            <input id="volume" type="range" min="0" max="100" value="80">
+          </label>
+          <button class="stop" id="stopAll" type="button">
+            <svg aria-hidden="true"><use href="#icon-stop"/></svg>
+            Stop all
+          </button>
+        </div>
+      </div>
+      <div class="chips" id="chips" role="group" aria-label="Categories"></div>
+    </section>
+
+    <p class="status" id="status" role="status"></p>
+
+    <div class="banks" id="banks"></div>
+
+    <div class="empty" id="empty" hidden>
+      <svg aria-hidden="true"><use href="#icon-note-eighth"/></svg>
+      <p class="empty__title">Total silence.</p>
+      <p class="empty__text" id="emptyText"></p>
+      <button class="empty__reset" id="emptyReset" type="button">Show every sound</button>
+    </div>
+
+    <noscript>
+      <p class="noscript">Simple Soundboard needs JavaScript turned on.</p>
+    </noscript>
+  </main>
+
+  <footer class="footer">
+    <a href="https://retrac.space"><img src="assets/retrac-space-logo.png" alt="Retrac.Space" width="130" height="20"></a>
+    <p>Simple Soundboard is part of the <a href="https://retrac.space">Retrac.Space</a> collection.</p>
+  </footer>
+
+  <div class="burst" id="burst" aria-hidden="true"></div>
+
+  <script src="js/sounds.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
