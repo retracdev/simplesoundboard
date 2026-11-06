@@ -9,14 +9,12 @@
 
   const { categories, sounds } = window.SOUND_CATALOG;
   const engine = window.SoundEngine;
-  const counter = window.SoundCounter;
 
   const PRESS_MS = 70; // How fast a key sinks when hit.
   const MIN_RISE_SECONDS = 0.22; // Very short sounds still get a visible pop back up.
   const RELEASE_MS = 170; // How fast a key returns when stopped early.
   const MAX_TILT_DEGREES = 7;
-  const WAVE_BARS = 28;
-  const COMPACT_FROM = 100000; // Bigger counts shorten to "123K" so they fit on the key.
+  const WAVE_BARS = 20;
   const VOLUME_KEY = 'simple-soundboard:volume';
   const NOTE_ICONS = ['icon-note-eighth', 'icon-note-beamed', 'icon-note-quarter'];
   const RIBBON_MIN_WORDS = 40; // Enough to fill the ticker on an ultrawide monitor.
@@ -41,7 +39,7 @@
   const categoryById = new Map(categories.map((category) => [category.id, category]));
   const soundById = new Map(sounds.map((sound) => [sound.id, sound]));
 
-  const keys = new Map(); // sound id -> { el, timeEl, countEl, baseEl, litEl, duration, lastLabel }
+  const keys = new Map(); // sound id -> { el, timeEl, baseEl, litEl, duration, lastLabel }
   const live = new Map(); // sound id -> the run animating that key
   const banks = new Map(); // category id -> { el, countEl, chipCountEl }
   const filter = { category: 'all', query: '' };
@@ -68,12 +66,6 @@
     if (seconds < 60) return Math.round(seconds) + 's';
     const whole = Math.round(seconds);
     return Math.floor(whole / 60) + ':' + String(whole % 60).padStart(2, '0');
-  }
-
-  function formatCount(count) {
-    if (count === 1) return '1 play';
-    const options = count < COMPACT_FROM ? {} : { notation: 'compact', maximumFractionDigits: 1 };
-    return new Intl.NumberFormat(undefined, options).format(count) + ' plays';
   }
 
   function plural(count) {
@@ -154,8 +146,6 @@
     const face = el('span', 'key__face');
     const foot = el('span', 'key__foot');
     const wave = el('span', 'key__wave');
-    const meta = el('span', 'key__meta');
-    const count = el('span', 'key__count');
     const time = el('span', 'key__time', '–');
 
     const svgNS = 'http://www.w3.org/2000/svg';
@@ -171,8 +161,7 @@
       return path;
     });
 
-    meta.append(count, time);
-    foot.append(wave, meta);
+    foot.append(wave, time);
     face.append(el('span', 'key__name', sound.name), foot);
     tilt.append(el('span', 'key__well'), el('span', 'key__side'), face);
     button.appendChild(tilt);
@@ -180,7 +169,6 @@
     keys.set(sound.id, {
       el: button,
       timeEl: time,
-      countEl: count,
       baseEl: paths[0],
       litEl: paths[1],
       duration: null,
@@ -256,31 +244,6 @@
     if (failed && window.location.protocol === 'file:') {
       statusEl.textContent = 'Sounds can’t load from a file:// page. Run “npx serve .” in this folder and open that address.';
     }
-  }
-
-  // ---------- Press counts ----------
-
-  counter.onChange((id) => {
-    const value = counter.value(id);
-    keys.get(id).countEl.textContent = value === null ? '' : formatCount(value);
-  });
-
-  // Only asks for the counts of keys on screen, since requests are rate limited. A key
-  // revealed later by scrolling, searching or filtering gets its count then.
-  function watchCounts() {
-    if (!('IntersectionObserver' in window)) {
-      sounds.forEach((sound) => counter.load(sound.id));
-      return;
-    }
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          observer.unobserve(entry.target);
-          counter.load(entry.target.dataset.id);
-        }
-      });
-    }, { rootMargin: '200px' });
-    keys.forEach((key) => observer.observe(key.el));
   }
 
   // ---------- Search and categories ----------
@@ -449,7 +412,6 @@
       if (current === run && run.releasedAt === null) {
         run.voice = voice;
         if (key.duration === null) key.duration = voice.duration;
-        counter.hit(sound.id);
       } else if (!current || current.releasedAt !== null) {
         engine.stop(sound.id); // Stop all was hit while this sound was still loading.
       }
@@ -637,7 +599,6 @@
   buildRibbon();
   buildBoard();
   applyFilter();
-  watchCounts();
 
   const storedVolume = readStoredVolume();
   if (storedVolume !== null) volumeEl.value = storedVolume;
