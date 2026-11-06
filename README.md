@@ -1,6 +1,6 @@
 # Simple Soundboard
 
-Fun sound effects without the bloat. 🔊 Part of the [Retrac.Space](https://retrac.space) collection.
+Fun sound effects without the bloat. 🔊 Part of the [retrac.space](https://retrac.space) collection.
 
 Press a key and it sinks, then slowly rises back up over the exact length of the sound.
 
