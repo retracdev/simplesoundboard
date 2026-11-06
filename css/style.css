@@ -614,3 +614,103 @@ kbd { font: inherit; }
   .key__tilt { transition: none; }
   .key.is-pop .key__face { animation: none; }
 }
+
+/* ---------- Account welcome pill (same as BasketSmash) ---------- */
+.welcome-pill {
+  position: fixed;
+  top: max(22px, env(safe-area-inset-top, 0px));
+  left: 50%;
+  z-index: 10000;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: max-content;
+  max-width: calc(100vw - 24px);
+  padding: 13px 19px 13px 13px;
+  border-radius: 24px;
+  background: rgba(29, 25, 43, 0.97);
+  border: 1px solid rgba(205, 185, 245, 0.25);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4), 0 1px 0 rgba(255, 255, 255, 0.08) inset;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  line-height: 1.4;
+  color: #f8f5ff;
+  opacity: 0;
+  transform: translate(-50%, -90px) scale(0.88);
+  filter: blur(5px);
+  transition: transform 0.6s cubic-bezier(0.18, 1.35, 0.32, 1), opacity 0.4s ease, filter 0.4s ease;
+  pointer-events: none;
+}
+
+.welcome-pill.visible {
+  opacity: 1;
+  transform: translate(-50%, 0) scale(1);
+  filter: blur(0);
+}
+
+.welcome-pill.leaving {
+  opacity: 0;
+  transform: translate(-50%, -35px) scale(0.95);
+  filter: blur(3px);
+  transition: transform 0.4s ease-in, opacity 0.4s ease-in, filter 0.4s ease-in;
+}
+
+.welcome-pill .brand-icon {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.welcome-pill .pill-content { min-width: 0; }
+
+.welcome-pill .brand-name {
+  color: #bcaed7;
+  font-size: 11px;
+  letter-spacing: -0.2px;
+  font-weight: 700;
+}
+
+.welcome-pill .message {
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: -0.3px;
+  margin-top: 3px;
+  overflow-wrap: anywhere;
+}
+
+.welcome-pill .login-confirmation {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 9px;
+  color: #b9b0cb;
+  font-size: 11px;
+  font-weight: 450;
+  line-height: 1.4;
+}
+
+.welcome-pill .login-confirmation svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  color: #cdbaf1;
+}
+
+.welcome-pill .check {
+  color: #d1bafa;
+  font-size: 17px;
+  margin-left: 4px;
+  margin-top: 7px;
+  flex-shrink: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .welcome-pill,
+  .welcome-pill.visible,
+  .welcome-pill.leaving {
+    transition: none;
+    filter: none;
+    transform: translate(-50%, 0);
+  }
+}

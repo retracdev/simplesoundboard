@@ -4,7 +4,7 @@ Fun sound effects without the bloat. 🔊 Part of the [retrac.space](https://ret
 
 Press a key and it sinks, then slowly rises back up over the exact length of the sound.
 
-The site is plain HTML, CSS and JavaScript, with no build step, no dependencies and no third-party requests. Fonts are stored in the repo.
+The site is plain HTML, CSS and JavaScript, with no build step and no dependencies. Fonts are stored in the repo. The only outside request is a check for a signed-in retrac.space account, to show a greeting.
 
 ## Running it locally
 
@@ -42,6 +42,7 @@ Nothing else needs changing: the waveform, the duration label and the pop-up tim
 | `css/style.css` | All styling, including the 3D keys |
 | `js/sounds.js` | The sound catalog and categories |
 | `js/engine.js` | Web Audio: decoding, starting and stopping sounds |
+| `js/account-welcome.js` | Greets signed-in retrac.space accounts when the page loads |
 | `js/app.js` | Builds the board, animates the keys, handles search and categories |
 | `sounds/` | The audio files |
 | `assets/` | Logo, favicon and fonts (licensed under the SIL OFL, see `assets/fonts/OFL.txt`) |
