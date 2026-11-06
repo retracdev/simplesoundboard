@@ -334,12 +334,25 @@ kbd { font: inherit; }
 }
 .chip[aria-pressed="true"] .chip__dot { background: var(--ink); box-shadow: none; }
 .chip[aria-pressed="true"] .chip__count { color: var(--ink); }
+/* Wide screens have room to show every category at once, instead of a hidden scroll. */
+@media (min-width: 720px) {
+  .chips { flex-wrap: wrap; overflow: visible; }
+}
 .chip[data-category="all"] { --key: var(--fg); --key-side: var(--muted); }
+.chip[data-category="favorites"] { --key: #ff7eb6; --key-side: #c0407b; }
+.chip > svg { width: 14px; height: 14px; fill: var(--key); }
+.chip[aria-pressed="true"] > svg { fill: var(--ink); }
 
 .status {
   min-height: 1.45em;
   margin: 18px 4px 12px;
   color: var(--muted);
+  font-size: .875rem;
+}
+
+.favorites-note {
+  margin: -6px 4px 14px;
+  color: #cfc9ec;
   font-size: .875rem;
 }
 
@@ -391,13 +404,16 @@ kbd { font: inherit; }
  * Face travel, wall shadow, glow and brightness all derive from --depth, so a key
  * popping back up is just --depth falling over the length of the sound.
  */
-.key {
+.key-slot {
   --travel: 15px;
   --radius: 18px;
   --depth: 0;
   --progress: 0;
   --rx: 0deg;
   --ry: 0deg;
+  position: relative;
+}
+.key {
   position: relative;
   display: block;
   width: 100%;
@@ -520,14 +536,68 @@ kbd { font: inherit; }
 }
 
 @media (hover: hover) {
-  .key:hover .key__face { translate: 0 -2px; }
+  .key-slot:hover .key__face,
+  .key-slot:hover .key__heart { translate: 0 -2px; }
 }
 @media (hover: none) {
-  .key:active .key__face { translate: 0 3px; }
+  .key:active .key__face,
+  .key:active ~ .key__heart-layer .key__heart { translate: 0 3px; }
+}
+
+/* ---------- The favorite heart ----------
+ * A separate button beside the key, in a layer that copies the key's tilt. Its position
+ * uses the same --depth as the face, so the two move as one.
+ */
+.key__heart-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transform: perspective(620px) rotateX(var(--rx)) rotateY(var(--ry));
+  transition: transform .2s var(--ease);
+}
+.key__heart {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  border-radius: 14px;
+  color: var(--ink);
+  background: none;
+  pointer-events: auto;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transform: translateY(calc(var(--depth) * (var(--travel) - 3px)));
+  transition: translate .13s var(--ease);
+}
+.key__heart svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: .62;
+  transition: transform .15s var(--ease), opacity .12s, fill .12s;
+}
+.key__heart:hover svg { opacity: 1; transform: scale(1.14); }
+.key__heart:active svg { transform: scale(.88); }
+.key__heart[aria-pressed="true"] svg { fill: currentColor; opacity: 1; }
+.key__heart:focus-visible { outline: 3px solid var(--ink); outline-offset: -5px; }
+/* Holds the heart's corner clear on the first line, so long names keep their width below. */
+.key__name::before { content: ""; float: right; width: 22px; height: 20px; }
+@media (pointer: coarse) {
+  .key__heart { top: 0; right: 0; width: 44px; height: 44px; }
 }
 
 /* A little spring when the key gets all the way back up. */
-.key.is-pop .key__face { animation: pop .3s var(--ease); }
+.key-slot.is-pop .key__face,
+.key-slot.is-pop .key__heart { animation: pop .3s var(--ease); }
 @keyframes pop {
   40% { translate: 0 -6px; }
   75% { translate: 0 1px; }
@@ -598,9 +668,11 @@ kbd { font: inherit; }
   .mixer { flex: 1 1 100%; justify-content: space-between; }
   .volume { flex: 1; }
   .volume input { flex: 1; width: auto; min-width: 0; }
-  .key { height: 124px; --travel: 13px; }
+  .key-slot { --travel: 13px; }
+  /* Tall enough for a long name to wrap around the heart without squeezing the footer. */
+  .key { height: 134px; }
   .key__face { padding: 11px 12px 10px; }
-  .key__name { font-size: 1rem; }
+  .key__name { font-size: .9375rem; line-height: 1.12; }
 }
 
 /* ---------- Reduced motion ----------
@@ -611,8 +683,10 @@ kbd { font: inherit; }
   .letter, .hero-note, .ribbon__track { animation: none; }
   .letter { transform: none; }
   .ribbon__track { width: 100%; }
-  .key__tilt { transition: none; }
-  .key.is-pop .key__face { animation: none; }
+  .key__tilt, .key__heart-layer { transition: none; }
+  .key-slot.is-pop .key__face,
+  .key-slot.is-pop .key__heart { animation: none; }
+  .key__heart svg { transition: none; }
 }
 
 /* ---------- Account welcome pill (same as BasketSmash) ---------- */
@@ -713,4 +787,55 @@ kbd { font: inherit; }
     filter: none;
     transform: translate(-50%, 0);
   }
+}
+
+/* ---------- Sign-in dialog ---------- */
+.signin-dialog {
+  width: min(440px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 0;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 26px;
+  color: var(--fg);
+  background: linear-gradient(180deg, var(--panel), var(--panel-deep));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 24px 60px rgba(0, 0, 0, .6);
+}
+.signin-dialog::backdrop { background: rgba(7, 6, 13, .72); }
+.signin-panel { padding: 22px; }
+.signin-brand { display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: .875rem; font-weight: 600; }
+.signin-brand img { width: 26px; height: 26px; object-fit: contain; }
+.signin-panel h2 { margin-top: 14px; font-family: var(--display); font-size: 1.6rem; font-weight: 400; line-height: 1.12; }
+.signin-panel p { margin-top: 8px; color: #b9b4d0; }
+.signin-waiting { display: flex; align-items: center; gap: 9px; font-size: .875rem; }
+.signin-waiting span {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  border-radius: 50%;
+  background: #ab8fff;
+  box-shadow: 0 0 9px #ab8fff;
+  animation: signin-pulse 1.1s ease-in-out infinite;
+}
+@keyframes signin-pulse { 50% { opacity: .3; } }
+.signin-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+.signin-button {
+  min-height: 44px;
+  margin-bottom: 4px;
+  padding: 8px 16px;
+  border: 0;
+  border-radius: 12px;
+  color: var(--ink);
+  background: var(--fg);
+  box-shadow: 0 4px 0 var(--muted);
+  font-weight: 600;
+  transition: transform .08s, box-shadow .08s, background .12s;
+}
+.signin-button:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--muted); }
+.signin-button--quiet { color: var(--fg); background: #262138; box-shadow: 0 4px 0 #15121f, inset 0 1px 0 rgba(255, 255, 255, .1); }
+.signin-button--quiet:hover { background: #2f2945; }
+.signin-button--quiet:active { box-shadow: 0 1px 0 #15121f, inset 0 1px 0 rgba(255, 255, 255, .1); }
+@media (prefers-reduced-motion: reduce) {
+  .signin-waiting span { animation: none; }
 }
