@@ -22,6 +22,7 @@
   const INTENT_KEY = 'simple-soundboard:favorite-after-sign-in';
   const INTENT_MAX_AGE_MS = 30 * 60 * 1000;
   const SESSION_RECHECK_MS = 30000;
+  const FAVORITES_ROW_SIZE = 5; // A sixth spot goes to the "See all favorites" card.
   const NOTE_ICONS = ['icon-note-eighth', 'icon-note-beamed', 'icon-note-quarter'];
   const RIBBON_MIN_WORDS = 40; // Enough to fill the ticker on an ultrawide monitor.
   // [face, shadow] pairs for the title and floating notes, independent of the categories.
@@ -48,7 +49,13 @@
   const categoryById = new Map(categories.map((category) => [category.id, category]));
   const soundById = new Map(sounds.map((sound) => [sound.id, sound]));
 
-  const keys = new Map(); // sound id -> { slotEl, el, heartEl, timeEl, baseEl, litEl, duration, lastLabel }
+  // One sound can have several buttons on the page, such as its own category and the
+  // Favorites row. Each is a "view", and they all sink, rise and light up together.
+  // sound id -> { view, views, duration, lastLabel, path }
+  // A view is { slotEl, el, heartEl, timeEl, baseEl, litEl }, and `view` is the category one.
+  const keys = new Map();
+  const favoritesRowViews = new Map(); // sound id -> that sound's view in the Favorites row
+  let favoritesRow = null; // { el, countEl, gridEl, noteEl, noteTextEl, seeAllEl, seeAllCountEl }
   const live = new Map(); // sound id -> the run animating that key
   const banks = new Map(); // category id -> { el, countEl, chipCountEl }
   const filter = { category: 'all', query: '' };
@@ -145,7 +152,7 @@
     }).join('');
   }
 
-  function buildKey(sound) {
+  function buildKeyView(sound) {
     const button = el('button', 'key');
     button.type = 'button';
     button.dataset.id = sound.id;
@@ -187,19 +194,101 @@
     heartLayer.appendChild(heart);
 
     const slot = el('div', 'key-slot');
+    const category = categoryById.get(sound.category);
+    slot.style.setProperty('--key', category.color);
+    slot.style.setProperty('--key-side', category.side);
     slot.append(button, heartLayer);
 
-    keys.set(sound.id, {
-      slotEl: slot,
-      el: button,
-      heartEl: heart,
-      timeEl: time,
-      baseEl: paths[0],
-      litEl: paths[1],
-      duration: null,
-      lastLabel: '',
+    return { slotEl: slot, el: button, heartEl: heart, timeEl: time, baseEl: paths[0], litEl: paths[1] };
+  }
+
+  function buildKey(sound) {
+    const view = buildKeyView(sound);
+    keys.set(sound.id, { view, views: [view], duration: null, lastLabel: '', path: null });
+    return view.slotEl;
+  }
+
+  // Built the first time a sound joins the row, then kept, so it stays in step with any
+  // sound already running and with a press of its other copy.
+  function favoritesRowView(sound) {
+    if (favoritesRowViews.has(sound.id)) return favoritesRowViews.get(sound.id);
+    const key = keys.get(sound.id);
+    const view = buildKeyView(sound);
+    const original = key.view;
+    if (key.path) {
+      view.baseEl.setAttribute('d', key.path);
+      view.litEl.setAttribute('d', key.path);
+    }
+    view.timeEl.textContent = original.timeEl.textContent;
+    ['--depth', '--progress'].forEach((name) => {
+      const value = original.slotEl.style.getPropertyValue(name);
+      if (value) view.slotEl.style.setProperty(name, value);
     });
-    return slot;
+    key.views.push(view);
+    favoritesRowViews.set(sound.id, view);
+    return view;
+  }
+
+  function setKeyMotion(key, depth, progress) {
+    key.views.forEach((view) => {
+      view.slotEl.style.setProperty('--depth', depth);
+      if (progress !== undefined) view.slotEl.style.setProperty('--progress', progress);
+    });
+  }
+
+  function setKeyTime(key, text) {
+    key.views.forEach((view) => {
+      view.timeEl.textContent = text;
+    });
+  }
+
+  // The pink card that takes the sixth spot once the row is full. It looks like a key but
+  // isn't one: it has no sound, so the key handlers ignore it.
+  function buildSeeAllCard() {
+    const button = el('button', 'key key--see-all');
+    button.type = 'button';
+    const tilt = el('span', 'key__tilt');
+    const face = el('span', 'key__face');
+    const foot = el('span', 'key__foot');
+    const count = el('span', 'key__see-all-count');
+    const arrow = icon('icon-arrow');
+    arrow.setAttribute('class', 'key__see-all-arrow');
+    arrow.setAttribute('aria-hidden', 'true');
+    foot.append(count, arrow);
+    face.append(el('span', 'key__name', 'See all favorites'), foot);
+    tilt.append(el('span', 'key__well'), el('span', 'key__side'), face);
+    button.appendChild(tilt);
+    const slot = el('div', 'key-slot');
+    slot.appendChild(button);
+    return { slotEl: slot, countEl: count };
+  }
+
+  function buildFavoritesRow() {
+    const bank = el('section', 'bank bank--favorites');
+    bank.setAttribute('aria-label', 'Favorites');
+    bank.hidden = true;
+    const head = el('div', 'bank__head');
+    const count = el('span', 'bank__count');
+    head.append(el('h2', 'bank__title', 'Favorites'), count);
+    const grid = el('div', 'bank__keys');
+    const note = el('p', 'bank__note');
+    const noteText = el('span');
+    const spinner = icon('icon-loader');
+    spinner.setAttribute('class', 'bank__spinner');
+    spinner.setAttribute('aria-hidden', 'true');
+    note.append(spinner, noteText);
+    bank.append(head, grid, note);
+    banksEl.appendChild(bank);
+    const seeAll = buildSeeAllCard();
+    favoritesRow = {
+      el: bank,
+      countEl: count,
+      gridEl: grid,
+      noteEl: note,
+      noteTextEl: noteText,
+      seeAllEl: seeAll.slotEl,
+      seeAllCountEl: seeAll.countEl,
+    };
   }
 
   function buildChip(id, label, category) {
@@ -218,6 +307,7 @@
   }
 
   function buildBoard() {
+    buildFavoritesRow();
     banks.set('all', { chipCountEl: buildChip('all', 'All') });
     banks.set('favorites', { chipCountEl: buildChip('favorites', 'Favorites') });
     const favoritesChip = favoritesChipEl();
@@ -257,9 +347,12 @@
     const key = keys.get(sound.id);
     const path = waveformPath(engine.peaks(buffer, WAVE_BARS));
     key.duration = buffer.duration;
-    key.baseEl.setAttribute('d', path);
-    key.litEl.setAttribute('d', path);
-    if (!live.has(sound.id)) key.timeEl.textContent = formatSeconds(buffer.duration);
+    key.path = path;
+    key.views.forEach((view) => {
+      view.baseEl.setAttribute('d', path);
+      view.litEl.setAttribute('d', path);
+    });
+    if (!live.has(sound.id)) setKeyTime(key, formatSeconds(buffer.duration));
   }
 
   // Fetches every sound, one at a time, so each key can show its waveform and length
@@ -330,7 +423,7 @@
       const favorite = favorites.isFavorite(sound.id);
       const show = matchesQuery && (onlyFavorites ? favorite :
         filter.category === 'all' || filter.category === sound.category);
-      keys.get(sound.id).slotEl.hidden = !show;
+      keys.get(sound.id).view.slotEl.hidden = !show;
       if (matchesQuery) {
         matches++;
         if (favorite) favoriteMatches++;
@@ -344,6 +437,7 @@
 
     banks.get('all').chipCountEl.textContent = matches;
     renderFavoritesCount(favoriteMatches);
+    renderFavoritesRow();
     categories.forEach((category) => {
       const bank = banks.get(category.id);
       const count = onlyFavorites ? shownPerCategory.get(category.id) : perCategory.get(category.id);
@@ -383,26 +477,77 @@
 
   // A count before the save has been read would be a guess, usually a wrong 0. So the chip
   // shows a spinner while we're still trying, and nothing once we've stopped.
+  function favoritesLoading() {
+    const status = favorites.getStatus();
+    return !favorites.isLoaded() && (status === 'ok' || status === 'retrying');
+  }
+
   function renderFavoritesCount(count) {
     const loaded = favorites.isLoaded();
-    const status = favorites.getStatus();
-    const loading = !loaded && (status === 'ok' || status === 'retrying');
+    const loading = favoritesLoading();
     const chip = favoritesChipEl();
     banks.get('favorites').chipCountEl.textContent = loaded ? count : '';
     chip.setAttribute('aria-busy', String(loading));
     chip.querySelector('.chip__spinner').toggleAttribute('hidden', !loading);
   }
 
+  // The row at the top of the board: the newest favorites, then a link to the rest. It only
+  // appears on the full board, since a search or filter should show each sound just once.
+  function renderFavoritesRow() {
+    const row = favoritesRow;
+    const signedIn = account.getState().status === 'authenticated';
+    row.el.hidden = !(signedIn && filter.category === 'all' && !filter.query.trim());
+    if (row.el.hidden) return;
+
+    const loaded = favorites.isLoaded();
+    const all = loaded ? favorites.list().filter((id) => soundById.has(id)).reverse() : [];
+    const shown = all.slice(0, FAVORITES_ROW_SIZE);
+    const full = shown.length === FAVORITES_ROW_SIZE;
+
+    row.countEl.textContent = all.length ? plural(all.length) : '';
+    row.seeAllCountEl.textContent = plural(all.length);
+
+    const cards = shown.map((id) => favoritesRowView(soundById.get(id)).slotEl);
+    if (full) cards.push(row.seeAllEl);
+    const current = Array.from(row.gridEl.children);
+    if (cards.length !== current.length || cards.some((card, i) => card !== current[i])) {
+      // Moving a focused element drops its focus, so it needs putting back afterward.
+      const focused = row.gridEl.contains(document.activeElement) ? document.activeElement : null;
+      row.gridEl.replaceChildren(...cards);
+      if (focused && focused.isConnected) focused.focus({ preventScroll: true });
+    }
+
+    const loading = favoritesLoading();
+    row.gridEl.hidden = !shown.length;
+    row.noteEl.hidden = shown.length > 0;
+    row.noteEl.classList.toggle('is-loading', loading);
+    if (!shown.length) {
+      row.noteTextEl.textContent = loading ? 'Getting your favorites…'
+        : loaded ? 'Tap the heart on any sound to keep it here.'
+          : 'We can’t show your favorites just now.';
+    }
+  }
+
+  function showAllFavorites() {
+    setCategory('favorites');
+    favoritesChipEl().focus({ preventScroll: true });
+    const consoleEl = document.querySelector('.console');
+    if (consoleEl.scrollIntoView) {
+      consoleEl.scrollIntoView({ block: 'start', behavior: reducedMotion.matches ? 'auto' : 'smooth' });
+    }
+  }
+
   function renderFavorites() {
     keys.forEach((key, id) => {
-      key.heartEl.setAttribute('aria-pressed', String(favorites.isFavorite(id)));
+      const favorite = String(favorites.isFavorite(id));
+      key.views.forEach((view) => view.heartEl.setAttribute('aria-pressed', favorite));
     });
 
     const focused = document.activeElement;
     const hadHeartFocus = focused && focused.classList.contains('key__heart');
     applyFilter();
     // Unfavoriting inside the Favorites filter removes the heart that was just clicked.
-    if (hadHeartFocus && focused.closest('[hidden]')) {
+    if (hadHeartFocus && (!focused.isConnected || focused.closest('[hidden]'))) {
       const chip = favoritesChipEl();
       if (!chip.hidden) chip.focus({ preventScroll: true });
     }
@@ -523,21 +668,22 @@
     const label = formatSeconds(Math.max(0, seconds));
     if (label !== key.lastLabel) {
       key.lastLabel = label;
-      key.timeEl.textContent = label;
+      setKeyTime(key, label);
     }
   }
 
   function settle(id, run, spring) {
     const key = run.key;
     live.delete(id);
-    key.slotEl.style.setProperty('--depth', 0);
-    key.slotEl.style.setProperty('--progress', 0);
+    setKeyMotion(key, 0, 0);
     key.lastLabel = '';
-    key.timeEl.textContent = key.duration === null ? '–' : formatSeconds(key.duration);
+    setKeyTime(key, key.duration === null ? '–' : formatSeconds(key.duration));
     if (spring) {
-      key.slotEl.classList.remove('is-pop');
-      void key.slotEl.offsetWidth; // Restarts the animation if it's still running.
-      key.slotEl.classList.add('is-pop');
+      key.views.forEach((view) => {
+        view.slotEl.classList.remove('is-pop');
+        void view.slotEl.offsetWidth; // Restarts the animation if it's still running.
+        view.slotEl.classList.add('is-pop');
+      });
     }
     stopAllEl.classList.toggle('is-armed', live.size > 0);
   }
@@ -554,7 +700,7 @@
         const t = (now - run.releasedAt) / RELEASE_MS;
         if (t >= 1) return settle(id, run, false);
         run.depth = run.releaseFrom * (1 - t);
-        run.key.slotEl.style.setProperty('--depth', run.depth);
+        setKeyMotion(run.key, run.depth);
         return undefined;
       }
 
@@ -571,15 +717,15 @@
       }
 
       run.depth = depth;
-      run.key.slotEl.style.setProperty('--depth', depth);
-      run.key.slotEl.style.setProperty('--progress', progress);
+      setKeyMotion(run.key, depth, progress);
       return undefined;
     });
 
     if (live.size > 0) requestFrame();
   }
 
-  function press(sound) {
+  // pressedEl is the button actually pressed, which is where the note hops from.
+  function press(sound, pressedEl) {
     const key = keys.get(sound.id);
 
     if (!engine.supported) {
@@ -599,11 +745,13 @@
       releaseFrom: 0,
     };
     live.set(sound.id, run);
-    key.slotEl.classList.remove('is-pop');
-    key.el.classList.remove('is-broken');
+    key.views.forEach((view) => {
+      view.slotEl.classList.remove('is-pop');
+      view.el.classList.remove('is-broken');
+    });
     stopAllEl.classList.add('is-armed');
     requestFrame();
-    celebrate(key.el, sound);
+    celebrate(pressedEl || key.view.el, sound);
 
     engine.start(sound).then((voice) => {
       const current = live.get(sound.id);
@@ -621,9 +769,11 @@
   }
 
   function flagProblem(key, message) {
-    key.el.classList.remove('is-broken');
-    void key.el.offsetWidth; // Restarts the shake if it's still running.
-    key.el.classList.add('is-broken');
+    key.views.forEach((view) => {
+      view.el.classList.remove('is-broken');
+      void view.el.offsetWidth; // Restarts the shake if it's still running.
+      view.el.classList.add('is-broken');
+    });
     statusEl.textContent = message;
   }
 
@@ -680,9 +830,9 @@
 
   banksEl.addEventListener('pointerdown', (event) => {
     lastPointerType = event.pointerType;
-    const button = event.target.closest('.key');
+    const button = event.target.closest('.key[data-id]');
     if (button && event.pointerType === 'mouse' && event.button === 0) {
-      press(soundById.get(button.dataset.id));
+      press(soundById.get(button.dataset.id), button);
     }
   });
 
@@ -692,10 +842,14 @@
       onHeartClick(heart);
       return;
     }
-    const button = event.target.closest('.key');
+    if (event.target.closest('.key--see-all')) {
+      showAllFavorites();
+      return;
+    }
+    const button = event.target.closest('.key[data-id]');
     if (!button) return;
     if (event.detail !== 0 && lastPointerType === 'mouse') return;
-    press(soundById.get(button.dataset.id));
+    press(soundById.get(button.dataset.id), button);
   });
 
   // Holding Enter or Space shouldn't machine-gun the sound.
