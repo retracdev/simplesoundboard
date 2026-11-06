@@ -106,11 +106,22 @@ function openPage({ session = null, save, saveStatus } = {}) {
 
   SCRIPTS.forEach((file) => window.eval(read(file)));
 
-  world.heart = (id) => document.querySelector(`.key__heart[data-favorite="${id}"]`);
-  world.key = (id) => document.querySelector(`.key[data-id="${id}"]`);
+  // The sound's own button in its category, as opposed to its copy in the Favorites row.
+  const inCategory = '#banks .bank:not(.bank--favorites)';
+  world.heart = (id) => document.querySelector(`${inCategory} .key__heart[data-favorite="${id}"]`);
+  world.key = (id) => document.querySelector(`${inCategory} .key[data-id="${id}"]`);
+  world.row = () => document.querySelector('.bank--favorites');
+  world.rowCards = () => [...world.row().querySelectorAll('.bank__keys > .key-slot')];
+  world.rowIds = () => world.rowCards().map((slot) => {
+    const key = slot.querySelector('.key');
+    return key.dataset.id || 'see-all';
+  });
+  world.rowKey = (id) => world.row().querySelector(`.key[data-id="${id}"]`);
+  world.rowHeart = (id) => world.row().querySelector(`.key__heart[data-favorite="${id}"]`);
+  world.seeAll = () => world.row().querySelector('.key--see-all');
   world.pressed = (id) => world.heart(id).getAttribute('aria-pressed') === 'true';
   world.chip = (id) => document.querySelector(`.chip[data-category="${id}"]`);
-  world.visible = () => [...document.querySelectorAll('.key-slot')]
+  world.visible = () => [...document.querySelectorAll(`${inCategory} .key-slot`)]
     .filter((slot) => !slot.hidden)
     .map((slot) => slot.querySelector('.key').dataset.id);
   world.dialog = () => document.querySelector('dialog.signin-dialog');
@@ -424,6 +435,209 @@ test('category filters keep working next to Favorites', async () => {
   assert.equal(page.visible().length, sounds.filter((s) => s.category === 'silly').length);
   page.click(page.chip('all'));
   assert.equal(page.visible().length, sounds.length);
+  page.close();
+});
+
+test('guests get no Favorites row', async () => {
+  const page = openPage();
+  await wait(30);
+  assert.equal(page.row().hidden, true);
+  page.close();
+});
+
+test('the Favorites row sits above the first category, with a hint when empty', async () => {
+  const page = openPage({ session: alice });
+  await wait(40);
+  const { firstElementChild } = page.document.getElementById('banks');
+  assert.equal(firstElementChild, page.row());
+  assert.equal(page.row().hidden, false);
+  assert.equal(page.row().querySelector('h2').textContent, 'Favorites');
+  assert.equal(page.row().querySelector('.bank__note').textContent, 'Tap the heart on any sound to keep it here.');
+  assert.deepEqual(page.rowIds(), []);
+  page.close();
+});
+
+test('the row shows the loading state until favorites arrive, not the empty hint', async () => {
+  const page = openPage();
+  await wait(30);
+  page.session = alice;
+  page.save = { version: 1, favorites: ['bruh'] };
+  const release = holdSaves(page);
+  page.window.RetracAccount.check();
+  await wait(30);
+  const note = page.row().querySelector('.bank__note');
+  assert.equal(note.textContent, 'Getting your favorites…');
+  assert.equal(note.classList.contains('is-loading'), true);
+  release();
+  await wait(30);
+  assert.equal(note.hidden, true);
+  assert.deepEqual(page.rowIds(), ['bruh']);
+  page.close();
+});
+
+test('under five favorites: all of them, newest first, with no See all card', async () => {
+  const page = openPage({ session: alice, save: { version: 1, favorites: ['bruh', 'rizz', 'wow'] } });
+  await wait(40);
+  assert.deepEqual(page.rowIds(), ['wow', 'rizz', 'bruh']);
+  assert.equal(page.seeAll(), null);
+  page.close();
+});
+
+test('each row card keeps its category color, and See all is the pink sixth card', async () => {
+  const { window } = openPage();
+  const { sounds, categories } = window.SOUND_CATALOG;
+  window.close();
+  const ids = ['bruh', 'get-out', 'punch', 'fart-1', 'apple-pay'];
+  const page = openPage({ session: alice, save: { version: 1, favorites: ids } });
+  await wait(40);
+
+  assert.deepEqual(page.rowIds(), [...ids].reverse().concat('see-all'));
+  page.rowCards().slice(0, 5).forEach((slot) => {
+    const id = slot.querySelector('.key').dataset.id;
+    const category = categories.find((c) => c.id === sounds.find((s) => s.id === id).category);
+    assert.equal(slot.style.getPropertyValue('--key'), category.color, id);
+    assert.equal(slot.style.getPropertyValue('--key-side'), category.side, id);
+  });
+  const css = read('css/style.css').replace(/\s+/g, ' ');
+  assert.match(css, /\.bank--favorites \{ --key: #ff7eb6; --key-side: #c0407b;/, 'pink comes from the row');
+  assert.equal(page.rowCards()[5].style.getPropertyValue('--key'), '', 'See all inherits that pink');
+  assert.ok(page.seeAll().textContent.includes('See all favorites'));
+  assert.equal(page.seeAll().tagName, 'BUTTON');
+  assert.equal(page.seeAll().closest('.bank').querySelector('.key__heart[data-favorite="see-all"]'), null);
+  page.close();
+});
+
+test('over five favorites: the five newest, See all, and a full count', async () => {
+  const ids = ['enrique', 'bruh', 'fahh', 'vine-boom', 'wow', 'rizz', 'shocked'];
+  const page = openPage({ session: alice, save: { version: 1, favorites: ids } });
+  await wait(40);
+  assert.deepEqual(page.rowIds(), ['shocked', 'rizz', 'wow', 'vine-boom', 'fahh', 'see-all']);
+  assert.equal(page.row().querySelector('.bank__count').textContent, '7 sounds');
+  assert.equal(page.seeAll().querySelector('.key__see-all-count').textContent, '7 sounds');
+  page.close();
+});
+
+test('sounds no longer on the board do not take up spots or count', async () => {
+  const ids = ['retired-1', 'retired-2', 'retired-3', 'retired-4', 'retired-5', 'bruh'];
+  const page = openPage({ session: alice, save: { version: 1, favorites: ids } });
+  await wait(40);
+  assert.deepEqual(page.rowIds(), ['bruh']);
+  assert.equal(page.seeAll(), null);
+  assert.equal(page.row().querySelector('.bank__count').textContent, '1 sound');
+  page.close();
+});
+
+test('See all opens the Favorites filter, and starts no sound', async () => {
+  const ids = ['enrique', 'bruh', 'fahh', 'vine-boom', 'wow', 'rizz'];
+  const page = openPage({ session: alice, save: { version: 1, favorites: ids } });
+  await wait(40);
+  const { MouseEvent } = page.window;
+  page.seeAll().dispatchEvent(Object.assign(new MouseEvent('pointerdown', { bubbles: true, button: 0 }), { pointerType: 'mouse' }));
+  page.seeAll().dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
+  await wait(10);
+  assert.deepEqual(page.started, []);
+  assert.equal(page.chip('favorites').getAttribute('aria-pressed'), 'true');
+  assert.equal(page.document.activeElement, page.chip('favorites'));
+  assert.equal(page.row().hidden, true);
+  assert.deepEqual(page.visible().sort(), [...ids].sort());
+  page.close();
+});
+
+test('the row updates at once, and See all comes and goes at exactly five', async () => {
+  const page = openPage({ session: alice, save: { version: 1, favorites: ['enrique', 'bruh', 'fahh', 'vine-boom'] } });
+  await wait(40);
+  assert.equal(page.seeAll(), null);
+
+  page.click(page.heart('wow'));
+  await wait(5);
+  assert.deepEqual(page.rowIds(), ['wow', 'vine-boom', 'fahh', 'bruh', 'enrique', 'see-all']);
+
+  page.click(page.rowHeart('fahh'));
+  await wait(5);
+  assert.deepEqual(page.rowIds(), ['wow', 'vine-boom', 'bruh', 'enrique']);
+  assert.equal(page.pressed('fahh'), false, 'the category copy clears too');
+  await wait(DEBOUNCE);
+  assert.deepEqual(page.save.favorites, ['enrique', 'bruh', 'vine-boom', 'wow']);
+  page.close();
+});
+
+test('both copies of a favorite stay in step', async () => {
+  const page = openPage({ session: alice, save: { version: 1, favorites: ['bruh'] } });
+  await wait(40);
+  assert.equal(page.rowHeart('bruh').getAttribute('aria-pressed'), 'true');
+  assert.equal(page.rowKey('bruh').getAttribute('aria-label'), 'Start Bruh');
+  assert.equal(page.rowHeart('bruh').getAttribute('aria-label'), 'Favorite Bruh');
+
+  page.click(page.rowKey('bruh'));
+  await wait(120);
+  assert.deepEqual(page.started, ['bruh'], 'one press, one sound');
+  const depth = (element) => Number(element.closest('.key-slot').style.getPropertyValue('--depth'));
+  assert.ok(depth(page.rowKey('bruh')) > 0.5, 'the pressed copy sinks');
+  assert.equal(depth(page.key('bruh')), depth(page.rowKey('bruh')), 'and the other copy with it');
+  page.close();
+});
+
+test('a copy built while its sound is already running joins in', async () => {
+  const page = openPage({ session: alice, save: { version: 1, favorites: [] } });
+  await wait(40);
+  page.click(page.key('bruh'));
+  await wait(120);
+  page.click(page.heart('bruh'));
+  await wait(5);
+  const depth = (element) => Number(element.closest('.key-slot').style.getPropertyValue('--depth'));
+  assert.ok(depth(page.rowKey('bruh')) > 0.5);
+  page.close();
+});
+
+test('the row leaves search and filters alone, and sounds are not counted twice', async () => {
+  const page = openPage({ session: alice, save: { version: 1, favorites: ['bruh', 'rizz'] } });
+  await wait(40);
+  const { sounds } = page.window.SOUND_CATALOG;
+  const status = page.document.getElementById('status');
+  assert.equal(status.textContent, sounds.length + ' sounds', 'favorites are not counted twice');
+  assert.equal(page.chip('all').querySelector('.chip__count').textContent, String(sounds.length));
+
+  page.search('bruh');
+  assert.equal(page.row().hidden, true, 'a search shows each sound once');
+  assert.deepEqual(page.visible(), ['bruh']);
+  page.search('');
+  assert.equal(page.row().hidden, false);
+
+  page.click(page.chip('silly'));
+  assert.equal(page.row().hidden, true);
+  page.click(page.chip('favorites'));
+  assert.equal(page.row().hidden, true, 'the filter already shows them all');
+  assert.deepEqual(page.visible().sort(), ['bruh', 'rizz']);
+  page.click(page.chip('all'));
+  assert.equal(page.row().hidden, false);
+  page.close();
+});
+
+test('removing a favorite from the row moves focus somewhere sensible', async () => {
+  const page = openPage({ session: alice, save: { version: 1, favorites: ['bruh', 'rizz'] } });
+  await wait(40);
+  page.rowHeart('bruh').focus();
+  page.click(page.rowHeart('bruh'));
+  await wait(5);
+  assert.equal(page.document.activeElement, page.chip('favorites'));
+  page.close();
+});
+
+test('signing out removes the row, and switching accounts replaces it', async () => {
+  const page = openPage({ session: alice, save: { version: 1, favorites: ['bruh'] } });
+  await wait(40);
+  assert.deepEqual(page.rowIds(), ['bruh']);
+
+  page.session = bob;
+  page.save = { version: 1, favorites: ['wow'] };
+  await page.window.RetracAccount.check();
+  await wait(40);
+  assert.deepEqual(page.rowIds(), ['wow']);
+
+  page.session = null;
+  await page.window.RetracAccount.check();
+  await wait(5);
+  assert.equal(page.row().hidden, true);
   page.close();
 });
 

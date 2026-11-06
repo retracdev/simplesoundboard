@@ -400,6 +400,10 @@
     setAccount,
     isFavorite,
 
+    // Every favorite in the order they were added, including sounds this version of the
+    // site doesn't know about.
+    list: () => applyChanges(cloud || [], pending),
+
     // Flips one sound. The screen can show the new state immediately.
     toggle(id) {
       if (!accountId) return;

@@ -295,6 +295,16 @@ test('each write reads first, so a change from another device is merged in', asy
   assert.deepEqual(order, ['GET', 'PUT']);
 });
 
+test('list() gives every favorite in the order added, including unsaved and unknown ones', async () => {
+  const saves = new Map([['alice', { version: 1, favorites: ['retired-sound', 'bruh', 'rizz'] }]]);
+  const world = await signedIn({ saves });
+  world.favorites.toggle('wow');
+  world.favorites.toggle('bruh');
+  assert.deepEqual(plain(world.favorites.list()), ['retired-sound', 'rizz', 'wow']);
+  await world.advance(700);
+  assert.deepEqual(plain(world.favorites.list()), ['retired-sound', 'rizz', 'wow'], 'saving does not reorder');
+});
+
 test('add() never removes a favorite that already exists', async () => {
   const saves = new Map([['alice', { version: 1, favorites: ['bruh'] }]]);
   const world = await signedIn({ saves });

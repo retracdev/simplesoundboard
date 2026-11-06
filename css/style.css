@@ -404,6 +404,35 @@ kbd { font: inherit; }
   .bank__keys { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 16px; }
 }
 
+/* The Favorites row always gets a line to itself, above the first category. Its cards keep
+ * their own categories' colors, so only the heading and the "See all" card are pink. */
+.bank--favorites {
+  --key: #ff7eb6;
+  --key-side: #c0407b;
+  flex: 1 1 100%;
+}
+.bank__note {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--muted);
+}
+.bank__spinner {
+  display: none;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  animation: chip-spin .8s linear infinite;
+}
+/* Holds a row's worth of space while loading, so sounds don't jump as someone reaches for them. */
+.bank__note.is-loading { justify-content: center; min-height: 132px; }
+.bank__note.is-loading .bank__spinner { display: block; }
+
 /* ---------- The 3D key ----------
  *
  * Fixed in place:  .key__well  the dark socket, which also holds the glow
@@ -602,6 +631,22 @@ kbd { font: inherit; }
 .key__heart:active svg { transform: scale(.88); }
 .key__heart[aria-pressed="true"] svg { fill: currentColor; opacity: 1; }
 .key__heart:focus-visible { outline: 3px solid var(--ink); outline-offset: -5px; }
+.key--see-all .key__name::before { display: none; }
+.key--see-all .key__foot { justify-content: space-between; }
+.key__see-all-count { font-size: .75rem; font-weight: 600; font-variant-numeric: tabular-nums; opacity: .72; }
+.key__see-all-arrow {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform .15s var(--ease);
+}
+.key--see-all:hover .key__see-all-arrow { transform: translateX(3px); }
+.key--see-all:active .key__face { translate: 0 10px; }
 /* Holds the heart's corner clear on the first line, so long names keep their width below. */
 .key__name::before { content: ""; float: right; width: 22px; height: 20px; }
 @media (pointer: coarse) {
@@ -700,7 +745,8 @@ kbd { font: inherit; }
   .key-slot.is-pop .key__face,
   .key-slot.is-pop .key__heart { animation: none; }
   .key__heart svg { transition: none; }
-  .chip > svg.chip__spinner { animation: none; }
+  .chip > svg.chip__spinner, .bank__spinner { animation: none; }
+  .key__see-all-arrow { transition: none; }
 }
 
 /* ---------- Account welcome pill (same as BasketSmash) ---------- */
