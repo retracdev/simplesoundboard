@@ -456,7 +456,7 @@
   function onAccountChange(state) {
     const signedIn = state.status === 'authenticated';
     if (signedIn || state.status === 'guest' || state.status === 'incomplete') {
-      favorites.setAccount(signedIn ? state.id : null);
+      favorites.setAccount(signedIn ? state.username : null);
     }
     // A failed check says nothing about who is signed in, so it changes nothing here.
     if (state.status !== 'error') {

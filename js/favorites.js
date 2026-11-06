@@ -21,7 +21,9 @@
 
   const account = window.RetracAccount;
 
-  const SAVE_URL = 'https://space-api.retrac-space.workers.dev/v1/games/soundboard/saves/0';
+  const API = 'https://space-api.retrac-space.workers.dev/v1';
+  const SAVE_URL = API + '/games/soundboard/saves/0';
+  const WHO_AM_I_URL = API + '/session';
   const REQUEST_TIMEOUT_MS = 8000;
   const DEBOUNCE_MS = 700;
   const MAX_DEBOUNCE_MS = 3000; // Steady clicking can't put off a save forever.
@@ -55,7 +57,8 @@
    *   signin   the session ended with changes still unsaved
    *   setup    the account has to finish setup first
    */
-  let accountId = null;
+  let accountId = null; // The signed-in username, which is how accounts identifies people here.
+  let confirmedToken = null; // The token subject the API has confirmed is this account.
   let cloud = null; // The last save read for this account, or null if none has been read.
   let extras = {}; // Save fields this version doesn't use, kept so a write can't drop them.
   const pending = new Map(); // sound id -> 'add' | 'remove'
@@ -116,12 +119,12 @@
 
   // ---------- Talking to the API ----------
 
-  async function request(token, options) {
+  async function request(token, options, url = SAVE_URL) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     let response;
     try {
-      response = await fetch(SAVE_URL, {
+      response = await fetch(url, {
         cache: 'no-store',
         credentials: 'omit',
         signal: controller.signal,
@@ -139,6 +142,20 @@
       throw new SaveError(response.status, code, Number(response.headers.get('Retry-After')) || 0);
     }
     return body;
+  }
+
+  // The session check says who is signed in, but a token could belong to someone newer if
+  // another tab just switched accounts. The API can say exactly whose this token is, so ask
+  // it once per account, then just watch for the token's subject changing.
+  async function confirmToken(token, subject) {
+    if (subject && subject === confirmedToken) return;
+    const body = await request(token, { method: 'GET' }, WHO_AM_I_URL);
+    const player = body && body.data && body.data.player;
+    const username = player && player.username;
+    if (typeof username !== 'string' || username.toLowerCase() !== accountId.toLowerCase()) {
+      throw new SaveError(-2, 'account_changed');
+    }
+    confirmedToken = subject;
   }
 
   // Throws for anything other than a save this version fully understands.
@@ -198,7 +215,8 @@
     const { token, userId } = await account.fetchToken();
     if (cycleEpoch !== epoch) return;
     // A token for anyone else means the account changed in another tab. Stop right here.
-    if (userId !== accountId) throw new SaveError(-2, 'account_changed');
+    await confirmToken(token, userId);
+    if (cycleEpoch !== epoch) return;
 
     const save = await readSave(token);
     if (cycleEpoch !== epoch) return;
@@ -254,7 +272,7 @@
           if (hadChanges && !accountId) markSignedOut();
           return;
         }
-        if (session.status === 'authenticated' && session.id === accountId) {
+        if (session.status === 'authenticated' && session.username === accountId) {
           setTimer(0);
           return;
         }
@@ -346,6 +364,7 @@
     clearTimeout(timer);
     timer = null;
     accountId = id;
+    confirmedToken = null;
     cloud = null;
     extras = {};
     status = 'ok';

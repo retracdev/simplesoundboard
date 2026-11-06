@@ -15,7 +15,7 @@
   /*
    * status is one of:
    *   unknown        nothing has been checked yet
-   *   authenticated  signed in, with { id, username }
+   *   authenticated  signed in, with { username }
    *   incomplete     signed in, but the account has no username yet
    *   guest          not signed in
    *   error          the check failed, so we can't tell
@@ -32,12 +32,14 @@
 
   function readSession(session) {
     if (session === null) return { status: 'guest' };
+    // Accounts only ever tells other websites the username, not the user's id or anything
+    // else, so that's all this can rely on: { user: { username } }.
     const user = session && session.user;
-    if (!user || typeof user.id !== 'string' || !user.id) return null;
+    if (!user) return null;
     const username = user.username;
     return typeof username === 'string' && username.trim()
-      ? { status: 'authenticated', id: user.id, username }
-      : { status: 'incomplete', id: user.id };
+      ? { status: 'authenticated', username }
+      : { status: 'incomplete' };
   }
 
   async function requestSession() {
@@ -70,8 +72,8 @@
     return inFlight;
   }
 
-  // Which account a token belongs to. The API verifies the token itself: this is only so
-  // the page can refuse to spend it on a different account's changes.
+  // Tells tokens apart, so a later token for someone else is noticed. It proves nothing by
+  // itself: only the API can confirm who a token really belongs to.
   function tokenSubject(token) {
     try {
       const payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
