@@ -1,6 +1,7 @@
 /*
  * Favorites, kept in the signed-in account's retrac.space cloud save (app "soundboard",
- * slot 0) as { version: 1, favorites: ["sound-id", ...] }.
+ * slot 0) as { version: 1, favorites: ["sound-id", ...], top: ["sound-id", ...] }. The
+ * optional `top` is the arrangement someone chose for the top of their board.
  *
  * The API replaces the whole save on every write and has no way to say "only if nothing
  * changed", so saving works like this:
@@ -62,6 +63,8 @@
   let cloud = null; // The last save read for this account, or null if none has been read.
   let extras = {}; // Save fields this version doesn't use, kept so a write can't drop them.
   const pending = new Map(); // sound id -> 'add' | 'remove'
+  let cloudTop = []; // The chosen arrangement in the last save read.
+  let pendingTop = null; // A newly chosen arrangement not yet saved, or null if there isn't one.
   let status = 'ok';
   let lastReadAt = 0;
   let lastAttemptAt = 0;
@@ -91,8 +94,8 @@
   function persist() {
     if (!accountId) return;
     try {
-      if (pending.size) {
-        window.localStorage.setItem(storageKey(accountId), JSON.stringify({ ops: Array.from(pending) }));
+      if (pending.size || pendingTop) {
+        window.localStorage.setItem(storageKey(accountId), JSON.stringify({ ops: Array.from(pending), top: pendingTop }));
       } else {
         window.localStorage.removeItem(storageKey(accountId));
       }
@@ -103,8 +106,10 @@
 
   function restore(id) {
     pending.clear();
+    pendingTop = null;
     try {
       const saved = JSON.parse(window.localStorage.getItem(storageKey(id)));
+      if (saved && validIds(saved.top)) pendingTop = saved.top;
       if (saved && Array.isArray(saved.ops)) {
         saved.ops.forEach((entry) => {
           if (Array.isArray(entry) && typeof entry[0] === 'string' && (entry[1] === 'add' || entry[1] === 'remove')) {
@@ -158,13 +163,17 @@
     confirmedToken = subject;
   }
 
+  function validIds(list) {
+    return Array.isArray(list) && list.every((id) => typeof id === 'string' && id);
+  }
+
   // Throws for anything other than a save this version fully understands.
   function parseSave(save) {
     const valid = save && typeof save === 'object' && !Array.isArray(save) && save.version === 1 &&
-      Array.isArray(save.favorites) && save.favorites.every((id) => typeof id === 'string' && id);
+      validIds(save.favorites) && (save.top === undefined || validIds(save.top));
     if (!valid) throw new SaveError(-1, 'unsupported_save');
-    const { version, favorites, ...rest } = save;
-    return { favorites: Array.from(new Set(favorites)), extras: rest };
+    const { version, favorites, top, ...rest } = save;
+    return { favorites: Array.from(new Set(favorites)), top: Array.from(new Set(top || [])), extras: rest };
   }
 
   async function readSave(token) {
@@ -173,7 +182,7 @@
       return parseSave(body && body.data && body.data.data);
     } catch (error) {
       // Only this exact answer means "no save yet". Any other failure means we don't know.
-      if (error.status === 404 && error.code === 'save_not_found') return { favorites: [], extras: {} };
+      if (error.status === 404 && error.code === 'save_not_found') return { favorites: [], top: [], extras: {} };
       throw error;
     }
   }
@@ -221,19 +230,25 @@
     const save = await readSave(token);
     if (cycleEpoch !== epoch) return;
     cloud = save.favorites;
+    cloudTop = save.top;
     extras = save.extras;
     lastReadAt = Date.now();
     emit();
 
-    if (!pending.size) {
+    if (!pending.size && !pendingTop) {
       succeed();
       return;
     }
 
     const writing = new Map(pending);
+    const writingTop = pendingTop;
     const next = applyChanges(cloud, writing);
-    if (!sameList(next, cloud)) {
-      const payload = JSON.stringify({ data: { ...extras, version: 1, favorites: next } });
+    // The newest arrangement wins, minus any sounds that are no longer favorites.
+    const nextTop = (writingTop || cloudTop).filter((id) => next.includes(id));
+    if (!sameList(next, cloud) || !sameList(nextTop, cloudTop)) {
+      const payload = JSON.stringify({
+        data: { ...extras, version: 1, favorites: next, ...(nextTop.length ? { top: nextTop } : {}) },
+      });
       if (new TextEncoder().encode(payload).length > MAX_SAVE_BYTES) {
         throw new SaveError(413, 'save_too_large');
       }
@@ -241,15 +256,17 @@
       await request(token, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: payload });
       if (cycleEpoch !== epoch) return;
       cloud = next;
+      cloudTop = nextTop;
     }
 
     // Forget only what was written. A newer click on the same sound stays pending.
     writing.forEach((op, id) => {
       if (pending.get(id) === op) pending.delete(id);
     });
+    if (pendingTop === writingTop) pendingTop = null;
     persist();
     succeed();
-    if (pending.size) queueSave();
+    if (pending.size || pendingTop) queueSave();
   }
 
   // Failure counters reset only here. A read that works followed by a write that doesn't
@@ -367,6 +384,8 @@
     confirmedToken = null;
     cloud = null;
     extras = {};
+    cloudTop = [];
+    pendingTop = null;
     status = 'ok';
     attempts = 0;
     authRetried = false;
@@ -383,12 +402,16 @@
     emit();
   }
 
-  function setChange(id, op) {
-    pending.set(id, op);
+  function afterChange() {
     persist();
     if (status === 'blocked' || status === 'paused') attempts = 0;
     emit();
     queueSave();
+  }
+
+  function setChange(id, op) {
+    pending.set(id, op);
+    afterChange();
   }
 
   function isFavorite(id) {
@@ -404,6 +427,16 @@
     // site doesn't know about.
     list: () => applyChanges(cloud || [], pending),
 
+    // The arrangement chosen for the top of the board, which may be empty.
+    top: () => (pendingTop || cloudTop).filter(isFavorite),
+
+    // Saves a new arrangement. An empty one goes back to showing the newest favorites.
+    setTop(ids) {
+      if (!accountId) return;
+      pendingTop = [...ids];
+      afterChange();
+    },
+
     // Flips one sound. The screen can show the new state immediately.
     toggle(id) {
       if (!accountId) return;
@@ -418,7 +451,7 @@
     // True once this account's save has been read at least once.
     isLoaded: () => cloud !== null,
     getStatus: () => status,
-    hasUnsaved: () => pending.size > 0,
+    hasUnsaved: () => pending.size > 0 || pendingTop !== null,
 
     // Called when the visitor returns, or the network does. Honors any rate-limit wait.
     resume() {
@@ -426,7 +459,7 @@
       // These won't fix themselves, so returning to the tab only rechecks them now and then.
       const stuck = status === 'blocked' || status === 'setup' || status === 'signin';
       if (stuck && Date.now() - lastAttemptAt < REFRESH_AFTER_MS) return;
-      const waiting = pending.size > 0 || cloud === null;
+      const waiting = pending.size > 0 || pendingTop !== null || cloud === null;
       const stale = Date.now() - lastReadAt >= REFRESH_AFTER_MS;
       if (!waiting && !stale) return;
       if (waiting) attempts = 0;

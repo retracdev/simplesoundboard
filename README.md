@@ -41,7 +41,7 @@ Signed-in visitors can favorite sounds. Favorites are stored in their retrac.spa
 - Authentication is the same as BasketSmash: a short-lived token from `accounts.retrac.space`, kept in memory and sent as a Bearer token. The site holds no secrets or API keys.
 - The site's origin must be in `ALLOWED_ORIGINS` for `space-api` and in the `GAME_AUTH_ORIGINS` environment variable for `space-accounts`.
 - Each save reads the latest cloud save, applies the visitor's changes and writes the result. The API has no conditional writes, so two devices saving at the same instant can still conflict.
-- Signed-in visitors see a Favorites row above the first category, showing their 5 newest favorites and a link to the rest. A sound in that row is a second button for the same sound, so both copies animate together.
+- Signed-in visitors see a Favorites row above the first category, showing their top 5 favorites and a link to the rest. Right-clicking or long-pressing a favorite offers "Rearrange top favorites", which saves their chosen order as an optional `top` list in the same cloud save. Without one, the row shows the newest favorites. A sound in that row is a second button for the same sound, so both copies animate together.
 
 ## Tests
 
@@ -61,6 +61,7 @@ npm test
 | `js/account.js` | The shared retrac.space session check and token request |
 | `js/favorites.js` | Syncs favorites with the cloud save |
 | `js/sign-in.js` | The sign-in dialog |
+| `js/rearrange.js` | The right-click menu and the drag-and-drop dialog for top favorites |
 | `js/account-welcome.js` | Greets signed-in retrac.space accounts |
 | `tests/` | Automated tests, which aren't part of the running site |
 | `js/app.js` | Builds the board, animates the keys, handles search and categories |
