@@ -16,7 +16,8 @@ const SAVE_URL = 'https://space-api.retrac-space.workers.dev/v1/games/soundboard
 const DEBOUNCE = 800;
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const jwtFor = (id) => 'h.' + Buffer.from(JSON.stringify({ sub: id, sid: 's' })).toString('base64url') + '.s';
+// Real tokens carry an opaque user id, which websites otherwise never get to see.
+const jwtFor = (username) => 'h.' + Buffer.from(JSON.stringify({ sub: 'opaque-id-of-' + username, sid: 's' })).toString('base64url') + '.s';
 const respond = (status, body) => ({
   ok: status >= 200 && status < 300,
   status,
@@ -53,7 +54,12 @@ function openPage({ session = null, save, saveStatus } = {}) {
     if (url === 'https://accounts.retrac.space/api/auth/token') {
       assert.equal(init.credentials, 'include');
       if (!world.session) return respond(401, {});
-      return respond(200, { token: jwtFor(world.session.user.id) });
+      return respond(200, { token: jwtFor(world.session.user.username) });
+    }
+    if (url === 'https://space-api.retrac-space.workers.dev/v1/session') {
+      assert.equal(init.credentials, 'omit');
+      const { username } = world.session.user;
+      return respond(200, { data: { authenticated: true, player: { id: 'opaque-id-of-' + username, username } } });
     }
     assert.equal(url, SAVE_URL);
     assert.equal(init.credentials, 'omit');
@@ -123,8 +129,27 @@ function openPage({ session = null, save, saveStatus } = {}) {
   return world;
 }
 
-const alice = { user: { id: 'user-alice', username: 'alice' }, session: { id: 's' } };
-const bob = { user: { id: 'user-bob', username: 'bob' }, session: { id: 's' } };
+// Exactly what accounts sends to approved websites: the username and nothing else.
+// See "Expose only the username" in the worker in space-accounts.
+const alice = { user: { username: 'alice' } };
+const bob = { user: { username: 'bob' } };
+
+test('a real signed-in session, with only a username, signs in and shows the pill', async () => {
+  const page = openPage({ session: alice });
+  await wait(30);
+  assert.deepEqual({ ...page.window.RetracAccount.getState() }, { status: 'authenticated', username: 'alice' });
+  await wait(300);
+  assert.match(page.document.querySelector('.welcome-pill .message').textContent, /alice/);
+  page.close();
+});
+
+test('a real signed-out session is a guest and gets no pill', async () => {
+  const page = openPage({ session: null });
+  await wait(330);
+  assert.equal(page.window.RetracAccount.getState().status, 'guest');
+  assert.equal(page.document.querySelector('.welcome-pill'), null);
+  page.close();
+});
 
 test('every sound card gets its own accessible heart, outside the key button', async () => {
   const page = openPage();
@@ -319,7 +344,7 @@ test('the intended sound survives the tab being reloaded mid sign-in', async () 
 });
 
 test('an account without a username is guided to finish setup', async () => {
-  const page = openPage({ session: { user: { id: 'user-new', username: null }, session: { id: 's' } } });
+  const page = openPage({ session: { user: { username: null } } });
   await wait(30);
   page.click(page.heart('bruh'));
   await wait(10);
@@ -423,7 +448,7 @@ test('unsaved changes get a quiet note, and no technical language', async () => 
   assert.equal(note.hidden, false);
   assert.equal(note.textContent, 'Your favorites haven’t saved yet. We’ll keep trying.');
   assert.equal(page.pressed('bruh'), true, 'the heart stays filled');
-  assert.ok(page.window.localStorage.getItem('simple-soundboard:favorites-pending:user-alice').includes('bruh'));
+  assert.ok(page.window.localStorage.getItem('simple-soundboard:favorites-pending:alice').includes('bruh'));
   assert.equal(page.document.querySelector('dialog').open, false, 'no dialog for this');
   page.close();
 });
@@ -455,7 +480,7 @@ test('switching to another account never shows or writes the first account\'s fa
   assert.equal(page.pressed('rizz'), false);
   assert.equal(page.pressed('wow'), true);
   assert.deepEqual(page.save, { version: 1, favorites: ['wow'] });
-  assert.ok(page.window.localStorage.getItem('simple-soundboard:favorites-pending:user-alice').includes('rizz'),
+  assert.ok(page.window.localStorage.getItem('simple-soundboard:favorites-pending:alice').includes('rizz'),
     'still waiting for Alice');
   page.close();
 });
@@ -469,7 +494,7 @@ test('nothing sensitive reaches browser storage', async () => {
   [localStorage, sessionStorage].forEach((storage) => {
     for (let i = 0; i < storage.length; i++) {
       const value = storage.getItem(storage.key(i));
-      assert.equal(value.includes(jwtFor('user-alice')), false);
+      assert.equal(value.includes(jwtFor('alice')), false);
     }
   });
   page.close();

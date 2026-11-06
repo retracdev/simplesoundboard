@@ -10,6 +10,7 @@ const vm = require('node:vm');
 
 const SOURCE = fs.readFileSync(path.join(__dirname, '..', 'js', 'favorites.js'), 'utf8');
 const SAVE_URL = 'https://space-api.retrac-space.workers.dev/v1/games/soundboard/saves/0';
+const SESSION_URL = 'https://space-api.retrac-space.workers.dev/v1/session';
 const settle = async () => {
   for (let i = 0; i < 12; i++) await new Promise(setImmediate);
 };
@@ -38,6 +39,8 @@ function createWorld(options = {}) {
     user: options.user === undefined ? 'alice' : options.user,
     tokenError: null,
     tokenSubject: undefined,
+    whoAmI: [],
+    whoAmIError: null,
     sessionAfterCheck: null,
     get maxInFlight() { return maxInFlight; },
     get pendingTimers() { return timers.size; },
@@ -76,9 +79,14 @@ function createWorld(options = {}) {
   };
 
   async function fakeFetch(url, init = {}) {
-    assert.equal(url, SAVE_URL);
     const method = init.method || 'GET';
     const user = init.headers.Authorization.replace('Bearer token-for-', '');
+    if (url === SESSION_URL) {
+      world.whoAmI.push(user);
+      if (world.whoAmIError) return respond(world.whoAmIError.status, { error: { code: world.whoAmIError.code } });
+      return respond(200, { data: { authenticated: true, player: { id: 'id-' + user, username: user } } });
+    }
+    assert.equal(url, SAVE_URL);
     const request = { method, user, init, body: init.body ? JSON.parse(init.body) : null };
     requests.push(request);
     inFlight++;
@@ -126,8 +134,8 @@ function createWorld(options = {}) {
       },
       async check() {
         // Mirrors the account listener in app.js.
-        const session = world.sessionAfterCheck || { status: 'authenticated', id: world.user };
-        if (session.status === 'authenticated') world.favorites.setAccount(session.id);
+        const session = world.sessionAfterCheck || { status: 'authenticated', username: world.user };
+        if (session.status === 'authenticated') world.favorites.setAccount(session.username);
         else if (session.status !== 'error') world.favorites.setAccount(null);
         return session;
       },
@@ -606,7 +614,7 @@ test('a token for a different account is never used to write', async () => {
   // Bob signed in from another tab, but this tab still thinks it's Alice.
   world.user = 'bob';
   world.tokenSubject = 'bob';
-  world.sessionAfterCheck = { status: 'authenticated', id: 'bob' };
+  world.sessionAfterCheck = { status: 'authenticated', username: 'bob' };
   const reads = world.reads().length;
   world.favorites.toggle('alice-new');
   // setAccount('bob') runs inside the check, which abandons Alice's change for Bob's load.
@@ -615,6 +623,66 @@ test('a token for a different account is never used to write', async () => {
   assert.equal(world.writes().length, 0);
   assert.ok(world.reads().length > reads, "Bob's own favorites load");
   assert.equal(world.favorites.isFavorite('bob-sound'), true);
+});
+
+test('the API confirms who a token belongs to once per account, not on every save', async () => {
+  const world = await signedIn();
+  assert.deepEqual(plain(world.whoAmI), ['alice']);
+  world.favorites.toggle('bruh');
+  await world.advance(700);
+  world.favorites.toggle('rizz');
+  await world.advance(700);
+  assert.equal(world.writes().length, 2);
+  assert.deepEqual(plain(world.whoAmI), ['alice'], 'no repeat confirmation for the same token subject');
+});
+
+test('a first token belonging to someone else is caught before any save is read or written', async () => {
+  const saves = new Map([['bob', { version: 1, favorites: ['bob-sound'] }]]);
+  const storage = new Map([['simple-soundboard:favorites-pending:alice', JSON.stringify({ ops: [['alice-new', 'add']] })]]);
+  const world = createWorld({ saves, storage });
+  // The page was told Alice was signed in, but by now the cookie is Bob's.
+  world.user = 'bob';
+  world.sessionAfterCheck = { status: 'authenticated', username: 'bob' };
+  world.favorites.setAccount('alice');
+  await world.advance(0);
+  assert.deepEqual(saves.get('bob').favorites, ['bob-sound'], "Alice's change never reached Bob");
+  assert.equal(world.writes().length, 0);
+  assert.ok(storage.has('simple-soundboard:favorites-pending:alice'), "Alice's change is kept for Alice");
+  assert.equal(world.favorites.isFavorite('bob-sound'), true, "Bob's own favorites load");
+});
+
+test('a token with an unreadable subject is confirmed with the API every time, and still works', async () => {
+  const world = createWorld();
+  world.tokenSubject = null;
+  world.favorites.setAccount('alice');
+  await world.advance(0);
+  world.favorites.toggle('bruh');
+  await world.advance(700);
+  assert.deepEqual(world.saves.get('alice').favorites, ['bruh']);
+  assert.equal(world.whoAmI.length, 2, 'once for the load and once for the save');
+});
+
+test('a failed confirmation neither reads nor writes the save', async () => {
+  const saves = new Map([['alice', { version: 1, favorites: ['precious'] }]]);
+  const world = createWorld({ saves });
+  world.whoAmIError = { status: 503, code: 'accounts_unavailable' };
+  world.favorites.setAccount('alice');
+  await world.advance(0);
+  assert.equal(world.requests.length, 0);
+  assert.equal(world.favorites.getStatus(), 'retrying');
+
+  world.whoAmIError = null;
+  await world.advance(3000);
+  assert.equal(world.favorites.isFavorite('precious'), true, 'recovers on the retry');
+});
+
+test('an account that needs a username stops at the confirmation too', async () => {
+  const world = createWorld();
+  world.whoAmIError = { status: 403, code: 'username_required' };
+  world.favorites.setAccount('alice');
+  await world.advance(0);
+  assert.equal(world.favorites.getStatus(), 'setup');
+  assert.equal(world.pendingTimers, 0);
 });
 
 test('an account that needs a username stops and says so, without retrying', async () => {
