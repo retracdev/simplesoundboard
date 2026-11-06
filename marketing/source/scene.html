@@ -1,0 +1,358 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+@font-face { font-family: "Bagel Fat One"; src: url("/assets/fonts/bagel-fat-one-latin.woff2") format("woff2"); }
+@font-face { font-family: "Space Grotesk"; src: url("/assets/fonts/space-grotesk-latin-variable.woff2") format("woff2"); font-weight: 300 700; }
+
+:root { --bg: #07060d; --fg: #f3f0ff; --muted: #8b86a3; --line: rgba(255,255,255,.1); --ink: #171029; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--bg); color: var(--fg); font-family: "Space Grotesk", sans-serif; }
+
+.layer { position: absolute; inset: 0; }
+#glow { background: radial-gradient(1500px 760px at 50% -120px, rgba(171,143,255,.26), transparent 70%); }
+#dots {
+  inset: -200px;
+  background: radial-gradient(rgba(243,240,255,.075) 2px, transparent 3px) 0 0 / 44px 44px;
+}
+
+.note { position: absolute; left: 0; top: 0; filter: drop-shadow(0 5px 0 rgba(0,0,0,.45)); }
+
+#title {
+  position: absolute; left: 0; right: 0; top: 0; height: 520px;
+  font-family: "Bagel Fat One", sans-serif; text-align: center;
+  transform-origin: 50% 50%;
+}
+.line { display: block; white-space: nowrap; line-height: .98; }
+.line.small { font-size: 208px; }
+.line.big { font-size: 318px; }
+.letter {
+  display: inline-block; color: var(--c);
+  text-shadow:
+    0 .006em 0 var(--d), 0 .012em 0 var(--d), 0 .018em 0 var(--d), 0 .024em 0 var(--d),
+    0 .03em 0 var(--d), 0 .036em 0 var(--d), 0 .042em 0 var(--d), 0 .048em 0 var(--d),
+    0 .054em 0 var(--d), 0 .06em 0 var(--d), 0 .066em 0 var(--d), 0 .072em 0 var(--d),
+    0 .12em .1em rgba(0,0,0,.55);
+}
+
+#tag {
+  position: absolute; left: 0; right: 0; top: 728px; text-align: center;
+  color: #a7a2bf; font-size: 50px; letter-spacing: -.005em;
+}
+
+#deck {
+  position: absolute; left: 44px; right: 44px; top: 512px; height: 342px;
+  padding: 50px 44px;
+  display: grid; grid-template-columns: repeat(6, 1fr); gap: 34px;
+  border: 2px solid var(--line); border-radius: 46px;
+  background: linear-gradient(180deg, #14111f, #0d0b16);
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.06), 0 30px 60px rgba(0,0,0,.5);
+}
+
+/* The same key as the site, at 1.8x. */
+.key { --travel: 27px; --radius: 32px; --depth: 0; --progress: 0; --rx: 0deg; position: relative; height: 238px; color: var(--ink); }
+.key__tilt { position: absolute; inset: 0; display: block; transform: perspective(1100px) rotateX(var(--rx)); }
+.key__well {
+  position: absolute; inset: -9px -9px -12px; display: block; border-radius: calc(var(--radius) + 9px);
+  background: #040308; box-shadow: inset 0 5px 10px #000, 0 2px 0 rgba(255,255,255,.09);
+}
+.key__well::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit;
+  box-shadow: 0 0 46px 6px var(--key), inset 0 0 18px 4px var(--key); opacity: var(--depth);
+}
+.key__side {
+  position: absolute; inset: 45% 0 0; display: block; border-radius: 0 0 var(--radius) var(--radius);
+  background: linear-gradient(90deg, rgba(0,0,0,.3), transparent 13%, transparent 87%, rgba(0,0,0,.3)), var(--key-side);
+  box-shadow: inset 0 -4px 0 rgba(0,0,0,.28),
+    0 calc(5px + (1 - var(--depth)) * 11px) calc(7px + (1 - var(--depth)) * 14px) rgba(0,0,0,.7);
+}
+.key__face {
+  position: absolute; inset: 0 0 var(--travel); display: flex; flex-direction: column; justify-content: space-between;
+  gap: 10px; padding: 22px 25px 20px; border-radius: var(--radius);
+  background:
+    radial-gradient(120% 85% at 28% 0%, rgba(255,255,255,.36), transparent 58%),
+    linear-gradient(180deg, rgba(255,255,255,.08), rgba(0,0,0,.09)),
+    var(--key);
+  box-shadow: inset 0 4px 0 rgba(255,255,255,.6), inset 0 -5px 0 rgba(0,0,0,.14), inset 0 0 0 2px rgba(255,255,255,.14);
+  transform: translateY(calc(var(--depth) * (var(--travel) - 5px))) scale(calc(1 - var(--depth) * .014));
+  filter: brightness(calc(1 + var(--depth) * .14));
+}
+.key__face::before {
+  content: ""; position: absolute; inset: 9px; border-radius: calc(var(--radius) - 7px);
+  background: linear-gradient(180deg, rgba(0,0,0,.05), rgba(255,255,255,.08));
+  box-shadow: inset 0 2px 4px rgba(0,0,0,.16), 0 2px 0 rgba(255,255,255,.2);
+}
+.key__name, .key__foot { position: relative; }
+.key__name { font-size: 34px; font-weight: 700; line-height: 1.14; letter-spacing: -.01em; }
+.key__foot { display: flex; align-items: center; gap: 14px; }
+.key__wave { position: relative; flex: 1; min-width: 0; height: 44px; }
+.key__wave svg { position: absolute; inset: 0; width: 100%; height: 100%; fill: none; stroke: var(--ink); stroke-width: 4px; stroke-linecap: round; }
+.key__wave path { vector-effect: non-scaling-stroke; }
+.wave-base { opacity: .26; }
+.wave-lit { clip-path: inset(0 calc((1 - var(--progress)) * 100%) 0 0); }
+.key__time { flex: none; font-size: 23px; font-weight: 600; font-variant-numeric: tabular-nums; opacity: .72; }
+
+#burst .note { width: 62px; height: 62px; margin: -31px 0 0 -31px; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="n0" viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3z"/></symbol>
+  <symbol id="n1" viewBox="0 0 24 24"><path d="M9 5v9.55A3.5 3.5 0 1 0 11 18V8.6l8-1.8v5.75A3.5 3.5 0 1 0 21 16V3z"/></symbol>
+  <symbol id="n2" viewBox="0 0 24 24"><path d="M13 3v11.55A4 4 0 1 0 15 18V3z"/></symbol>
+</svg>
+
+<div class="layer" id="glow"></div>
+<div class="layer" id="dots"></div>
+<div class="layer" id="notes"></div>
+<div id="title"></div>
+<div id="tag">Fun sound effects without the bloat.</div>
+<div id="deck"></div>
+<div class="layer" id="burst"></div>
+
+<script>
+'use strict';
+const LOOP = 10;
+const TAU = Math.PI * 2;
+const CANDY = [['#35d6c8', '#12877c'], ['#ab8fff', '#6442c9'], ['#ff7eb6', '#c0407b'], ['#ffc93c', '#bd8406'], ['#ff8360', '#bf4526'], ['#93e571', '#479c2c']];
+const WAVE_BARS = 20;
+
+// The real sounds, in their real site colors. Press times are hand-placed on a rough beat.
+const KEYS = [
+  { name: 'Bruh', src: 'bruh.mp3', color: '#ab8fff', side: '#6442c9', presses: [3.8, 6.5] },
+  { name: 'Get Out!', src: 'tuco-get-out.mp3', color: '#ffc93c', side: '#bd8406', presses: [5.8] },
+  { name: 'Metal Pipe Clang', src: 'metal-pipe-clang.mp3', color: '#ff8360', side: '#bf4526', presses: [4.3] },
+  { name: 'Fart (1)', src: 'dry-fart.mp3', color: '#ff7eb6', side: '#c0407b', presses: [4.8, 5.05, 7.0, 7.25] },
+  { name: 'Apple Pay', src: 'apple-pay.mp3', color: '#35d6c8', side: '#12877c', presses: [5.3] },
+  { name: 'Sad Violin', src: 'sad-violin.mp3', color: '#6fb1ff', side: '#2f6fc2', presses: [3.3] },
+];
+
+// Anchored around the edges so that they never crowd the title.
+const NOTES = [
+  [150, 130, 74, 1, 2, 0], [420, 90, 46, 2, 1, 1], [90, 470, 62, 1, 1, 2], [235, 690, 88, 2, 2, 3],
+  [60, 860, 50, 1, 2, 4], [395, 900, 42, 2, 1, 5], [1760, 120, 92, 1, 1, 0], [1480, 75, 52, 1, 2, 1],
+  [1850, 430, 56, 2, 1, 2], [1690, 650, 76, 1, 2, 3], [1860, 880, 60, 2, 2, 4], [1510, 910, 46, 1, 1, 5],
+].map(([x, y, size, fx, fy, c], i) => {
+  const svg = icon('n' + i % 3);
+  svg.setAttribute('class', 'note');
+  svg.style.width = svg.style.height = size + 'px';
+  svg.style.fill = CANDY[c][0];
+  svg.style.opacity = .82;
+  document.getElementById('notes').appendChild(svg);
+  return { el: svg, x, y, fx, fy, phase: i * 1.7 };
+});
+
+function icon(id) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+  use.setAttribute('href', '#' + id);
+  svg.appendChild(use);
+  return svg;
+}
+
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const span = (t, a, b) => clamp((t - a) / (b - a));
+const easeInOut = (x) => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const easeOutBack = (x) => { const c = 1.4; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+const easeIn = (x) => x * x * x;
+const mix = (a, b, x) => a + (b - a) * x;
+
+// ---------- Title ----------
+const letters = [];
+const titleEl = document.getElementById('title');
+let index = 0;
+[['Simple', true], ['Soundboard', false]].forEach(([word, plain]) => {
+  const line = document.createElement('span');
+  line.className = 'line ' + (plain ? 'small' : 'big');
+  Array.from(word).forEach((character, i) => {
+    const el = document.createElement('span');
+    el.className = 'letter';
+    el.textContent = character;
+    const [c, d] = plain ? ['#f3f0ff', '#8b86a3'] : CANDY[i % CANDY.length];
+    el.style.setProperty('--c', c);
+    el.style.setProperty('--d', d);
+    line.appendChild(el);
+    letters.push({ el, i: index++ });
+  });
+  titleEl.appendChild(line);
+});
+
+// Each press makes the next letter hop. Then the whole title ripples on the way home.
+const hops = letters.map(() => []);
+const pressTimes = KEYS.flatMap((key, k) => key.presses.map((at) => ({ at, k }))).sort((a, b) => a.at - b.at);
+pressTimes.forEach(({ at }, i) => hops[(i * 5 + 6) % letters.length].push({ at, height: .26 }));
+letters.forEach((_, i) => hops[i].push({ at: 8.9 + i * .035, height: .17 }));
+
+// ---------- Keys ----------
+const deck = document.getElementById('deck');
+const SVG = 'http://www.w3.org/2000/svg';
+KEYS.forEach((key) => {
+  const el = document.createElement('div');
+  el.className = 'key';
+  el.style.setProperty('--key', key.color);
+  el.style.setProperty('--key-side', key.side);
+  el.innerHTML = `<span class="key__tilt"><span class="key__well"></span><span class="key__side"></span>
+    <span class="key__face"><span class="key__name">${key.name}</span>
+    <span class="key__foot"><span class="key__wave"></span><span class="key__time"></span></span></span></span>`;
+  deck.appendChild(el);
+  key.el = el;
+  key.face = el.querySelector('.key__face');
+  key.time = el.querySelector('.key__time');
+  key.notes = key.presses.map(() => {
+    const note = icon('n0');
+    note.setAttribute('class', 'note');
+    note.style.fill = key.color;
+    document.getElementById('burst').appendChild(note);
+    return note;
+  });
+});
+
+// Real waveform and real length for every key, from the actual site audio.
+window.prepare = async function () {
+  await document.fonts.load('100px "Bagel Fat One"');
+  await document.fonts.load('700 34px "Space Grotesk"');
+  await document.fonts.ready;
+  for (const key of KEYS) {
+    const data = await (await fetch('/sounds/' + key.src)).arrayBuffer();
+    const buffer = await new Promise((res, rej) => new OfflineAudioContext(1, 1, 44100).decodeAudioData(data, res, rej));
+    key.duration = buffer.duration;
+    const samples = buffer.getChannelData(0);
+    const size = samples.length / WAVE_BARS;
+    let d = '';
+    for (let bar = 0; bar < WAVE_BARS; bar++) {
+      let peak = 0;
+      for (let i = Math.floor(bar * size); i < Math.floor((bar + 1) * size); i++) peak = Math.max(peak, Math.abs(samples[i]));
+      const h = Math.max(.5, Math.sqrt(Math.min(1, peak)) * 11);
+      d += `M${bar * 2 + 1} ${(12 - h).toFixed(2)}V${(12 + h).toFixed(2)}`;
+    }
+    const wave = key.el.querySelector('.key__wave');
+    ['wave-base', 'wave-lit'].forEach((className) => {
+      const svg = document.createElementNS(SVG, 'svg');
+      svg.setAttribute('viewBox', `0 0 ${WAVE_BARS * 2} 24`);
+      svg.setAttribute('preserveAspectRatio', 'none');
+      svg.setAttribute('class', className);
+      const path = document.createElementNS(SVG, 'path');
+      path.setAttribute('d', d);
+      svg.appendChild(path);
+      wave.appendChild(svg);
+    });
+    key.time.textContent = key.duration.toFixed(1) + 's';
+  }
+  // Keys are measured at rest, where the deck sits during every press.
+  deck.style.transform = 'none';
+  KEYS.forEach((key) => {
+    const box = key.el.getBoundingClientRect();
+    key.cx = box.left + box.width / 2;
+    key.top = box.top;
+  });
+  return KEYS.map((key) => ({ name: key.name, duration: key.duration, lastEnd: Math.max(...key.presses.map((p) => p + Math.max(key.duration, .22))) }));
+};
+
+// Where the key is at time t, following the site's rules: sink fast from wherever it is,
+// then rise over the sound's real length.
+function keyState(key, t) {
+  let depth = 0, from = 0, at = null, end = null;
+  const rise = Math.max(key.duration, .22);
+  for (const press of key.presses) {
+    if (press > t) break;
+    if (at !== null) from = stateAt(at, from, rise, press);
+    at = press;
+  }
+  if (at === null) return { depth: 0, progress: 0, remaining: key.duration, popAge: Infinity };
+  depth = stateAt(at, from, rise, t);
+  end = at + rise;
+  const elapsed = t - at;
+  return {
+    depth,
+    progress: elapsed < key.duration ? clamp(elapsed / key.duration) : 0,
+    remaining: elapsed < key.duration ? key.duration - elapsed : key.duration,
+    popAge: t >= end ? t - end : Infinity,
+  };
+}
+function stateAt(at, from, rise, t) {
+  const sunk = from + (1 - from) * clamp((t - at) / .07);
+  return Math.max(0, Math.min(sunk, 1 - (t - at) / rise));
+}
+
+// ---------- One frame, purely from t ----------
+window.renderFrame = function (t) {
+  // 0 = title alone in the middle, 1 = title up top with the deck showing.
+  const stage = easeInOut(span(t, 2.2, 3.0)) * (1 - easeInOut(span(t, 8.1, 8.85)));
+
+  document.getElementById('glow').style.opacity = .85 + .15 * Math.sin(TAU * t / LOOP * 2);
+  document.getElementById('dots').style.transform = `translateY(${-(t / LOOP) * 88}px)`;
+
+  NOTES.forEach((note) => {
+    const a = TAU * t / LOOP;
+    const x = note.x + 26 * Math.sin(a * note.fx + note.phase);
+    const y = note.y + 34 * Math.sin(a * note.fy + note.phase * 1.4);
+    const r = -6 + 18 * Math.sin(a * note.fx + note.phase * .7);
+    note.el.style.transform = `translate(${x}px, ${y}px) rotate(${r}deg)`;
+  });
+
+  titleEl.style.transform = `translateY(${mix(158, 26, stage)}px) scale(${mix(.9, .76, stage)})`;
+
+  letters.forEach(({ el, i }) => {
+    // Same bob as the site, with a period that fits the loop exactly.
+    const w = (Math.sin(TAU * (t + i * .13) / 2.5 - Math.PI / 2) + 1) / 2;
+    const tilt = (i % 2 ? 2.6 : -2.6) * (w * 2 - 1);
+    let y = mix(.03, -.11, w), scale = 1;
+    for (const hop of hops[i]) {
+      const x = (t - hop.at) / .36;
+      if (x > 0 && x < 1) {
+        const h = Math.sin(Math.PI * x);
+        y -= hop.height * h;
+        scale += .1 * h;
+      }
+    }
+    el.style.transform = `translateY(${y}em) rotate(${tilt}deg) scale(${scale})`;
+  });
+
+  const tagShow = t < 5 ? 1 - easeInOut(span(t, 2.2, 2.55)) : easeInOut(span(t, 8.75, 9.2));
+  const tag = document.getElementById('tag');
+  tag.style.opacity = tagShow;
+  tag.style.transform = `translateY(${(1 - tagShow) * 24}px)`;
+
+  // The deck springs up, and drops back out before the loop closes.
+  const up = easeOutBack(span(t, 2.45, 3.1));
+  const down = easeIn(span(t, 8.08, 8.6));
+  const lift = t < 5 ? 1 - up : down;
+  deck.style.transform = `translateY(${lift * 640}px)`;
+  deck.style.visibility = lift >= .999 ? 'hidden' : 'visible';
+
+  KEYS.forEach((key, k) => {
+    const s = keyState(key, t);
+    key.el.style.setProperty('--depth', s.depth);
+    key.el.style.setProperty('--progress', s.progress);
+    key.el.style.setProperty('--rx', s.depth * 5 + 'deg');
+    key.time.textContent = s.remaining.toFixed(1) + 's';
+
+    // Each key also springs into place on its own, a beat apart.
+    const own = t < 5 ? 1 - easeOutBack(span(t, 2.5 + k * .05, 3.15 + k * .05)) : 0;
+    key.el.style.transform = `translateY(${own * 150}px)`;
+
+    const x = s.popAge / .3;
+    let pop = 0;
+    if (x < .4) pop = -11 * Math.sin((x / .4) * Math.PI / 2);
+    else if (x < .75) pop = mix(-11, 2, (x - .4) / .35);
+    else if (x < 1) pop = mix(2, 0, (x - .75) / .25);
+    key.face.style.translate = `0 ${pop}px`;
+
+    key.presses.forEach((press, i) => {
+      const note = key.notes[i];
+      const age = (t - press) / .95;
+      if (age <= 0 || age >= 1) { note.style.opacity = 0; return; }
+      const drift = (i % 2 ? 1 : -1) * (k % 2 ? 46 : 70);
+      const rise = 1 - Math.pow(1 - age, 2.2);
+      const fade = age < .2 ? age / .2 : 1 - (age - .2) / .8;
+      note.style.opacity = fade;
+      note.style.left = key.cx + 'px';
+      note.style.top = key.top + 20 + 'px';
+      note.style.transform = `translate(${drift * rise}px, ${-175 * rise}px) scale(${mix(.6, 1.1, Math.min(1, age * 4))}) rotate(${mix(-12, 12, age)}deg)`;
+    });
+  });
+};
+</script>
+</body>
+</html>

@@ -508,10 +508,10 @@ test('each row card keeps its category color, and See all is the pink sixth card
 });
 
 test('over five favorites: the five newest, See all, and a full count', async () => {
-  const ids = ['enrique', 'bruh', 'fahh', 'vine-boom', 'wow', 'rizz', 'shocked'];
+  const ids = ['enrique', 'bruh', 'fahh', 'vine-boom', 'wow', 'rizz', 'taco-bell'];
   const page = openPage({ session: alice, save: { version: 1, favorites: ids } });
   await wait(40);
-  assert.deepEqual(page.rowIds(), ['shocked', 'rizz', 'wow', 'vine-boom', 'fahh', 'see-all']);
+  assert.deepEqual(page.rowIds(), ['taco-bell', 'rizz', 'wow', 'vine-boom', 'fahh', 'see-all']);
   assert.equal(page.row().querySelector('.bank__count').textContent, '7 sounds');
   assert.equal(page.seeAll().querySelector('.key__see-all-count').textContent, '7 sounds');
   page.close();
@@ -654,6 +654,220 @@ test('every sound in the catalog points at a real file, with a unique id', () =>
   page.close();
 });
 
+const startAllButton = (page, group) => page.document.querySelector(`.bank__all[data-group="${group}"]`);
+const everything = (page) => page.document.getElementById('everything');
+const warning = (page) => page.document.querySelector('dialog.warning-dialog');
+const warningButton = (page, label) => [...warning(page).querySelectorAll('button')].find((b) => b.textContent === label);
+
+test('Shocked is gone from the board', async () => {
+  const page = openPage();
+  const { sounds } = page.window.SOUND_CATALOG;
+  assert.equal(sounds.some((s) => s.id === 'shocked'), false);
+  assert.equal(fs.existsSync(path.join(ROOT, 'sounds/shocked.mp3')), false);
+  page.close();
+});
+
+test('a saved favorite for a removed sound does no harm, and is kept', async () => {
+  const page = openPage({ session: alice, save: { version: 1, favorites: ['shocked', 'bruh'] } });
+  await wait(40);
+  assert.deepEqual(page.rowIds(), ['bruh']);
+  page.click(page.heart('rizz'));
+  await wait(DEBOUNCE);
+  assert.deepEqual(page.save.favorites, ['shocked', 'bruh', 'rizz']);
+  page.close();
+});
+
+test('every category has a Play All button, named with "Start" for screen readers', async () => {
+  const page = openPage();
+  await wait(20);
+  page.window.SOUND_CATALOG.categories.forEach((category) => {
+    const button = startAllButton(page, category.id);
+    assert.equal(button.tagName, 'BUTTON');
+    assert.equal(button.textContent, 'Play All');
+    assert.equal(button.getAttribute('aria-label'), `Start all ${category.label} sounds`);
+  });
+  page.close();
+});
+
+test('Play All starts every sound in that category at once, and only that category', async () => {
+  const page = openPage();
+  await wait(20);
+  const { sounds } = page.window.SOUND_CATALOG;
+  page.click(startAllButton(page, 'silly'));
+  await wait(30);
+  assert.deepEqual([...page.started].sort(), sounds.filter((s) => s.category === 'silly').map((s) => s.id).sort());
+  assert.equal(page.dialog().open, false);
+  assert.equal(warning(page).open, false, 'no confirmation for one category');
+  page.close();
+});
+
+test('no sound starts until the whole group has loaded', async () => {
+  const page = openPage();
+  await wait(20);
+  let finishLoading;
+  const loading = new Promise((resolve) => { finishLoading = resolve; });
+  const { sounds } = page.window.SOUND_CATALOG;
+  const slow = sounds.find((s) => s.category === 'silly').id;
+  const { load } = page.window.SoundEngine;
+  page.window.SoundEngine.load = (sound) => (sound.id === slow ? loading.then(() => load(sound)) : load(sound));
+  page.click(startAllButton(page, 'silly'));
+  await wait(30);
+  assert.deepEqual(page.started, [], 'still waiting on one file');
+  finishLoading();
+  await wait(30);
+  assert.equal(page.started.length, sounds.filter((s) => s.category === 'silly').length);
+  page.close();
+});
+
+test('a sound that fails to load does not stop the rest of the group', async () => {
+  const page = openPage();
+  await wait(20);
+  const { sounds } = page.window.SOUND_CATALOG;
+  const bad = sounds.find((s) => s.category === 'silly').id;
+  const { load } = page.window.SoundEngine;
+  page.window.SoundEngine.load = (sound) => (sound.id === bad ? Promise.reject(new Error('nope')) : load(sound));
+  page.click(startAllButton(page, 'silly'));
+  await wait(30);
+  assert.ok(page.started.length >= sounds.filter((s) => s.category === 'silly').length - 1);
+  page.close();
+});
+
+test('Stop all during loading cancels a group before it starts', async () => {
+  const page = openPage();
+  await wait(20);
+  let finishLoading;
+  const loading = new Promise((resolve) => { finishLoading = resolve; });
+  const { load } = page.window.SoundEngine;
+  page.window.SoundEngine.load = (sound) => loading.then(() => load(sound));
+  page.click(startAllButton(page, 'silly'));
+  await wait(5);
+  page.click(page.document.getElementById('stopAll'));
+  finishLoading();
+  await wait(30);
+  assert.deepEqual(page.started, []);
+  page.close();
+});
+
+test('a search narrows Play All to the sounds showing', async () => {
+  const page = openPage();
+  await wait(20);
+  page.search('bruh');
+  page.click(startAllButton(page, 'internet'));
+  await wait(30);
+  assert.deepEqual(page.started, ['bruh']);
+  page.close();
+});
+
+test('the Favorites filter narrows a category to its favorites', async () => {
+  const page = openPage({ session: alice, save: { version: 1, favorites: ['bruh', 'rizz', 'punch'] } });
+  await wait(40);
+  page.click(page.chip('favorites'));
+  page.click(startAllButton(page, 'internet'));
+  await wait(30);
+  assert.deepEqual([...page.started].sort(), ['bruh', 'rizz']);
+  page.close();
+});
+
+test('Play All in the Favorites section covers every favorite, not just the top five', async () => {
+  const ids = ['enrique', 'bruh', 'fahh', 'vine-boom', 'wow', 'rizz', 'taco-bell'];
+  const page = openPage({ session: alice, save: { version: 1, favorites: ids } });
+  await wait(40);
+  const button = startAllButton(page, 'favorites');
+  assert.equal(button.hidden, false);
+  assert.equal(button.getAttribute('aria-label'), 'Start all favorite sounds');
+  page.click(button);
+  await wait(30);
+  assert.deepEqual([...page.started].sort(), [...ids].sort());
+  page.close();
+});
+
+test('the Favorites section hides Play All when there is nothing to start', async () => {
+  const page = openPage({ session: alice });
+  await wait(40);
+  assert.equal(startAllButton(page, 'favorites').hidden, true);
+  page.close();
+});
+
+test('Play Everything sits at the bottom and warns before starting anything', async () => {
+  const page = openPage();
+  await wait(20);
+  const button = everything(page);
+  assert.equal(button.textContent.trim(), 'Play Everything');
+  assert.equal(button.getAttribute('aria-label'), 'Start every sound');
+  const banks = page.document.getElementById('banks');
+  assert.ok(banks.compareDocumentPosition(button) & page.window.Node.DOCUMENT_POSITION_FOLLOWING, 'after the categories');
+
+  page.click(button);
+  await wait(10);
+  assert.equal(warning(page).open, true);
+  assert.deepEqual(page.started, [], 'nothing starts yet');
+  const { sounds } = page.window.SOUND_CATALOG;
+  assert.equal(warning(page).querySelector('h2').textContent, 'Take off your headphones!');
+  assert.ok(warning(page).querySelector('p').textContent.includes(`all ${sounds.length} sounds`));
+  assert.equal(warning(page).querySelector('use').getAttribute('href'), '#icon-headphones');
+  assert.equal(page.document.activeElement, warningButton(page, 'Cancel'), 'the safe choice has focus');
+  page.close();
+});
+
+test('Cancel starts nothing, and confirming starts every sound at once', async () => {
+  const page = openPage();
+  await wait(20);
+  page.click(everything(page));
+  page.click(warningButton(page, 'Cancel'));
+  await wait(20);
+  assert.equal(warning(page).open, false);
+  assert.deepEqual(page.started, []);
+  assert.equal(page.document.activeElement, everything(page));
+
+  page.click(everything(page));
+  page.click(warningButton(page, 'Play Everything'));
+  await wait(40);
+  const { sounds } = page.window.SOUND_CATALOG;
+  assert.equal(warning(page).open, false);
+  assert.deepEqual([...page.started].sort(), sounds.map((s) => s.id).sort());
+  page.close();
+});
+
+test('Play Everything ignores a search or filter, since it means everything', async () => {
+  const page = openPage();
+  await wait(20);
+  page.search('bruh');
+  page.click(everything(page));
+  page.click(warningButton(page, 'Play Everything'));
+  await wait(40);
+  assert.equal(page.started.length, page.window.SOUND_CATALOG.sounds.length);
+  page.close();
+});
+
+test('while sounds run the red button stops them, without asking', async () => {
+  const page = openPage();
+  await wait(20);
+  page.click(page.key('bruh'));
+  await wait(20);
+  const button = everything(page);
+  assert.equal(button.textContent.trim(), 'Stop all');
+  assert.equal(button.getAttribute('aria-label'), 'Stop all sounds');
+  assert.equal(button.classList.contains('is-stop'), true);
+
+  page.click(button);
+  await wait(10);
+  assert.equal(warning(page).open, false, 'no warning for stopping');
+  assert.equal(button.textContent.trim(), 'Play Everything');
+  assert.equal(button.getAttribute('aria-label'), 'Start every sound');
+  page.close();
+});
+
+test('a click on the warning backdrop cancels', async () => {
+  const page = openPage();
+  await wait(20);
+  page.click(everything(page));
+  page.click(warning(page));
+  await wait(20);
+  assert.equal(warning(page).open, false);
+  assert.deepEqual(page.started, []);
+  page.close();
+});
+
 function rightClick(page, element) {
   const event = new page.window.MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 50, clientY: 60 });
   element.dispatchEvent(event);
@@ -674,7 +888,7 @@ async function openRearrangeFromRow(page, id) {
   await wait(5);
 }
 
-const SEVEN = ['enrique', 'bruh', 'fahh', 'vine-boom', 'wow', 'rizz', 'shocked'];
+const SEVEN = ['enrique', 'bruh', 'fahh', 'vine-boom', 'wow', 'rizz', 'taco-bell'];
 
 test('right-clicking a card in the Favorites row offers Rearrange top favorites', async () => {
   const page = openPage({ session: alice, save: { version: 1, favorites: ['bruh', 'rizz'] } });
@@ -743,8 +957,8 @@ test('the dialog shows the top five in slots and the rest below', async () => {
   assert.deepEqual(slotIds(page), page.rowIds().slice(0, 5), 'same order as the row');
   assert.deepEqual(poolIds(page), ['bruh', 'enrique']);
   assert.equal(rearrangeDialog(page).querySelectorAll('.rearrange__rank').length, 5);
-  assert.equal(page.document.activeElement, tile(page, 'shocked'));
-  assert.match(tile(page, 'shocked').getAttribute('aria-label'), /^Shocked, position 1 of 7/);
+  assert.equal(page.document.activeElement, tile(page, 'taco-bell'));
+  assert.match(tile(page, 'taco-bell').getAttribute('aria-label'), /^Taco Bell, position 1 of 7/);
   page.close();
 });
 
@@ -765,16 +979,16 @@ test('moving a card and saving updates the row at once and saves the order', asy
   assert.equal(footerButton(page, 'Save order').disabled, true, 'nothing to save yet');
 
   pressKey(page, tile(page, 'fahh'), 'Home');
-  assert.deepEqual(slotIds(page), ['fahh', 'shocked', 'rizz', 'wow', 'vine-boom']);
+  assert.deepEqual(slotIds(page), ['fahh', 'taco-bell', 'rizz', 'wow', 'vine-boom']);
   assert.equal(footerButton(page, 'Save order').disabled, false);
-  assert.deepEqual(page.rowIds().slice(0, 5), ['shocked', 'rizz', 'wow', 'vine-boom', 'fahh'], 'the board waits for Save');
+  assert.deepEqual(page.rowIds().slice(0, 5), ['taco-bell', 'rizz', 'wow', 'vine-boom', 'fahh'], 'the board waits for Save');
 
   page.click(footerButton(page, 'Save order'));
   await wait(5);
   assert.equal(rearrangeDialog(page).open, false);
-  assert.deepEqual(page.rowIds(), ['fahh', 'shocked', 'rizz', 'wow', 'vine-boom', 'see-all']);
+  assert.deepEqual(page.rowIds(), ['fahh', 'taco-bell', 'rizz', 'wow', 'vine-boom', 'see-all']);
   await wait(DEBOUNCE);
-  assert.deepEqual(page.save.top, ['fahh', 'shocked', 'rizz', 'wow', 'vine-boom']);
+  assert.deepEqual(page.save.top, ['fahh', 'taco-bell', 'rizz', 'wow', 'vine-boom']);
   assert.deepEqual(page.save.favorites, SEVEN, 'the favorites themselves are untouched');
   page.close();
 });
@@ -812,7 +1026,7 @@ test('removing a chosen favorite lets the newest other favorite take the last sp
   await wait(40);
   page.click(page.rowHeart('enrique'));
   await wait(5);
-  assert.deepEqual(page.rowIds(), ['bruh', 'fahh', 'wow', 'rizz', 'shocked', 'see-all']);
+  assert.deepEqual(page.rowIds(), ['bruh', 'fahh', 'wow', 'rizz', 'taco-bell', 'see-all']);
   page.close();
 });
 
@@ -822,10 +1036,10 @@ test('Back to newest first undoes a chosen order once saved', async () => {
   await wait(40);
   await openRearrangeFromRow(page, 'rizz');
   page.click(footerButton(page, 'Back to newest first'));
-  assert.deepEqual(slotIds(page), ['shocked', 'rizz', 'wow', 'vine-boom', 'fahh']);
+  assert.deepEqual(slotIds(page), ['taco-bell', 'rizz', 'wow', 'vine-boom', 'fahh']);
   page.click(footerButton(page, 'Save order'));
   await wait(DEBOUNCE + 5);
-  assert.deepEqual(page.rowIds(), ['shocked', 'rizz', 'wow', 'vine-boom', 'fahh', 'see-all']);
+  assert.deepEqual(page.rowIds(), ['taco-bell', 'rizz', 'wow', 'vine-boom', 'fahh', 'see-all']);
   assert.equal(page.save.top, undefined);
   page.close();
 });

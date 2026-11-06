@@ -43,6 +43,10 @@ Signed-in visitors can favorite sounds. Favorites are stored in their retrac.spa
 - Each save reads the latest cloud save, applies the visitor's changes and writes the result. The API has no conditional writes, so two devices saving at the same instant can still conflict.
 - Signed-in visitors see a Favorites row above the first category, showing their top 5 favorites and a link to the rest. Right-clicking or long-pressing a favorite offers "Rearrange top favorites", which saves their chosen order as an optional `top` list in the same cloud save. Without one, the row shows the newest favorites. A sound in that row is a second button for the same sound, so both copies animate together.
 
+## Starting many sounds at once
+
+Each category has a Play All button, and the bottom of the page has a Play Everything button, which asks for confirmation with a headphone warning first. A category's button covers the sounds currently showing in it, and Favorites covers every favorite. Their accessible names say "Start", like the keys.
+
 ## Tests
 
 ```sh

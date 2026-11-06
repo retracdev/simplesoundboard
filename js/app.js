@@ -25,6 +25,7 @@
   const SESSION_RECHECK_MS = 30000;
   const LONG_PRESS_MS = 500; // Touch screens' stand-in for a right-click.
   const LONG_PRESS_SLOP_PX = 10;
+  const MAX_GROUP_NOTES = 12; // Decoration only, so a huge group doesn't need one per sound.
   const FAVORITES_ROW_SIZE = 5; // A sixth spot goes to the "See all favorites" card.
   const NOTE_ICONS = ['icon-note-eighth', 'icon-note-beamed', 'icon-note-quarter'];
   const RIBBON_MIN_WORDS = 40; // Enough to fill the ticker on an ultrawide monitor.
@@ -45,6 +46,7 @@
   const emptyIconEl = $('emptyIcon');
   const favoritesNoteEl = $('favoritesNote');
   const stopAllEl = $('stopAll');
+  const everythingEl = $('everything');
   const volumeEl = $('volume');
   const burstEl = $('burst');
 
@@ -266,13 +268,26 @@
     return { slotEl: slot, countEl: count };
   }
 
+  // The visible words are "Play All". The accessible name says "start", like every key.
+  function buildBankStartAll(group, label) {
+    const button = el('button', 'bank__all');
+    button.type = 'button';
+    button.dataset.group = group;
+    button.setAttribute('aria-label', label);
+    const svg = icon('icon-play-all');
+    svg.setAttribute('aria-hidden', 'true');
+    button.append(svg, el('span', '', 'Play All'));
+    return button;
+  }
+
   function buildFavoritesRow() {
     const bank = el('section', 'bank bank--favorites');
     bank.setAttribute('aria-label', 'Favorites');
     bank.hidden = true;
     const head = el('div', 'bank__head');
     const count = el('span', 'bank__count');
-    head.append(el('h2', 'bank__title', 'Favorites'), count);
+    const startAll = buildBankStartAll('favorites', 'Start all favorite sounds');
+    head.append(el('h2', 'bank__title', 'Favorites'), count, startAll);
     const grid = el('div', 'bank__keys');
     const note = el('p', 'bank__note');
     const noteText = el('span');
@@ -286,6 +301,7 @@
     favoritesRow = {
       el: bank,
       countEl: count,
+      startAllEl: startAll,
       gridEl: grid,
       noteEl: note,
       noteTextEl: noteText,
@@ -329,7 +345,8 @@
 
       const head = el('div', 'bank__head');
       const count = el('span', 'bank__count');
-      head.append(el('h2', 'bank__title', category.label), count);
+      head.append(el('h2', 'bank__title', category.label), count,
+        buildBankStartAll(category.id, 'Start all ' + category.label + ' sounds'));
 
       const grid = el('div', 'bank__keys');
       const members = sounds.filter((sound) => sound.category === category.id);
@@ -517,6 +534,7 @@
     const full = shown.length === FAVORITES_ROW_SIZE;
 
     row.countEl.textContent = all.length ? plural(all.length) : '';
+    row.startAllEl.hidden = !all.length;
     row.seeAllCountEl.textContent = plural(all.length);
 
     const cards = shown.map((id) => favoritesRowView(soundById.get(id)).slotEl);
@@ -748,6 +766,16 @@
     }
   }
 
+  // While anything is sounding, the big red button becomes a way to stop it. Stop all can be
+  // far off-screen from there on a phone, and that's a bad moment to go looking for it.
+  function setArmed(armed) {
+    stopAllEl.classList.toggle('is-armed', armed);
+    everythingEl.classList.toggle('is-stop', armed);
+    everythingEl.setAttribute('aria-label', armed ? 'Stop all sounds' : 'Start every sound');
+    $('everythingLabel').textContent = armed ? 'Stop all' : 'Play Everything';
+    $('everythingIcon').setAttribute('href', armed ? '#icon-stop' : '#icon-play-all');
+  }
+
   function setTimeLabel(key, seconds) {
     const label = formatSeconds(Math.max(0, seconds));
     if (label !== key.lastLabel) {
@@ -769,7 +797,7 @@
         view.slotEl.classList.add('is-pop');
       });
     }
-    stopAllEl.classList.toggle('is-armed', live.size > 0);
+    setArmed(live.size > 0);
   }
 
   function tick() {
@@ -809,7 +837,7 @@
   }
 
   // pressedEl is the button actually pressed, which is where the note hops from.
-  function press(sound, pressedEl) {
+  function press(sound, pressedEl, quiet) {
     const key = keys.get(sound.id);
 
     if (!engine.supported) {
@@ -833,9 +861,9 @@
       view.slotEl.classList.remove('is-pop');
       view.el.classList.remove('is-broken');
     });
-    stopAllEl.classList.add('is-armed');
+    setArmed(true);
     requestFrame();
-    celebrate(pressedEl || key.view.el, sound);
+    if (!quiet) celebrate(pressedEl || key.view.el, sound);
 
     engine.start(sound).then((voice) => {
       const current = live.get(sound.id);
@@ -861,7 +889,76 @@
     statusEl.textContent = message;
   }
 
+  // Sounds load at their own pace, so this waits for the whole group and then starts it in
+  // one go. Otherwise the slowest files would come in late and it wouldn't really be at once.
+  let groupStart = 0;
+
+  async function startTogether(group) {
+    if (engine.supported) engine.unlock();
+    const thisStart = ++groupStart;
+    await Promise.allSettled(group.map((sound) => engine.supported && engine.load(sound)));
+    if (thisStart !== groupStart) return; // Stopped, or started again, while loading.
+    group.forEach((sound, i) => press(sound, keys.get(sound.id).view.el, i >= MAX_GROUP_NOTES));
+  }
+
+  // What a Play All button covers. A category means the sounds showing in it, so a search or
+  // the Favorites filter narrows it, and Favorites means every favorite, not just the top five.
+  function groupFor(id) {
+    if (id === 'favorites') return arrangedFavorites().map((soundId) => soundById.get(soundId));
+    return sounds.filter((sound) => sound.category === id && !keys.get(sound.id).view.slotEl.hidden);
+  }
+
+  function buildEverythingDialog() {
+    const dialog = el('dialog', 'warning-dialog');
+    dialog.setAttribute('aria-labelledby', 'warning-title');
+    dialog.setAttribute('aria-describedby', 'warning-description');
+    const panel = el('section', 'signin-panel warning-panel');
+    const headphones = icon('icon-headphones');
+    headphones.setAttribute('class', 'warning-panel__icon');
+    headphones.setAttribute('aria-hidden', 'true');
+    const title = el('h2', '', 'Take off your headphones!');
+    title.id = 'warning-title';
+    const description = el('p', '', 'This starts all ' + sounds.length + ' sounds at the same time, and it gets very loud. '
+      + 'Take off your headphones or turn your volume down first.');
+    description.id = 'warning-description';
+    const actions = el('div', 'signin-actions');
+    const go = el('button', 'signin-button signin-button--danger', 'Play Everything');
+    go.type = 'button';
+    go.setAttribute('aria-label', 'Start every sound');
+    const cancel = el('button', 'signin-button signin-button--quiet', 'Cancel');
+    cancel.type = 'button';
+    actions.append(go, cancel);
+    panel.append(headphones, title, description, actions);
+    dialog.appendChild(panel);
+    document.body.appendChild(dialog);
+
+    const close = () => {
+      dialog.close();
+      everythingEl.focus({ preventScroll: true });
+    };
+    go.addEventListener('click', () => {
+      close();
+      startTogether(sounds);
+    });
+    cancel.addEventListener('click', close);
+    dialog.addEventListener('click', (event) => {
+      if (event.target === dialog) close();
+    });
+    dialog.addEventListener('cancel', (event) => {
+      event.preventDefault();
+      close();
+    });
+    // The dialog's keys belong to it, not to the page's shortcuts.
+    dialog.addEventListener('keydown', (event) => event.stopPropagation());
+
+    return () => {
+      dialog.showModal();
+      cancel.focus({ preventScroll: true }); // The safe choice is the one a stray Enter hits.
+    };
+  }
+
   function stopAll() {
+    groupStart++;
     engine.stopAll();
     const now = performance.now();
     live.forEach((run) => {
@@ -870,7 +967,7 @@
         run.releaseFrom = run.depth;
       }
     });
-    stopAllEl.classList.remove('is-armed');
+    setArmed(false);
     requestFrame();
   }
 
@@ -881,6 +978,7 @@
     if (reducedMotion.matches || !Element.prototype.animate) return;
 
     const box = keyEl.getBoundingClientRect();
+    if (!box.width) return; // Its key is hidden by a search or filter, so nothing can hop off it.
     const note = icon(NOTE_ICONS[hopIndex % NOTE_ICONS.length]);
     const drift = (hopIndex % 2 ? 1 : -1) * (16 + (hopIndex * 11) % 26);
     note.style.left = box.left + box.width / 2 + 'px';
@@ -928,6 +1026,11 @@
     const heart = event.target.closest('.key__heart');
     if (heart) {
       onHeartClick(heart);
+      return;
+    }
+    const startAll = event.target.closest('.bank__all');
+    if (startAll) {
+      startTogether(groupFor(startAll.dataset.group));
       return;
     }
     if (event.target.closest('.key--see-all')) {
@@ -985,6 +1088,12 @@
   });
 
   stopAllEl.addEventListener('click', stopAll);
+
+  const confirmEverything = buildEverythingDialog();
+  everythingEl.addEventListener('click', () => {
+    if (live.size > 0) stopAll();
+    else confirmEverything();
+  });
 
   document.addEventListener('keydown', (event) => {
     const typing = event.target === searchEl;
