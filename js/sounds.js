@@ -39,8 +39,6 @@
       src: 'sounds/anime-wow.mp3' },
     { id: 'rizz', name: 'Rizz', category: 'internet', tags: 'meme flirt charm smooth',
       src: 'sounds/rizz.mp3' },
-    { id: 'shocked', name: 'Shocked', category: 'internet', tags: 'meme reaction surprised',
-      src: 'sounds/shocked.mp3' },
     { id: 'sus', name: 'Sus (aka Dexter meme)', category: 'internet', tags: 'suspicious sussy tv show',
       src: 'sounds/dexter-meme.mp3' },
     { id: 'taco-bell', name: 'Taco Bell', category: 'internet', tags: 'bong meme fast food',

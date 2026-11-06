@@ -393,6 +393,77 @@ kbd { font: inherit; }
   text-shadow: 0 2px 0 var(--key-side);
 }
 .bank__count { color: var(--muted); font-size: .875rem; font-variant-numeric: tabular-nums; }
+.bank__all {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  align-self: center;
+  height: 34px;
+  margin: 0 0 3px auto;
+  padding: 0 13px 0 10px;
+  border: 0;
+  border-radius: 11px;
+  color: var(--ink);
+  background: var(--key);
+  box-shadow: 0 3px 0 var(--key-side), inset 0 1px 0 rgba(255, 255, 255, .45);
+  font-size: .875rem;
+  font-weight: 700;
+  white-space: nowrap;
+  touch-action: manipulation;
+  transition: transform .08s, box-shadow .08s, filter .12s;
+}
+.bank__all svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+.bank__all:hover { filter: brightness(1.08); }
+.bank__all:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--key-side), inset 0 1px 0 rgba(255, 255, 255, .45); }
+@media (pointer: coarse) {
+  .bank__all { height: 40px; }
+}
+
+/* ---------- Play Everything ---------- */
+.everything { display: flex; justify-content: center; margin-top: clamp(30px, 5vw, 48px); }
+.everything__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 64px;
+  margin-bottom: 8px;
+  padding: 10px 30px;
+  border: 0;
+  border-radius: 20px;
+  color: #fff;
+  background: linear-gradient(180deg, #f4484b, #dc2f33);
+  box-shadow: 0 8px 0 #8c1417, 0 18px 30px rgba(220, 47, 51, .28), inset 0 2px 0 rgba(255, 255, 255, .4);
+  font-family: var(--display);
+  font-size: clamp(1.3rem, 4vw, 1.7rem);
+  line-height: 1.1;
+  text-shadow: 0 2px 0 #8c1417;
+  touch-action: manipulation;
+  transition: transform .09s, box-shadow .09s, filter .12s;
+}
+.everything__button svg {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 2px 0 #8c1417);
+}
+.everything__button:hover { filter: brightness(1.07); }
+.everything__button:active {
+  transform: translateY(6px);
+  box-shadow: 0 2px 0 #8c1417, 0 6px 14px rgba(220, 47, 51, .25), inset 0 2px 0 rgba(255, 255, 255, .4);
+}
 
 .bank__keys {
   display: grid;
@@ -853,7 +924,8 @@ kbd { font: inherit; }
 }
 
 /* ---------- Sign-in dialog ---------- */
-.signin-dialog {
+.signin-dialog,
+.warning-dialog {
   width: min(440px, calc(100vw - 32px));
   max-height: calc(100dvh - 32px);
   margin: auto;
@@ -865,7 +937,23 @@ kbd { font: inherit; }
   background: linear-gradient(180deg, var(--panel), var(--panel-deep));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 24px 60px rgba(0, 0, 0, .6);
 }
-.signin-dialog::backdrop { background: rgba(7, 6, 13, .72); }
+.signin-dialog::backdrop,
+.warning-dialog::backdrop { background: rgba(7, 6, 13, .72); }
+.warning-panel { text-align: center; }
+.warning-panel h2 { margin-top: 10px; color: #ff6b6e; }
+.warning-panel p { color: #d8d3ea; }
+.warning-panel__icon {
+  width: 52px;
+  height: 52px;
+  fill: none;
+  stroke: #ff6b6e;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.warning-panel .signin-actions { justify-content: center; }
+.signin-button--danger { color: #fff; background: #dc2f33; box-shadow: 0 4px 0 #8c1417; }
+.signin-button--danger:active { box-shadow: 0 1px 0 #8c1417; }
 .signin-panel { padding: 22px; }
 .signin-brand { display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: .875rem; font-weight: 600; }
 .signin-brand img { width: 26px; height: 26px; object-fit: contain; }
