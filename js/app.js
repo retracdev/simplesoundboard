@@ -223,6 +223,11 @@
     const favoritesChip = favoritesChipEl();
     favoritesChip.hidden = true;
     favoritesChip.querySelector('.chip__dot').replaceWith(icon('icon-heart'));
+    const spinner = icon('icon-loader');
+    spinner.classList.add('chip__spinner');
+    spinner.setAttribute('role', 'img');
+    spinner.setAttribute('aria-label', 'Loading');
+    favoritesChip.appendChild(spinner);
     categories.forEach((category) => {
       const bank = el('section', 'bank');
       bank.style.setProperty('--key', category.color);
@@ -338,7 +343,7 @@
     });
 
     banks.get('all').chipCountEl.textContent = matches;
-    banks.get('favorites').chipCountEl.textContent = favoriteMatches;
+    renderFavoritesCount(favoriteMatches);
     categories.forEach((category) => {
       const bank = banks.get(category.id);
       const count = onlyFavorites ? shownPerCategory.get(category.id) : perCategory.get(category.id);
@@ -352,7 +357,8 @@
     if (visible === 0) showEmptyState();
 
     const label = filter.query.trim() ? plural(visible) + ' for “' + filter.query.trim() + '”' : plural(visible);
-    statusEl.textContent = label;
+    // "0 sounds" would be just as misleading as a 0 on the chip until the save has been read.
+    statusEl.textContent = onlyFavorites && !favorites.isLoaded() ? '' : label;
   }
 
   function setCategory(id) {
@@ -373,6 +379,18 @@
 
   function favoritesChipEl() {
     return chipsEl.querySelector('.chip[data-category="favorites"]');
+  }
+
+  // A count before the save has been read would be a guess, usually a wrong 0. So the chip
+  // shows a spinner while we're still trying, and nothing once we've stopped.
+  function renderFavoritesCount(count) {
+    const loaded = favorites.isLoaded();
+    const status = favorites.getStatus();
+    const loading = !loaded && (status === 'ok' || status === 'retrying');
+    const chip = favoritesChipEl();
+    banks.get('favorites').chipCountEl.textContent = loaded ? count : '';
+    chip.setAttribute('aria-busy', String(loading));
+    chip.querySelector('.chip__spinner').toggleAttribute('hidden', !loading);
   }
 
   function renderFavorites() {

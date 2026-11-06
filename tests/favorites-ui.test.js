@@ -65,6 +65,7 @@ function openPage({ session = null, save, saveStatus } = {}) {
     assert.equal(init.credentials, 'omit');
     assert.ok(init.headers.Authorization.startsWith('Bearer '));
     world.calls.push({ method, body: init.body && JSON.parse(init.body) });
+    if (world.saveGate) await world.saveGate;
     if (world.saveStatus) return respond(world.saveStatus, { error: { code: 'service_unavailable' } });
     if (method === 'PUT') {
       world.save = JSON.parse(init.body).data;
@@ -423,6 +424,125 @@ test('category filters keep working next to Favorites', async () => {
   assert.equal(page.visible().length, sounds.filter((s) => s.category === 'silly').length);
   page.click(page.chip('all'));
   assert.equal(page.visible().length, sounds.length);
+  page.close();
+});
+
+function chipState(page) {
+  const chip = page.chip('favorites');
+  return {
+    count: chip.querySelector('.chip__count').textContent,
+    spinner: !chip.querySelector('.chip__spinner').hasAttribute('hidden'),
+    busy: chip.getAttribute('aria-busy'),
+  };
+}
+
+function holdSaves(page) {
+  let release;
+  page.saveGate = new Promise((resolve) => {
+    release = () => {
+      page.saveGate = null;
+      resolve();
+    };
+  });
+  return release;
+}
+
+test('the Favorites chip shows a spinner instead of 0 until favorites arrive', async () => {
+  const page = openPage({ session: null });
+  await wait(30);
+  page.session = alice;
+  page.save = { version: 1, favorites: ['bruh', 'rizz'] };
+  const release = holdSaves(page);
+  page.window.RetracAccount.check();
+  await wait(30);
+
+  assert.equal(page.chip('favorites').hidden, false);
+  assert.deepEqual(chipState(page), { count: '', spinner: true, busy: 'true' }, 'no count while loading');
+  const spinner = page.chip('favorites').querySelector('.chip__spinner');
+  assert.equal(spinner.getAttribute('aria-label'), 'Loading');
+  assert.equal(spinner.querySelector('use').getAttribute('href'), '#icon-loader');
+
+  release();
+  await wait(30);
+  assert.deepEqual(chipState(page), { count: '2', spinner: false, busy: 'false' });
+  page.close();
+});
+
+test('a real 0 still shows once a first-time user has finished loading', async () => {
+  const page = openPage({ session: alice });
+  await wait(40);
+  assert.deepEqual(chipState(page), { count: '0', spinner: false, busy: 'false' });
+  page.close();
+});
+
+test('a click during loading keeps the spinner, rather than showing a partial count', async () => {
+  const page = openPage({ session: null });
+  await wait(30);
+  page.session = alice;
+  page.save = { version: 1, favorites: ['rizz'] };
+  const release = holdSaves(page);
+  page.window.RetracAccount.check();
+  await wait(30);
+
+  page.click(page.heart('bruh'));
+  await wait(10);
+  assert.equal(page.pressed('bruh'), true);
+  assert.deepEqual(chipState(page), { count: '', spinner: true, busy: 'true' });
+
+  release();
+  await wait(30);
+  assert.deepEqual(chipState(page), { count: '2', spinner: false, busy: 'false' });
+  page.close();
+});
+
+test('opening Favorites while loading shows no misleading "0 sounds"', async () => {
+  const page = openPage({ session: null });
+  await wait(30);
+  page.session = alice;
+  page.save = { version: 1, favorites: ['bruh'] };
+  const release = holdSaves(page);
+  page.window.RetracAccount.check();
+  await wait(30);
+
+  page.click(page.chip('favorites'));
+  const status = page.document.getElementById('status');
+  assert.equal(status.textContent, '');
+  assert.equal(page.document.getElementById('emptyText').textContent, 'Getting your favorites…');
+  assert.equal(page.document.getElementById('emptyTitle').textContent.includes('No favorites'), false);
+
+  release();
+  await wait(30);
+  assert.equal(status.textContent, '1 sound');
+  assert.deepEqual(page.visible(), ['bruh']);
+  page.close();
+});
+
+test('the spinner keeps going during retries, but stops when trying stops', async () => {
+  const retrying = openPage({ session: alice, saveStatus: 503 });
+  await wait(40);
+  assert.deepEqual(chipState(retrying), { count: '', spinner: true, busy: 'true' }, 'another attempt is scheduled');
+  retrying.close();
+
+  const stopped = openPage({ session: alice, saveStatus: 400 });
+  await wait(40);
+  assert.deepEqual(chipState(stopped), { count: '', spinner: false, busy: 'false' }, 'no endless spinner, and no false 0');
+  stopped.close();
+});
+
+test('an account switch shows the spinner again until the new favorites arrive', async () => {
+  const page = openPage({ session: alice, save: { version: 1, favorites: ['bruh'] } });
+  await wait(40);
+  assert.equal(chipState(page).count, '1');
+
+  page.session = bob;
+  page.save = { version: 1, favorites: ['rizz', 'wow'] };
+  const release = holdSaves(page);
+  await page.window.RetracAccount.check();
+  await wait(20);
+  assert.deepEqual(chipState(page), { count: '', spinner: true, busy: 'true' });
+  release();
+  await wait(30);
+  assert.equal(chipState(page).count, '2');
   page.close();
 });
 

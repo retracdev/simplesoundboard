@@ -342,6 +342,19 @@ kbd { font: inherit; }
 .chip[data-category="favorites"] { --key: #ff7eb6; --key-side: #c0407b; }
 .chip > svg { width: 14px; height: 14px; fill: var(--key); }
 .chip[aria-pressed="true"] > svg { fill: var(--ink); }
+.chip > svg.chip__spinner {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  animation: chip-spin .8s linear infinite;
+}
+.chip[aria-pressed="true"] > svg.chip__spinner { fill: none; stroke: var(--ink); }
+@keyframes chip-spin { to { transform: rotate(360deg); } }
+/* The spinner and the count take turns in one slot, so the chips don't shift between them. */
+.chip__count:empty { display: none; }
+.chip[data-category="favorites"] .chip__count { min-width: 14px; text-align: center; }
 
 .status {
   min-height: 1.45em;
@@ -687,6 +700,7 @@ kbd { font: inherit; }
   .key-slot.is-pop .key__face,
   .key-slot.is-pop .key__heart { animation: none; }
   .key__heart svg { transition: none; }
+  .chip > svg.chip__spinner { animation: none; }
 }
 
 /* ---------- Account welcome pill (same as BasketSmash) ---------- */
