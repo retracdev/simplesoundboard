@@ -503,6 +503,7 @@ kbd { font: inherit; }
   font-weight: 700;
   line-height: 1.16;
   letter-spacing: -.01em;
+  overflow-wrap: anywhere;
 }
 
 .key__foot { display: flex; align-items: center; gap: 8px; }
