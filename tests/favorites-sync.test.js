@@ -305,6 +305,118 @@ test('list() gives every favorite in the order added, including unsaved and unkn
   assert.deepEqual(plain(world.favorites.list()), ['retired-sound', 'rizz', 'wow'], 'saving does not reorder');
 });
 
+test('a chosen arrangement is saved as top, without disturbing the favorites list', async () => {
+  const saves = new Map([['alice', { version: 1, favorites: ['a', 'b', 'c'] }]]);
+  const world = await signedIn({ saves });
+  assert.deepEqual(plain(world.favorites.top()), []);
+
+  world.favorites.setTop(['c', 'a']);
+  assert.deepEqual(plain(world.favorites.top()), ['c', 'a'], 'shows immediately');
+  assert.equal(world.favorites.hasUnsaved(), true);
+  await world.advance(700);
+  assert.deepEqual(saves.get('alice'), { version: 1, favorites: ['a', 'b', 'c'], top: ['c', 'a'] });
+  assert.equal(world.favorites.hasUnsaved(), false);
+});
+
+test('an existing arrangement survives later favorites and loads back', async () => {
+  const saves = new Map([['alice', { version: 1, favorites: ['a', 'b'], top: ['b', 'a'] }]]);
+  const world = await signedIn({ saves });
+  assert.deepEqual(plain(world.favorites.top()), ['b', 'a']);
+  world.favorites.toggle('c');
+  await world.advance(700);
+  assert.deepEqual(saves.get('alice'), { version: 1, favorites: ['a', 'b', 'c'], top: ['b', 'a'] });
+});
+
+test('removing a favorite also removes it from the arrangement', async () => {
+  const saves = new Map([['alice', { version: 1, favorites: ['a', 'b', 'c'], top: ['b', 'a'] }]]);
+  const world = await signedIn({ saves });
+  world.favorites.toggle('b');
+  assert.deepEqual(plain(world.favorites.top()), ['a'], 'immediately');
+  await world.advance(700);
+  assert.deepEqual(saves.get('alice'), { version: 1, favorites: ['a', 'c'], top: ['a'] });
+});
+
+test('an empty arrangement goes back to automatic and removes top from the save', async () => {
+  const saves = new Map([['alice', { version: 1, favorites: ['a', 'b'], top: ['b', 'a'] }]]);
+  const world = await signedIn({ saves });
+  world.favorites.setTop([]);
+  assert.deepEqual(plain(world.favorites.top()), []);
+  await world.advance(700);
+  assert.deepEqual(saves.get('alice'), { version: 1, favorites: ['a', 'b'] });
+});
+
+test('saving an unchanged arrangement writes nothing', async () => {
+  const saves = new Map([['alice', { version: 1, favorites: ['a', 'b'], top: ['b', 'a'] }]]);
+  const world = await signedIn({ saves });
+  world.favorites.setTop(['b', 'a']);
+  await world.advance(700);
+  assert.equal(world.writes().length, 0);
+  assert.equal(world.favorites.hasUnsaved(), false);
+});
+
+test('a newer arrangement made during a save is not lost', async () => {
+  const saves = new Map([['alice', { version: 1, favorites: ['a', 'b', 'c'] }]]);
+  const world = await signedIn({ saves });
+  world.favorites.setTop(['a']);
+  world.holdRequests('PUT');
+  await world.advance(700);
+  world.favorites.setTop(['c', 'b']);
+  await world.release();
+  assert.deepEqual(plain(world.favorites.top()), ['c', 'b']);
+  await world.advance(700);
+  assert.deepEqual(saves.get('alice').top, ['c', 'b']);
+  assert.equal(world.favorites.hasUnsaved(), false);
+});
+
+test('an unsaved arrangement survives a refresh, under its own account', async () => {
+  const storage = new Map();
+  const saves = new Map([['alice', { version: 1, favorites: ['a', 'b'] }]]);
+  const before = await signedIn({ storage, saves });
+  before.favorites.setTop(['b', 'a']);
+  assert.equal(storage.size, 1);
+
+  const after = createWorld({ storage, saves });
+  after.favorites.setAccount('alice');
+  assert.deepEqual(plain(after.favorites.top()), [], 'nothing shows for favorites not yet loaded');
+  await after.advance(0);
+  assert.deepEqual(saves.get('alice').top, ['b', 'a']);
+  assert.equal(storage.size, 0);
+});
+
+test('an arrangement fails and retries like any other change, and keeps other devices\' favorites', async () => {
+  const saves = new Map([['alice', { version: 1, favorites: ['a', 'b'] }]]);
+  const world = await signedIn({ saves });
+  world.favorites.setTop(['b', 'a']);
+  world.failNext('PUT', 503, 'service_unavailable');
+  await world.advance(700);
+  assert.equal(world.favorites.getStatus(), 'retrying');
+  saves.set('alice', { version: 1, favorites: ['a', 'b', 'from-phone'] });
+  await world.advance(3000);
+  assert.deepEqual(saves.get('alice'), { version: 1, favorites: ['a', 'b', 'from-phone'], top: ['b', 'a'] });
+});
+
+test('a malformed top counts as a save we do not understand, so it is left alone', async () => {
+  const save = { version: 1, favorites: ['a'], top: 'nope' };
+  const saves = new Map([['alice', save]]);
+  const world = await signedIn({ saves });
+  assert.equal(world.favorites.getStatus(), 'blocked');
+  world.favorites.toggle('b');
+  await world.advance(700);
+  assert.equal(world.writes().length, 0);
+  assert.deepEqual(saves.get('alice'), save);
+});
+
+test('switching accounts never carries an arrangement across', async () => {
+  const saves = new Map([['alice', { version: 1, favorites: ['a'] }], ['bob', { version: 1, favorites: ['a'] }]]);
+  const world = await signedIn({ saves });
+  world.favorites.setTop(['a']);
+  world.user = 'bob';
+  world.favorites.setAccount('bob');
+  assert.deepEqual(plain(world.favorites.top()), []);
+  await world.advance(5000);
+  assert.equal(saves.get('bob').top, undefined);
+});
+
 test('add() never removes a favorite that already exists', async () => {
   const saves = new Map([['alice', { version: 1, favorites: ['bruh'] }]]);
   const world = await signedIn({ saves });

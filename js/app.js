@@ -12,6 +12,7 @@
   const account = window.RetracAccount;
   const favorites = window.SoundFavorites;
   const signIn = window.SoundSignIn;
+  const rearrange = window.FavoritesRearrange;
 
   const PRESS_MS = 70; // How fast a key sinks when hit.
   const MIN_RISE_SECONDS = 0.22; // Very short sounds still get a visible pop back up.
@@ -22,6 +23,8 @@
   const INTENT_KEY = 'simple-soundboard:favorite-after-sign-in';
   const INTENT_MAX_AGE_MS = 30 * 60 * 1000;
   const SESSION_RECHECK_MS = 30000;
+  const LONG_PRESS_MS = 500; // Touch screens' stand-in for a right-click.
+  const LONG_PRESS_SLOP_PX = 10;
   const FAVORITES_ROW_SIZE = 5; // A sixth spot goes to the "See all favorites" card.
   const NOTE_ICONS = ['icon-note-eighth', 'icon-note-beamed', 'icon-note-quarter'];
   const RIBBON_MIN_WORDS = 40; // Enough to fill the ticker on an ultrawide monitor.
@@ -491,7 +494,16 @@
     chip.querySelector('.chip__spinner').toggleAttribute('hidden', !loading);
   }
 
-  // The row at the top of the board: the newest favorites, then a link to the rest. It only
+  const newestFavorites = () => favorites.list().filter((id) => soundById.has(id)).reverse();
+
+  // The chosen arrangement first, then everything else newest first. So with nothing chosen
+  // it's simply newest first, and a slot freed up by a removal fills itself.
+  function arrangedFavorites() {
+    const top = favorites.top().filter((id) => soundById.has(id));
+    return [...top, ...newestFavorites().filter((id) => !top.includes(id))];
+  }
+
+  // The row at the top of the board: the arranged favorites, then a link to the rest. It only
   // appears on the full board, since a search or filter should show each sound just once.
   function renderFavoritesRow() {
     const row = favoritesRow;
@@ -500,7 +512,7 @@
     if (row.el.hidden) return;
 
     const loaded = favorites.isLoaded();
-    const all = loaded ? favorites.list().filter((id) => soundById.has(id)).reverse() : [];
+    const all = loaded ? arrangedFavorites() : [];
     const shown = all.slice(0, FAVORITES_ROW_SIZE);
     const full = shown.length === FAVORITES_ROW_SIZE;
 
@@ -527,6 +539,78 @@
           : 'We can’t show your favorites just now.';
     }
   }
+
+  // ---------- Rearranging favorites ----------
+
+  // Only cards in the Favorites row, or in the Favorites filter, offer this. Others keep the
+  // browser's normal menu.
+  function rearrangeTargetFrom(target) {
+    const slot = target.closest && target.closest('.key-slot');
+    if (!slot || !favorites.isLoaded() || account.getState().status !== 'authenticated') return null;
+    if (!slot.closest('.bank--favorites') && filter.category !== 'favorites') return null;
+    return slot.querySelector('.key') || null;
+  }
+
+  function openRearrange(trigger) {
+    rearrange.open({
+      order: arrangedFavorites(),
+      newest: newestFavorites(),
+      trigger,
+      describe(id) {
+        const sound = soundById.get(id);
+        const category = categoryById.get(sound.category);
+        return { name: sound.name, color: category.color, side: category.side };
+      },
+      onSave: (top) => favorites.setTop(top),
+    });
+  }
+
+  function showRearrangeMenu(trigger, x, y) {
+    rearrange.openMenu({ x, y, trigger, onSelect: () => openRearrange(trigger) });
+  }
+
+  banksEl.addEventListener('contextmenu', (event) => {
+    const card = rearrangeTargetFrom(event.target);
+    if (!card) return;
+    event.preventDefault();
+    // The keyboard's menu key has no pointer position, so it opens at the card instead.
+    const box = card.getBoundingClientRect();
+    const fromKeyboard = event.clientX === 0 && event.clientY === 0;
+    showRearrangeMenu(card, fromKeyboard ? box.left + 16 : event.clientX, fromKeyboard ? box.top + 16 : event.clientY);
+  });
+
+  // iPhones have no right-click and send no contextmenu event, so a long press does the job.
+  let longPress = null;
+  let suppressClickUntil = 0;
+
+  function cancelLongPress() {
+    if (longPress) clearTimeout(longPress.timer);
+    longPress = null;
+  }
+
+  banksEl.addEventListener('pointerdown', (event) => {
+    cancelLongPress();
+    if (event.pointerType === 'mouse') return;
+    const card = rearrangeTargetFrom(event.target);
+    if (!card) return;
+    const { clientX: x, clientY: y } = event;
+    longPress = {
+      x,
+      y,
+      timer: setTimeout(() => {
+        longPress = null;
+        suppressClickUntil = Date.now() + 800; // Letting go mustn't also start the sound.
+        showRearrangeMenu(card, x, y);
+      }, LONG_PRESS_MS),
+    };
+  });
+
+  banksEl.addEventListener('pointermove', (event) => {
+    if (longPress && Math.hypot(event.clientX - longPress.x, event.clientY - longPress.y) > LONG_PRESS_SLOP_PX) {
+      cancelLongPress();
+    }
+  });
+  ['pointerup', 'pointercancel'].forEach((type) => banksEl.addEventListener(type, cancelLongPress));
 
   function showAllFavorites() {
     setCategory('favorites');
@@ -837,6 +921,10 @@
   });
 
   banksEl.addEventListener('click', (event) => {
+    if (Date.now() < suppressClickUntil) {
+      suppressClickUntil = 0;
+      return;
+    }
     const heart = event.target.closest('.key__heart');
     if (heart) {
       onHeartClick(heart);

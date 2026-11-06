@@ -11,7 +11,7 @@ const { JSDOM } = require('jsdom');
 
 const ROOT = path.join(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(ROOT, file), 'utf8');
-const SCRIPTS = ['js/sounds.js', 'js/account.js', 'js/favorites.js', 'js/sign-in.js', 'js/app.js', 'js/account-welcome.js'];
+const SCRIPTS = ['js/sounds.js', 'js/account.js', 'js/favorites.js', 'js/sign-in.js', 'js/rearrange.js', 'js/app.js', 'js/account-welcome.js'];
 const SAVE_URL = 'https://space-api.retrac-space.workers.dev/v1/games/soundboard/saves/0';
 const DEBOUNCE = 800;
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -638,6 +638,225 @@ test('signing out removes the row, and switching accounts replaces it', async ()
   await page.window.RetracAccount.check();
   await wait(5);
   assert.equal(page.row().hidden, true);
+  page.close();
+});
+
+test('every sound in the catalog points at a real file, with a unique id', () => {
+  const page = openPage();
+  const { sounds, categories } = page.window.SOUND_CATALOG;
+  assert.equal(new Set(sounds.map((s) => s.id)).size, sounds.length);
+  sounds.forEach((sound) => {
+    assert.ok(fs.existsSync(path.join(ROOT, sound.src)), sound.src);
+    assert.ok(categories.some((c) => c.id === sound.category), sound.id);
+  });
+  const files = fs.readdirSync(path.join(ROOT, 'sounds')).filter((f) => f.endsWith('.mp3'));
+  assert.equal(files.length, sounds.length, 'and no file is left unused');
+  page.close();
+});
+
+function rightClick(page, element) {
+  const event = new page.window.MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 50, clientY: 60 });
+  element.dispatchEvent(event);
+  return event;
+}
+
+const menu = (page) => page.document.querySelector('.card-menu');
+const rearrangeDialog = (page) => page.document.querySelector('dialog.rearrange');
+const slotIds = (page) => [...rearrangeDialog(page).querySelectorAll('.rearrange__slots .rearrange__tile')].map((t) => t.dataset.id);
+const poolIds = (page) => [...rearrangeDialog(page).querySelectorAll('.rearrange__pool .rearrange__tile')].map((t) => t.dataset.id);
+const tile = (page, id) => rearrangeDialog(page).querySelector(`.rearrange__tile[data-id="${id}"]`);
+const footerButton = (page, label) => [...rearrangeDialog(page).querySelectorAll('button')].find((b) => b.textContent === label);
+const pressKey = (page, element, key) => element.dispatchEvent(new page.window.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+
+async function openRearrangeFromRow(page, id) {
+  rightClick(page, page.rowKey(id));
+  page.click(menu(page).querySelector('button'));
+  await wait(5);
+}
+
+const SEVEN = ['enrique', 'bruh', 'fahh', 'vine-boom', 'wow', 'rizz', 'shocked'];
+
+test('right-clicking a card in the Favorites row offers Rearrange top favorites', async () => {
+  const page = openPage({ session: alice, save: { version: 1, favorites: ['bruh', 'rizz'] } });
+  await wait(40);
+  const event = rightClick(page, page.rowKey('bruh'));
+  assert.equal(event.defaultPrevented, true, 'instead of the browser menu');
+  assert.equal(menu(page).getAttribute('role'), 'menu');
+  const item = menu(page).querySelector('[role="menuitem"]');
+  assert.equal(item.textContent, 'Rearrange top favorites');
+  assert.deepEqual(page.started, [], 'and no sound');
+  page.close();
+});
+
+test('right-clicking inside the Favorites filter offers it too, including See all', async () => {
+  const page = openPage({ session: alice, save: { version: 1, favorites: SEVEN } });
+  await wait(40);
+  rightClick(page, page.seeAll());
+  assert.ok(menu(page), 'the See all card');
+  page.click(menu(page).querySelector('button'));
+  await wait(5);
+  assert.equal(rearrangeDialog(page).open, true);
+  page.click(footerButton(page, 'Cancel'));
+
+  page.click(page.seeAll());
+  rightClick(page, page.key('bruh'));
+  assert.ok(menu(page), 'a card in the filter');
+  page.close();
+});
+
+test('other cards keep the browser menu', async () => {
+  const page = openPage({ session: alice, save: { version: 1, favorites: ['bruh'] } });
+  await wait(40);
+  const onCategoryCopy = rightClick(page, page.key('bruh'));
+  assert.equal(onCategoryCopy.defaultPrevented, false, 'a favorite in its own category');
+  const onOther = rightClick(page, page.key('rizz'));
+  assert.equal(onOther.defaultPrevented, false, 'a card that is not a favorite');
+  assert.equal(menu(page), null);
+  page.close();
+
+  const guest = openPage();
+  await wait(40);
+  assert.equal(rightClick(guest, guest.key('bruh')).defaultPrevented, false, 'guests');
+  guest.close();
+});
+
+test('the menu closes with Escape and on an outside press', async () => {
+  const page = openPage({ session: alice, save: { version: 1, favorites: ['bruh'] } });
+  await wait(40);
+  rightClick(page, page.rowKey('bruh'));
+  pressKey(page, menu(page).querySelector('button'), 'Escape');
+  assert.equal(menu(page), null);
+  assert.equal(page.document.activeElement, page.rowKey('bruh'), 'focus returns to the card');
+
+  rightClick(page, page.rowKey('bruh'));
+  page.document.body.dispatchEvent(new page.window.MouseEvent('pointerdown', { bubbles: true }));
+  assert.equal(menu(page), null);
+  page.close();
+});
+
+test('the dialog shows the top five in slots and the rest below', async () => {
+  const page = openPage({ session: alice, save: { version: 1, favorites: SEVEN } });
+  await wait(40);
+  await openRearrangeFromRow(page, 'rizz');
+  assert.equal(rearrangeDialog(page).open, true);
+  assert.equal(rearrangeDialog(page).querySelector('h2').textContent, 'Rearrange top favorites');
+  assert.deepEqual(slotIds(page), page.rowIds().slice(0, 5), 'same order as the row');
+  assert.deepEqual(poolIds(page), ['bruh', 'enrique']);
+  assert.equal(rearrangeDialog(page).querySelectorAll('.rearrange__rank').length, 5);
+  assert.equal(page.document.activeElement, tile(page, 'shocked'));
+  assert.match(tile(page, 'shocked').getAttribute('aria-label'), /^Shocked, position 1 of 7/);
+  page.close();
+});
+
+test('with fewer than five favorites, the extra slots stay empty and Others is hidden', async () => {
+  const page = openPage({ session: alice, save: { version: 1, favorites: ['bruh', 'rizz'] } });
+  await wait(40);
+  await openRearrangeFromRow(page, 'rizz');
+  assert.deepEqual(slotIds(page), ['rizz', 'bruh']);
+  assert.equal(rearrangeDialog(page).querySelectorAll('.rearrange__socket:empty').length, 3);
+  assert.equal(rearrangeDialog(page).querySelector('.rearrange__others').hidden, true);
+  page.close();
+});
+
+test('moving a card and saving updates the row at once and saves the order', async () => {
+  const page = openPage({ session: alice, save: { version: 1, favorites: SEVEN } });
+  await wait(40);
+  await openRearrangeFromRow(page, 'rizz');
+  assert.equal(footerButton(page, 'Save order').disabled, true, 'nothing to save yet');
+
+  pressKey(page, tile(page, 'fahh'), 'Home');
+  assert.deepEqual(slotIds(page), ['fahh', 'shocked', 'rizz', 'wow', 'vine-boom']);
+  assert.equal(footerButton(page, 'Save order').disabled, false);
+  assert.deepEqual(page.rowIds().slice(0, 5), ['shocked', 'rizz', 'wow', 'vine-boom', 'fahh'], 'the board waits for Save');
+
+  page.click(footerButton(page, 'Save order'));
+  await wait(5);
+  assert.equal(rearrangeDialog(page).open, false);
+  assert.deepEqual(page.rowIds(), ['fahh', 'shocked', 'rizz', 'wow', 'vine-boom', 'see-all']);
+  await wait(DEBOUNCE);
+  assert.deepEqual(page.save.top, ['fahh', 'shocked', 'rizz', 'wow', 'vine-boom']);
+  assert.deepEqual(page.save.favorites, SEVEN, 'the favorites themselves are untouched');
+  page.close();
+});
+
+test('a card from below can be promoted, pushing the fifth down, with arrow keys', async () => {
+  const page = openPage({ session: alice, save: { version: 1, favorites: SEVEN } });
+  await wait(40);
+  await openRearrangeFromRow(page, 'rizz');
+  assert.deepEqual(poolIds(page), ['bruh', 'enrique']);
+  pressKey(page, tile(page, 'bruh'), 'ArrowLeft');
+  assert.deepEqual(slotIds(page).at(-1), 'bruh');
+  assert.deepEqual(poolIds(page), ['fahh', 'enrique']);
+  assert.equal(page.document.querySelector('dialog.rearrange [role="status"]').textContent, 'Bruh moved to position 5 of 7, top spot 5.');
+  page.close();
+});
+
+test('a chosen top five loads back in order, and new favorites do not displace it', async () => {
+  const top = ['bruh', 'enrique', 'fahh', 'wow', 'rizz'];
+  const page = openPage({ session: alice, save: { version: 1, favorites: SEVEN, top } });
+  await wait(40);
+  assert.deepEqual(page.rowIds(), [...top, 'see-all']);
+
+  page.click(page.heart('punch'));
+  await wait(5);
+  assert.deepEqual(page.rowIds(), [...top, 'see-all'], 'still your five');
+  await wait(DEBOUNCE);
+  assert.deepEqual(page.save.top, top);
+  assert.ok(page.save.favorites.includes('punch'));
+  page.close();
+});
+
+test('removing a chosen favorite lets the newest other favorite take the last spot', async () => {
+  const top = ['bruh', 'enrique', 'fahh', 'wow', 'rizz'];
+  const page = openPage({ session: alice, save: { version: 1, favorites: SEVEN, top } });
+  await wait(40);
+  page.click(page.rowHeart('enrique'));
+  await wait(5);
+  assert.deepEqual(page.rowIds(), ['bruh', 'fahh', 'wow', 'rizz', 'shocked', 'see-all']);
+  page.close();
+});
+
+test('Back to newest first undoes a chosen order once saved', async () => {
+  const top = ['bruh', 'enrique', 'fahh', 'wow', 'rizz'];
+  const page = openPage({ session: alice, save: { version: 1, favorites: SEVEN, top } });
+  await wait(40);
+  await openRearrangeFromRow(page, 'rizz');
+  page.click(footerButton(page, 'Back to newest first'));
+  assert.deepEqual(slotIds(page), ['shocked', 'rizz', 'wow', 'vine-boom', 'fahh']);
+  page.click(footerButton(page, 'Save order'));
+  await wait(DEBOUNCE + 5);
+  assert.deepEqual(page.rowIds(), ['shocked', 'rizz', 'wow', 'vine-boom', 'fahh', 'see-all']);
+  assert.equal(page.save.top, undefined);
+  page.close();
+});
+
+test('Cancel discards the arrangement and writes nothing', async () => {
+  const page = openPage({ session: alice, save: { version: 1, favorites: SEVEN } });
+  await wait(40);
+  const before = page.rowIds();
+  await openRearrangeFromRow(page, 'rizz');
+  pressKey(page, tile(page, 'fahh'), 'Home');
+  page.click(footerButton(page, 'Cancel'));
+  assert.equal(rearrangeDialog(page).open, false);
+  await wait(DEBOUNCE);
+  assert.deepEqual(page.rowIds(), before);
+  assert.equal(page.writes().length, 0);
+  assert.equal(page.document.activeElement, page.rowKey('rizz'), 'focus returns to the card');
+  page.close();
+});
+
+test('a stray click outside only closes the dialog when nothing would be lost', async () => {
+  const page = openPage({ session: alice, save: { version: 1, favorites: SEVEN } });
+  await wait(40);
+  await openRearrangeFromRow(page, 'rizz');
+  pressKey(page, tile(page, 'fahh'), 'Home');
+  page.click(rearrangeDialog(page));
+  assert.equal(rearrangeDialog(page).open, true, 'kept open with changes');
+
+  page.click(footerButton(page, 'Cancel'));
+  await openRearrangeFromRow(page, 'rizz');
+  page.click(rearrangeDialog(page));
+  assert.equal(rearrangeDialog(page).open, false, 'closed with none');
   page.close();
 });
 
