@@ -66,21 +66,11 @@ kbd { font: inherit; }
 .topbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
   padding: 20px var(--gutter) 0;
 }
 .topbar__logo { display: block; flex: none; line-height: 0; transition: transform .25s var(--ease); }
 .topbar__logo:hover { transform: translateY(-2px); }
 .topbar__logo img { width: 168px; height: auto; }
-.topbar__link {
-  color: var(--muted);
-  font-size: .875rem;
-  text-align: right;
-  text-decoration: none;
-  transition: color .15s;
-}
-.topbar__link:hover { color: var(--fg); }
 
 /* ---------- Hero ---------- */
 .hero {
@@ -604,7 +594,6 @@ kbd { font: inherit; }
 /* ---------- Small screens ---------- */
 @media (max-width: 640px) {
   .topbar__logo img { width: 132px; }
-  .topbar__link { font-size: .75rem; max-width: 12em; }
   .hero-note:nth-child(even) { display: none; }
   .mixer { flex: 1 1 100%; justify-content: space-between; }
   .volume { flex: 1; }
