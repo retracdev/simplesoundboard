@@ -79,6 +79,10 @@
       src: 'sounds/perfect-fart.mp3' },
     { id: 'apple-pay', name: 'Apple Pay', category: 'tech', tags: 'payment iphone phone checkout tap',
       src: 'sounds/apple-pay.mp3' },
+    { id: 'samsung-notification', name: 'Samsung Notification', category: 'tech', tags: 'phone galaxy android alert spaceline',
+      src: 'sounds/samsung-notification.mp3' },
+    { id: 'samsung-notification-boosted', name: 'Samsung Notification (Boosted)', category: 'tech', tags: 'phone galaxy android alert bass loud meme',
+      src: 'sounds/samsung-notification-boosted.mp3' },
   ];
 
   window.SOUND_CATALOG = { categories, sounds };
