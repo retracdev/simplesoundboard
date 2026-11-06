@@ -1,36 +1,15 @@
 /*
- * Greets someone signed in to their retrac.space account when the page first loads.
- * Same pill as BasketSmash. Guests, and any failed check, just see nothing.
+ * Greets someone signed in to their retrac.space account, using the same pill as
+ * BasketSmash. Guests, and any failed check, just see nothing.
  */
 (function () {
   'use strict';
-
-  const SESSION_URL = 'https://accounts.retrac.space/api/auth/get-session';
-  const SESSION_TIMEOUT_MS = 5000;
 
   const greetings = [
     (username) => `Hey, hey, ${username}!`,
     (username) => `How's it going, ${username}?`,
     (username) => `Ready to make some noise, ${username}?`,
   ];
-
-  async function getUsername() {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), SESSION_TIMEOUT_MS);
-    try {
-      const response = await fetch(SESSION_URL, {
-        method: 'GET', credentials: 'include', cache: 'no-store', signal: controller.signal,
-      });
-      if (!response.ok) return null;
-      const session = await response.json();
-      const username = session && session.user && session.user.username;
-      return typeof username === 'string' && username.trim() ? username : null;
-    } catch (error) {
-      return null;
-    } finally {
-      clearTimeout(timeout);
-    }
-  }
 
   function showWelcomePill(username) {
     const pill = document.createElement('div');
@@ -67,7 +46,14 @@
     setTimeout(() => pill.remove(), 3800);
   }
 
-  getUsername().then((username) => {
-    if (username) showWelcomePill(username);
-  });
+  // Covers both arriving signed in and signing in later, but only ever greets once.
+  let greeted = false;
+  function greet(state) {
+    if (greeted || state.status !== 'authenticated') return;
+    greeted = true;
+    showWelcomePill(state.username);
+  }
+
+  window.RetracAccount.subscribe(greet);
+  greet(window.RetracAccount.getState());
 })();
