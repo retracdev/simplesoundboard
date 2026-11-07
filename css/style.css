@@ -1505,7 +1505,8 @@ kbd { font: inherit; }
 .string-editor__zoom { margin-left: auto; }
 
 /* The timeline */
-.string-editor__timeline { position: relative; flex: 1; min-height: 0; overflow: auto; outline: none; }
+/* The contain stops a sideways swipe at the start from going back a page in the browser. */
+.string-editor__timeline { position: relative; flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; outline: none; }
 .string-editor__content { display: flex; width: max-content; min-width: 100%; min-height: 100%; }
 .string-editor__labels {
   position: sticky;

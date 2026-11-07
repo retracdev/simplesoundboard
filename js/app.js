@@ -544,6 +544,7 @@
       bank.el.hidden = !shown || count === 0;
     });
 
+    everythingEl.closest('.everything').hidden = onlyStrings;
     const shown = onlyStrings ? stringMatches : visible;
     emptyEl.hidden = shown > 0;
     if (shown === 0) showEmptyState();
