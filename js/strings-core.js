@@ -2,7 +2,7 @@
  * The rules of a string, with no page or audio involved.
  *
  * A string is { id, name, clips }, and each clip is one sound placed on the timeline:
- *   sound   the sound's id
+ *   sound   the sound's id, or "string:" and an id for another string used as one clip
  *   at      when it starts in the string, in seconds
  *   from    how far into the sound it starts, which is what trimming the front changes
  *   length  how much of the sound plays
@@ -15,6 +15,9 @@
   const MIN_CLIP = 0.05;
   const MAX_TIME = 300;
   const MAX_CLIPS = 64;
+  const MAX_PLAYED_CLIPS = 256; // Strings inside strings multiply fast, and each clip is a voice.
+  const MAX_EXPAND_STEPS = 4000;
+  const STRING_PREFIX = 'string:';
   const MAX_LANES = 12;
   const MIN_LANES = 4;
   const MAX_NAME = 40;
@@ -121,6 +124,50 @@
     ];
   }
 
+  const nestedId = (soundId) => (soundId.startsWith(STRING_PREFIX) ? soundId.slice(STRING_PREFIX.length) : null);
+
+  // Turns clips that may include other strings into the plain sounds that actually play, with
+  // each string's trim, position and volume applied to what's inside it. A string that no longer
+  // exists is skipped, and so is one that would end up inside itself. lookup(id) gives a string.
+  function expand(clips, lookup) {
+    const played = [];
+    let steps = 0;
+    function walk(list, offset, windowStart, windowEnd, gain, path) {
+      list.forEach((clip) => {
+        if (played.length >= MAX_PLAYED_CLIPS || steps >= MAX_EXPAND_STEPS) return;
+        steps++;
+        const at = offset + clip.at;
+        const start = Math.max(at, windowStart);
+        const finish = Math.min(at + clip.length, windowEnd);
+        if (finish <= start) return;
+        const from = clip.from + (start - at);
+        const level = gain * clipGain(clip);
+        const id = nestedId(clip.sound);
+        if (id === null) {
+          played.push({ ...clip, at: start, from, length: finish - start, gain: level });
+          return;
+        }
+        const string = lookup(id);
+        if (string && !path.includes(id)) walk(string.clips, start - from, start, finish, level, [...path, id]);
+      });
+    }
+    walk(clips, 0, 0, Infinity, 1, []);
+    return played;
+  }
+
+  // Whether a string has another one inside it, however deep.
+  function uses(string, id, lookup, seen = new Set()) {
+    return string.clips.some((clip) => {
+      const inner = nestedId(clip.sound);
+      if (inner === null) return false;
+      if (inner === id) return true;
+      if (seen.has(inner)) return false;
+      seen.add(inner);
+      const next = lookup(inner);
+      return Boolean(next) && uses(next, id, lookup, seen);
+    });
+  }
+
   // What gets saved: rounded so it stays small, and in time order.
   function serialize(clips) {
     return clips.map((clip) => {
@@ -197,11 +244,12 @@
   }
 
   window.StringsCore = {
-    MIN_CLIP, MAX_TIME, MAX_CLIPS, MAX_LANES, MAX_NAME, MAX_GAIN,
+    MIN_CLIP, MAX_TIME, MAX_CLIPS, MAX_PLAYED_CLIPS, MAX_LANES, MAX_NAME, MAX_GAIN, STRING_PREFIX,
     clamp, end, clipGain, duration,
     freeStart, freeLane, laneCount,
     snapTargets, snapTime, snapMove,
     trimStart, trimEnd, split,
+    nestedId, expand, uses,
     serialize, isValid,
     colors, gradient, mixPeaks, summarize,
   };
