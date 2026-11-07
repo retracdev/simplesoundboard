@@ -3,6 +3,7 @@
   'use strict';
 
   const account = window.RetracAccount;
+  const signIn = window.SoundSignIn;
   const trigger = document.getElementById('requestSound');
   const dialog = document.getElementById('soundRequestDialog');
   const body = document.getElementById('soundRequestBody');
@@ -12,7 +13,38 @@
   let username = null;
   let submitted = false;
   let checking = false;
+  let opening = false;
+  let pendingSignIn = null;
   let flow = 0;
+
+  function promptSignIn(state) {
+    signIn.open({
+      purpose: 'request',
+      stage: state.status === 'guest' ? 'confirm' : state.status,
+      trigger,
+      onSuccess: openRequest,
+    });
+  }
+
+  async function openRequest() {
+    if (dialog.open || signIn.isOpen() || opening) return;
+    opening = true;
+    try {
+      let state = account.getState();
+      if (state.status === 'unknown' || state.status === 'error') state = await account.check();
+      if (state.status !== 'authenticated') {
+        promptSignIn(state);
+        return;
+      }
+      submitted = false;
+      dialog.showModal();
+      showSession(state);
+      closeButton.focus({ preventScroll: true });
+      checkSession();
+    } finally {
+      opening = false;
+    }
+  }
 
   function clearForm() {
     frame = null;
@@ -38,34 +70,15 @@
       return;
     }
 
-    clearForm();
-    if (state.status === 'unknown') {
-      body.innerHTML = '<div class="sound-request__message"><p role="status">Checking your account...</p></div>';
-      return;
-    }
-    const message = state.status === 'error'
-      ? 'We could not check your account. Please try again.'
-      : state.status === 'incomplete'
-        ? 'Choose your username at retrac.space, then come back to send your request.'
-        : 'Sign in with retrac.space so we can include your username with your request.';
-    body.innerHTML = `<div class="sound-request__message">
-      <p role="status">${message}</p>
-      <div class="signin-actions">
-        <a class="signin-button sound-request__signin" href="https://accounts.retrac.space" target="_blank" rel="noopener">Open retrac.space</a>
-        <button class="signin-button signin-button--quiet" type="button" data-request-action="check">Try again</button>
-      </div>
-    </div>`;
+    // Switch to the shared compact sign-in dialog if this account signed out.
+    pendingSignIn = state;
+    dialog.close();
   }
 
   async function checkSession() {
     if (!dialog.open || submitted || checking) return;
     checking = true;
     const current = flow;
-    const button = body.querySelector('[data-request-action="check"]');
-    if (button) {
-      button.disabled = true;
-      button.textContent = 'Checking...';
-    }
     try {
       const state = await account.check();
       if (current === flow) showSession(state);
@@ -74,14 +87,7 @@
     }
   }
 
-  trigger.addEventListener('click', () => {
-    if (dialog.open) return;
-    submitted = false;
-    dialog.showModal();
-    showSession(account.getState());
-    closeButton.focus({ preventScroll: true });
-    checkSession();
-  });
+  trigger.addEventListener('click', openRequest);
   closeButton.addEventListener('click', () => dialog.close());
   dialog.addEventListener('click', (event) => {
     if (event.target === dialog) dialog.close();
@@ -91,6 +97,11 @@
     checking = false;
     clearForm();
     trigger.focus({ preventScroll: true });
+    if (pendingSignIn) {
+      const state = pendingSignIn;
+      pendingSignIn = null;
+      promptSignIn(state);
+    }
   });
   dialog.addEventListener('keydown', (event) => event.stopPropagation());
   body.addEventListener('click', (event) => {
