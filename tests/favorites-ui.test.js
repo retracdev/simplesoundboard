@@ -933,21 +933,21 @@ test('right-clicking inside the Favorites filter offers it too, including See al
 
 const menuLabels = (page) => [...menu(page).querySelectorAll('[role="menuitem"]')].map((item) => item.textContent);
 
-test('other cards only offer to create a string, for guests too', async () => {
+test('other cards offer to create a string and to loop, for guests too', async () => {
   const page = openPage({ session: alice, save: { version: 1, favorites: ['bruh'] } });
   await wait(40);
   assert.equal(rightClick(page, page.key('bruh')).defaultPrevented, true);
-  assert.deepEqual(menuLabels(page), ['Create string with this sound'], 'a favorite in its own category');
+  assert.deepEqual(menuLabels(page), ['Create string with this sound', 'Loop sound'], 'a favorite in its own category');
   rightClick(page, page.key('rizz'));
-  assert.deepEqual(menuLabels(page), ['Create string with this sound'], 'a card that is not a favorite');
+  assert.deepEqual(menuLabels(page), ['Create string with this sound', 'Loop sound'], 'a card that is not a favorite');
   rightClick(page, page.rowKey('bruh'));
-  assert.deepEqual(menuLabels(page), ['Rearrange top favorites', 'Create string with this sound'], 'the Favorites row');
+  assert.deepEqual(menuLabels(page), ['Rearrange top favorites', 'Create string with this sound', 'Loop sound'], 'the Favorites row');
   page.close();
 
   const guest = openPage();
   await wait(40);
   rightClick(guest, guest.key('bruh'));
-  assert.deepEqual(menuLabels(guest), ['Create string with this sound'], 'guests');
+  assert.deepEqual(menuLabels(guest), ['Create string with this sound', 'Loop sound'], 'guests');
   guest.close();
 });
 

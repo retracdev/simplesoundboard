@@ -1,6 +1,6 @@
 /*
- * The one gate in front of everything Strings does. Anyone can see the buttons. Using them takes
- * an account, then a place on the beta list in beta.yml.
+ * The one gate in front of everything Strings and looping do. Anyone can see the buttons. Using
+ * them takes an account, then a place on the strings list in beta.yml, which covers both.
  */
 (function () {
   'use strict';
@@ -23,6 +23,9 @@
   let trigger = null;
   let checking = false;
 
+  // What the "no access yet" dialog calls each feature.
+  const FEATURE_NAMES = { strings: 'strings', loop: 'looping' };
+
   function closeDialog() {
     dialog.close();
     if (trigger && trigger.isConnected) trigger.focus({ preventScroll: true });
@@ -40,10 +43,10 @@
   // The dialog's keys belong to it, not to the page's shortcuts.
   dialog.addEventListener('keydown', (event) => event.stopPropagation());
 
-  // Calls proceed(username) once this visitor may use Strings. Otherwise it asks them to sign
+  // Calls proceed(username) once this visitor may use the feature. Otherwise it asks them to sign
   // in and carries on by itself if they do, or tells them they aren't in the beta yet and
   // calls onDenied, if given.
-  async function requireAccess(from, proceed, onDenied) {
+  async function requireAccess(from, proceed, onDenied, feature = 'strings') {
     if (checking || dialog.open || signIn.isOpen()) return;
     checking = true;
     try {
@@ -51,10 +54,10 @@
       if (state.status === 'unknown' || state.status === 'error') state = await account.check();
       if (state.status !== 'authenticated') {
         signIn.open({
-          purpose: 'strings',
+          purpose: feature,
           stage: state.status === 'guest' ? 'confirm' : state.status,
           trigger: from,
-          onSuccess: () => requireAccess(from, proceed, onDenied),
+          onSuccess: () => requireAccess(from, proceed, onDenied, feature),
         });
         return;
       }
@@ -64,6 +67,7 @@
       }
       if (onDenied) onDenied();
       trigger = from;
+      dialog.querySelector('p').textContent = 'We’re rolling out ' + FEATURE_NAMES[feature] + ' to everyone soon. You may not have access yet.';
       dialog.showModal();
       dialog.querySelector('button').focus({ preventScroll: true });
     } finally {
@@ -71,5 +75,8 @@
     }
   }
 
-  window.SoundStringsAccess = { require: requireAccess };
+  window.SoundStringsAccess = {
+    require: requireAccess,
+    requireLoop: (from, proceed) => requireAccess(from, proceed, undefined, 'loop'),
+  };
 })();
