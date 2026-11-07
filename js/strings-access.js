@@ -1,6 +1,7 @@
 /*
- * The one gate in front of everything Strings and looping do. Anyone can see the buttons. Using
- * them takes an account, then a place on the strings list in beta.yml, which covers both.
+ * The one gate in front of everything Strings, looping and speed and pitch do. Anyone can see the
+ * buttons. Using them takes an account, then a place on the strings list in beta.yml, which covers
+ * all three.
  */
 (function () {
   'use strict';
@@ -24,7 +25,7 @@
   let checking = false;
 
   // What the "no access yet" dialog calls each feature.
-  const FEATURE_NAMES = { strings: 'strings', loop: 'looping' };
+  const FEATURE_NAMES = { strings: 'strings', loop: 'looping', tune: 'speed and pitch editing' };
 
   function closeDialog() {
     dialog.close();
@@ -78,5 +79,8 @@
   window.SoundStringsAccess = {
     require: requireAccess,
     requireLoop: (from, proceed) => requireAccess(from, proceed, undefined, 'loop'),
+    requireTune: (from, proceed) => requireAccess(from, proceed, undefined, 'tune'),
+    // Whether this account is on the list, without asking them anything.
+    hasAccess: (username) => beta.hasAccess('strings', username),
   };
 })();

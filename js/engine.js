@@ -13,6 +13,7 @@
   const CLIP_FADE_SECONDS = 0.004;
 
   const buffers = new Map(); // sound id -> Promise<AudioBuffer>
+  const stretches = new Map(); // sound id -> { factor, result: Promise<AudioBuffer> }
   const voices = new Map(); // sound id -> the voice currently sounding
 
   let context = null;
@@ -62,6 +63,38 @@
     return buffers.get(sound.id);
   }
 
+  // Makes the version of a sound that plays at the right speed once its pitch is set by playing it
+  // faster or slower. Each sound keeps only its latest, so this can't outgrow the sounds themselves.
+  function stretched(sound, buffer, factor) {
+    const cached = stretches.get(sound.id);
+    if (cached && cached.factor === factor) return cached.result;
+    const result = new Promise((resolve) => setTimeout(resolve)).then(() => {
+      const channels = [];
+      for (let c = 0; c < buffer.numberOfChannels; c++) channels.push(buffer.getChannelData(c));
+      const output = window.TuneCore.stretch(channels, factor);
+      // An offline context, so this can get ready before any user gesture, like decoding does.
+      const made = new OfflineCtx(1, 1, buffer.sampleRate).createBuffer(output.length, output[0].length, buffer.sampleRate);
+      output.forEach((samples, c) => made.getChannelData(c).set(samples));
+      return made;
+    });
+    result.catch(() => stretches.delete(sound.id));
+    stretches.set(sound.id, { factor, result });
+    return result;
+  }
+
+  // What to play for a sound with this speed and pitch (see tune-core.js), and how fast to play it.
+  async function tuned(sound, tune) {
+    const buffer = await load(sound);
+    if (!tune) return { buffer, rate: 1 };
+    if (tune.pitch === undefined || tune.pitch === tune.speed) return { buffer, rate: tune.speed };
+    return { buffer: await stretched(sound, buffer, tune.pitch / tune.speed), rate: tune.pitch };
+  }
+
+  // Gets a sound ready ahead of time, so the first press doesn't have to wait.
+  function prepare(sound, tune) {
+    tuned(sound, tune).catch(() => {}); // Pressing it tries again and reports the problem.
+  }
+
   function stop(id) {
     const voice = voices.get(id);
     if (!voice) return;
@@ -75,16 +108,18 @@
   // Starts a sound, replacing the same sound if it's already going.
   // Resolves to { duration, elapsed() } with both in seconds.
   // options.loop repeats it until stopped. options.id runs it as its own voice, so it doesn't
-  // replace a press of the same sound, and stop(options.id) is what stops it.
+  // replace a press of the same sound, and stop(options.id) is what stops it. options.tune plays
+  // it at that speed and pitch, and the duration is how long it takes at that speed.
   async function start(sound, options) {
     const id = (options && options.id) || sound.id;
-    const buffer = await load(sound);
+    const { buffer, rate } = await tuned(sound, options && options.tune);
     const ctx = getContext();
     stop(id);
 
     const source = ctx.createBufferSource();
     const gain = ctx.createGain();
     source.buffer = buffer;
+    if (rate !== 1) source.playbackRate.value = rate;
     source.loop = Boolean(options && options.loop);
     source.connect(gain);
     gain.connect(master);
@@ -97,7 +132,7 @@
     voices.set(id, voice);
     source.start();
 
-    return { duration: buffer.duration, elapsed: () => ctx.currentTime - startedAt };
+    return { duration: buffer.duration / rate, elapsed: () => ctx.currentTime - startedAt };
   }
 
   // Starts a whole timeline of clips as one voice, so stopping `id` stops all of it. Starting
@@ -187,6 +222,7 @@
     supported: Boolean(AudioCtx && OfflineCtx),
     unlock,
     load,
+    prepare,
     start,
     startClips,
     stop,

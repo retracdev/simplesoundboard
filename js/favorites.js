@@ -2,7 +2,8 @@
  * Favorites, kept in the signed-in account's retrac.space cloud save (app "soundboard",
  * slot 0) as { version: 1, favorites: ["sound-id", ...], top: ["sound-id", ...] }. The
  * optional `top` is the arrangement someone chose for the top of their board, and the
- * optional `strings` holds the strings they made (see strings-core.js). Everything shares
+ * optional `strings` holds the strings they made (see strings-core.js), and the optional
+ * `tunes` holds each changed sound's speed and pitch (see tune-core.js). Everything shares
  * one save, and so one save cycle, because the API replaces a save whole: two separate cycles
  * could overwrite each other's changes.
  *
@@ -70,6 +71,8 @@
   const pendingStrings = new Map(); // string id -> the new string, or null to delete it
   let cloudTop = []; // The chosen arrangement in the last save read.
   let pendingTop = null; // A newly chosen arrangement not yet saved, or null if there isn't one.
+  let cloudTunes = new Map(); // sound id -> its speed and pitch in the last save read
+  const pendingTunes = new Map(); // sound id -> the new speed and pitch, or null to go back to normal
   let status = 'ok';
   let lastReadAt = 0;
   let lastAttemptAt = 0;
@@ -91,7 +94,7 @@
   }
 
   function hasChanges() {
-    return pending.size > 0 || pendingTop !== null || pendingStrings.size > 0;
+    return pending.size > 0 || pendingTop !== null || pendingStrings.size > 0 || pendingTunes.size > 0;
   }
 
   // ---------- Local storage of unsaved changes ----------
@@ -108,6 +111,7 @@
           ops: Array.from(pending),
           top: pendingTop,
           ...(pendingStrings.size ? { strings: Array.from(pendingStrings) } : {}),
+          ...(pendingTunes.size ? { tunes: Array.from(pendingTunes) } : {}),
         }));
       } else {
         window.localStorage.removeItem(storageKey(accountId));
@@ -120,6 +124,7 @@
   function restore(id) {
     pending.clear();
     pendingStrings.clear();
+    pendingTunes.clear();
     pendingTop = null;
     try {
       const saved = JSON.parse(window.localStorage.getItem(storageKey(id)));
@@ -135,6 +140,13 @@
         saved.strings.forEach((entry) => {
           if (Array.isArray(entry) && typeof entry[0] === 'string' && (entry[1] === null || window.StringsCore.isValid(entry[1]))) {
             pendingStrings.set(entry[0], entry[1]);
+          }
+        });
+      }
+      if (saved && Array.isArray(saved.tunes)) {
+        saved.tunes.forEach((entry) => {
+          if (Array.isArray(entry) && typeof entry[0] === 'string' && (entry[1] === null || window.TuneCore.isValid(entry[1]))) {
+            pendingTunes.set(entry[0], entry[1]);
           }
         });
       }
@@ -188,17 +200,24 @@
     return Array.isArray(list) && list.every((id) => typeof id === 'string' && id);
   }
 
+  function validTunes(tunes) {
+    return Boolean(tunes) && typeof tunes === 'object' && !Array.isArray(tunes)
+      && Object.values(tunes).every(window.TuneCore.isValid);
+  }
+
   // Throws for anything other than a save this version fully understands.
   function parseSave(save) {
     const valid = save && typeof save === 'object' && !Array.isArray(save) && save.version === 1 &&
       validIds(save.favorites) && (save.top === undefined || validIds(save.top)) &&
-      (save.strings === undefined || (Array.isArray(save.strings) && save.strings.every(window.StringsCore.isValid)));
+      (save.strings === undefined || (Array.isArray(save.strings) && save.strings.every(window.StringsCore.isValid))) &&
+      (save.tunes === undefined || validTunes(save.tunes));
     if (!valid) throw new SaveError(-1, 'unsupported_save');
-    const { version, favorites, top, strings, ...rest } = save;
+    const { version, favorites, top, strings, tunes, ...rest } = save;
     return {
       favorites: Array.from(new Set(favorites)),
       top: Array.from(new Set(top || [])),
       strings: strings || [],
+      tunes: new Map(Object.entries(tunes || {})),
       extras: rest,
     };
   }
@@ -209,7 +228,7 @@
       return parseSave(body && body.data && body.data.data);
     } catch (error) {
       // Only this exact answer means "no save yet". Any other failure means we don't know.
-      if (error.status === 404 && error.code === 'save_not_found') return { favorites: [], top: [], strings: [], extras: {} };
+      if (error.status === 404 && error.code === 'save_not_found') return { favorites: [], top: [], strings: [], tunes: new Map(), extras: {} };
       throw error;
     }
   }
@@ -232,9 +251,18 @@
     return next;
   }
 
+  function applyTuneChanges(tunes, changes) {
+    const next = new Map(tunes);
+    changes.forEach((tune, id) => {
+      if (tune) next.set(id, tune);
+      else next.delete(id);
+    });
+    return next;
+  }
+
   const sameList = (a, b) => a.length === b.length && a.every((id, i) => id === b[i]);
 
-  function savePayload(favorites, top, strings) {
+  function savePayload(favorites, top, strings, tunes) {
     return JSON.stringify({
       data: {
         ...extras,
@@ -242,6 +270,7 @@
         favorites,
         ...(top.length ? { top } : {}),
         ...(strings.length ? { strings } : {}),
+        ...(tunes.size ? { tunes: Object.fromEntries(tunes) } : {}),
       },
     });
   }
@@ -283,6 +312,7 @@
     cloud = save.favorites;
     cloudTop = save.top;
     cloudStrings = save.strings;
+    cloudTunes = save.tunes;
     extras = save.extras;
     lastReadAt = Date.now();
     emit();
@@ -295,13 +325,16 @@
     const writing = new Map(pending);
     const writingTop = pendingTop;
     const writingStrings = new Map(pendingStrings);
+    const writingTunes = new Map(pendingTunes);
     const next = applyChanges(cloud, writing);
     // The newest arrangement wins, minus any sounds that are no longer favorites.
     const nextTop = (writingTop || cloudTop).filter((id) => next.includes(id));
     const nextStrings = applyStringChanges(cloudStrings, writingStrings);
+    const nextTunes = applyTuneChanges(cloudTunes, writingTunes);
     if (!sameList(next, cloud) || !sameList(nextTop, cloudTop)
-      || JSON.stringify(nextStrings) !== JSON.stringify(cloudStrings)) {
-      const payload = savePayload(next, nextTop, nextStrings);
+      || JSON.stringify(nextStrings) !== JSON.stringify(cloudStrings)
+      || JSON.stringify([...nextTunes]) !== JSON.stringify([...cloudTunes])) {
+      const payload = savePayload(next, nextTop, nextStrings, nextTunes);
       if (payloadTooLarge(payload)) {
         throw new SaveError(413, 'save_too_large');
       }
@@ -311,6 +344,7 @@
       cloud = next;
       cloudTop = nextTop;
       cloudStrings = nextStrings;
+      cloudTunes = nextTunes;
     }
 
     // Forget only what was written. A newer click on the same sound stays pending.
@@ -320,6 +354,9 @@
     if (pendingTop === writingTop) pendingTop = null;
     writingStrings.forEach((string, id) => {
       if (pendingStrings.get(id) === string) pendingStrings.delete(id);
+    });
+    writingTunes.forEach((tune, id) => {
+      if (pendingTunes.get(id) === tune) pendingTunes.delete(id);
     });
     persist();
     succeed();
@@ -443,7 +480,9 @@
     extras = {};
     cloudTop = [];
     cloudStrings = [];
+    cloudTunes = new Map();
     pendingStrings.clear();
+    pendingTunes.clear();
     pendingTop = null;
     status = 'ok';
     attempts = 0;
@@ -476,6 +515,15 @@
   function isFavorite(id) {
     if (pending.has(id)) return pending.get(id) === 'add';
     return cloud ? cloud.includes(id) : false;
+  }
+
+  // A save over the API's limit would fail and take favorites down with it, so anything that
+  // can grow the save checks this first.
+  function fits(stringChanges, tuneChanges) {
+    const favorites = applyChanges(cloud || [], pending);
+    const top = (pendingTop || cloudTop).filter((id) => favorites.includes(id));
+    return !payloadTooLarge(savePayload(favorites, top, applyStringChanges(cloudStrings, stringChanges),
+      applyTuneChanges(cloudTunes, tuneChanges)));
   }
 
   window.SoundFavorites = {
@@ -512,6 +560,22 @@
     getStatus: () => status,
     hasUnsaved: hasChanges,
     hasUnsavedStrings: () => pendingStrings.size > 0,
+    hasUnsavedTunes: () => pendingTunes.size > 0,
+
+    // A sound's speed and pitch, or null if it plays normally.
+    tune(id) {
+      if (pendingTunes.has(id)) return pendingTunes.get(id);
+      return cloudTunes.get(id) || null;
+    },
+
+    // Saves a sound's speed and pitch. Null goes back to normal.
+    setTune(id, tune) {
+      if (!accountId) return;
+      pendingTunes.set(id, tune);
+      afterChange();
+    },
+
+    canSaveTune: (id, tune) => fits(pendingStrings, new Map(pendingTunes).set(id, tune)),
 
     // Every string in the order they were made, including any not saved yet.
     strings: () => applyStringChanges(cloudStrings, pendingStrings),
@@ -529,14 +593,7 @@
       afterChange();
     },
 
-    // Whether a string still fits. A save over the API's limit would fail and take favorites
-    // down with it, so the editor checks this before saving anything.
-    canSaveString(string) {
-      const changes = new Map(pendingStrings).set(string.id, string);
-      const favorites = applyChanges(cloud || [], pending);
-      const top = (pendingTop || cloudTop).filter((id) => favorites.includes(id));
-      return !payloadTooLarge(savePayload(favorites, top, applyStringChanges(cloudStrings, changes)));
-    },
+    canSaveString: (string) => fits(new Map(pendingStrings).set(string.id, string), pendingTunes),
 
     // Called when the visitor returns, or the network does. Honors any rate-limit wait.
     resume() {

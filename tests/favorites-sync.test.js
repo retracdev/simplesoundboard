@@ -10,6 +10,7 @@ const vm = require('node:vm');
 
 const SOURCE = fs.readFileSync(path.join(__dirname, '..', 'js', 'favorites.js'), 'utf8');
 const CORE = fs.readFileSync(path.join(__dirname, '..', 'js', 'strings-core.js'), 'utf8');
+const TUNE_CORE = fs.readFileSync(path.join(__dirname, '..', 'js', 'tune-core.js'), 'utf8');
 const SAVE_URL = 'https://space-api.retrac-space.workers.dev/v1/games/soundboard/saves/0';
 const SESSION_URL = 'https://space-api.retrac-space.workers.dev/v1/session';
 const settle = async () => {
@@ -163,6 +164,7 @@ function createWorld(options = {}) {
       timers.delete(id);
     },
   });
+  vm.runInContext(TUNE_CORE, context);
   vm.runInContext(CORE, context);
   vm.runInContext(SOURCE, context);
   world.favorites = window.SoundFavorites;
@@ -953,4 +955,84 @@ test('signing out forgets strings on screen', async () => {
   const world = await signedIn({ saves });
   world.favorites.setAccount(null);
   assert.deepEqual(plain(world.favorites.strings()), []);
+});
+
+test('a sound\'s speed and pitch save with favorites, and going back to normal removes them', async () => {
+  const saves = new Map([['alice', { version: 1, favorites: ['bruh'], theme: 'dark' }]]);
+  const world = await signedIn({ saves });
+  assert.equal(world.favorites.tune('rizz'), null);
+
+  world.favorites.setTune('rizz', { speed: 1.25, pitch: 1.5 });
+  assert.deepEqual(plain(world.favorites.tune('rizz')), { speed: 1.25, pitch: 1.5 }, 'at once, before saving');
+  assert.equal(world.favorites.hasUnsavedTunes(), true);
+  await world.advance(700);
+  assert.deepEqual(saves.get('alice'), { theme: 'dark', version: 1, favorites: ['bruh'], tunes: { rizz: { speed: 1.25, pitch: 1.5 } } });
+  assert.equal(world.favorites.hasUnsavedTunes(), false);
+
+  world.favorites.setTune('rizz', null);
+  assert.equal(world.favorites.tune('rizz'), null);
+  await world.advance(700);
+  assert.deepEqual(saves.get('alice'), { theme: 'dark', version: 1, favorites: ['bruh'] }, 'no empty field left behind');
+});
+
+test('another device\'s speed and pitch load, and saving something else keeps them', async () => {
+  const saves = new Map([['alice', { version: 1, favorites: [], tunes: { bruh: { speed: 2 } } }]]);
+  const world = await signedIn({ saves });
+  assert.deepEqual(plain(world.favorites.tune('bruh')), { speed: 2 });
+  assert.equal(world.writes().length, 0, 'loading never writes');
+  world.favorites.toggle('rizz');
+  await world.advance(700);
+  assert.deepEqual(saves.get('alice'), { version: 1, favorites: ['rizz'], tunes: { bruh: { speed: 2 } } });
+});
+
+test('changing a sound merges with what another device saved for a different sound', async () => {
+  const saves = new Map([['alice', { version: 1, favorites: [] }]]);
+  const world = await signedIn({ saves });
+  saves.set('alice', { version: 1, favorites: [], tunes: { bruh: { speed: 2 } } });
+  world.favorites.setTune('rizz', { speed: 0.5 });
+  await world.advance(700);
+  assert.deepEqual(saves.get('alice').tunes, { bruh: { speed: 2 }, rizz: { speed: 0.5 } });
+});
+
+test('an unsaved speed survives a refresh and only goes to its own account', async () => {
+  const storage = new Map();
+  const saves = new Map([['alice', { version: 1, favorites: [] }]]);
+  const first = await signedIn({ saves, storage });
+  first.favorites.setTune('bruh', { speed: 3 });
+  assert.ok([...storage.values()].some((value) => value.includes('"speed":3')));
+
+  const second = await signedIn({ saves, storage });
+  assert.deepEqual(plain(second.favorites.tune('bruh')), { speed: 3 });
+  await second.advance(700);
+  assert.deepEqual(saves.get('alice').tunes, { bruh: { speed: 3 } });
+});
+
+test('a save with an impossible speed is left alone rather than overwritten', async () => {
+  const save = { version: 1, favorites: ['bruh'], tunes: { bruh: { speed: 90 } } };
+  const saves = new Map([['alice', save]]);
+  const world = await signedIn({ saves });
+  assert.equal(world.favorites.isLoaded(), false);
+  assert.equal(world.favorites.getStatus(), 'blocked');
+  world.favorites.toggle('rizz');
+  await world.advance(700);
+  assert.equal(world.writes().length, 0);
+});
+
+test('speed and pitch count toward the save limit, for strings too', async () => {
+  const saves = new Map([['alice', { version: 1, favorites: Array.from({ length: 2900 }, (_, i) => 'favorite-sound-' + i) }]]);
+  const world = await signedIn({ saves });
+  const big = Array.from({ length: 200 }, (_, i) => ['some-long-sound-id-' + i, { speed: 1.25, pitch: 1.5 }]);
+  assert.equal(world.favorites.canSaveTune('bruh', null), true);
+  let refused = false;
+  for (const [id, tune] of big) {
+    if (!world.favorites.canSaveTune(id, tune)) {
+      refused = true;
+      break;
+    }
+    world.favorites.setTune(id, tune);
+  }
+  assert.equal(refused, true, 'the limit is reached eventually');
+  assert.equal(world.favorites.canSaveString({ id: 's', name: 'S', clips: [{ sound: 'a', at: 0, from: 0, length: 1, lane: 0 }] }), false,
+    'a string can no longer fit either');
+  assert.equal(world.favorites.canSaveTune('some-long-sound-id-0', null), true, 'going back to normal always fits');
 });

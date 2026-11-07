@@ -16,6 +16,8 @@
   const stringsCore = window.StringsCore;
   const stringsAccess = window.SoundStringsAccess;
   const stringEditor = window.StringEditor;
+  const tuneCore = window.TuneCore;
+  const tuneEditor = window.TuneEditor;
 
   const PRESS_MS = 70; // How fast a key sinks when hit.
   const MIN_RISE_SECONDS = 0.22; // Very short sounds still get a visible pop back up.
@@ -73,6 +75,7 @@
   const stringKeys = new Map();
   let stringsGridEl = null;
   const loops = new Set(); // ids of the sounds looping right now
+  let tunesAllowed = false; // Whether this account is in the beta, so its speed and pitch apply.
   const filter = { category: 'all', query: '' };
 
   // ---------- DOM helpers ----------
@@ -167,6 +170,14 @@
     }).join('');
   }
 
+  // A small card in a key's footer, in place of the waveform. Which ones show is up to paintBadges.
+  function buildBadge(className, iconId, label) {
+    const badge = el('span', 'key__badge ' + className);
+    const text = el('span', '', label);
+    badge.append(icon(iconId), text);
+    return { badge, text };
+  }
+
   function buildKeyView(sound) {
     const isString = Boolean(sound.clips);
     const button = el('button', 'key');
@@ -179,6 +190,7 @@
     const foot = el('span', 'key__foot');
     const wave = el('span', 'key__wave');
     const time = el('span', 'key__time', '–');
+    const badges = {};
 
     const svgNS = 'http://www.w3.org/2000/svg';
     const paths = ['wave-base', 'wave-lit'].map((className) => {
@@ -194,9 +206,10 @@
     });
 
     if (!isString) {
-      const loopBadge = el('span', 'key__loop');
-      loopBadge.append(icon('icon-loop'), el('span', '', 'Looping'));
-      foot.append(loopBadge);
+      foot.append(buildBadge('key__loop', 'icon-loop', 'Looping').badge);
+      badges.speed = buildBadge('key__speed', 'icon-speed', '');
+      badges.pitch = buildBadge('key__pitch', 'icon-pitch', '');
+      foot.append(badges.speed.badge, badges.pitch.badge);
     }
     foot.append(wave, time);
     face.append(el('span', 'key__name', sound.name));
@@ -232,7 +245,16 @@
     slot.style.setProperty('--key-side', category.side);
     slot.append(button, heartLayer);
 
-    return { slotEl: slot, el: button, heartEl: heart, timeEl: time, baseEl: paths[0], litEl: paths[1] };
+    return {
+      slotEl: slot,
+      el: button,
+      heartEl: heart,
+      timeEl: time,
+      baseEl: paths[0],
+      litEl: paths[1],
+      speedEl: badges.speed.text,
+      pitchEl: badges.pitch.text,
+    };
   }
 
   function buildKey(sound) {
@@ -257,7 +279,7 @@
       const value = original.slotEl.style.getPropertyValue(name);
       if (value) view.slotEl.style.setProperty(name, value);
     });
-    paintLoop(view, sound);
+    paintBadges(view, sound);
     key.views.push(view);
     favoritesRowViews.set(sound.id, view);
     return view;
@@ -418,11 +440,13 @@
     const path = waveformPath(engine.peaks(buffer, WAVE_BARS));
     key.duration = buffer.duration;
     key.path = path;
+    const tune = tuneFor(sound.id);
+    if (tune) engine.prepare(sound, tune);
     key.views.forEach((view) => {
       view.baseEl.setAttribute('d', path);
       view.litEl.setAttribute('d', path);
     });
-    if (!live.has(sound.id)) setKeyTime(key, formatSeconds(buffer.duration));
+    if (!live.has(sound.id)) setKeyTime(key, restingTime(sound.id, key));
   }
 
   // Fetches every sound, one at a time, so each key can show its waveform and length
@@ -672,6 +696,7 @@
       items.push(loops.has(id)
         ? { icon: 'icon-stop', label: 'Stop loop sound', onSelect: () => stopLoop(id) }
         : { icon: 'icon-loop', label: 'Loop sound', onSelect: () => loopSound(id, card) });
+      items.push({ icon: 'icon-speed', label: 'Edit speed and pitch', onSelect: () => editTune(id, card) });
     }
     return items;
   }
@@ -758,14 +783,37 @@
   // A loop is its own voice, so pressing the sound's key plays it over the loop.
   const loopVoice = (id) => 'loop:' + id;
 
-  function paintLoop(view, sound) {
+  // Everything a sound's key says about how it's playing, which only ever applies to single sounds.
+  function paintBadges(view, sound) {
     const looping = loops.has(sound.id);
-    view.slotEl.classList.toggle('is-looping', looping);
-    view.el.setAttribute('aria-label', 'Start ' + sound.name + (looping ? ', looping' : ''));
+    const tune = tuneFor(sound.id);
+    const showSpeed = Boolean(tune && tune.speed !== 1);
+    const showPitch = Boolean(tune && tune.pitch !== undefined);
+    const { classList } = view.slotEl;
+    classList.toggle('is-looping', looping);
+    classList.toggle('has-speed', showSpeed);
+    classList.toggle('has-pitch', showPitch);
+    // Fewer cards can be bigger, and the styles need to know how many have to share the footer.
+    view.slotEl.dataset.badges = Number(looping) + Number(showSpeed) + Number(showPitch);
+    if (showSpeed) view.speedEl.textContent = 'Speed: ' + tuneCore.formatSpeed(tune.speed);
+    if (showPitch) view.pitchEl.textContent = 'Pitch: ' + tuneCore.formatPitch(tune.pitch);
+    view.el.setAttribute('aria-label', 'Start ' + sound.name + (looping ? ', looping' : '')
+      + (showSpeed ? ', speed ' + tuneCore.formatSpeed(tune.speed) : '')
+      + (showPitch ? ', pitch ' + tuneCore.formatPitch(tune.pitch) : ''));
   }
 
   function paintLoops(sound) {
-    keys.get(sound.id).views.forEach((view) => paintLoop(view, sound));
+    keys.get(sound.id).views.forEach((view) => paintBadges(view, sound));
+  }
+
+  function playLoop(sound) {
+    engine.start(sound, { id: loopVoice(sound.id), loop: true, tune: tuneFor(sound.id) }).then(() => {
+      if (!loops.has(sound.id)) engine.stop(loopVoice(sound.id)); // Stopped while still loading.
+    }).catch((error) => {
+      console.warn('Could not loop "' + sound.name + '"', error);
+      if (loops.has(sound.id)) removeLoop(sound.id);
+      flagProblem(keys.get(sound.id), 'Couldn’t load “' + sound.name + '”. Try looping it again.');
+    });
   }
 
   function startLoop(sound) {
@@ -779,13 +827,7 @@
     loops.add(sound.id);
     paintLoops(sound);
     setArmed(true);
-    engine.start(sound, { id: loopVoice(sound.id), loop: true }).then(() => {
-      if (!loops.has(sound.id)) engine.stop(loopVoice(sound.id)); // Stopped while still loading.
-    }).catch((error) => {
-      console.warn('Could not loop "' + sound.name + '"', error);
-      if (loops.has(sound.id)) removeLoop(sound.id);
-      flagProblem(key, 'Couldn’t load “' + sound.name + '”. Try looping it again.');
-    });
+    playLoop(sound);
   }
 
   function loopSound(id, trigger) {
@@ -804,6 +846,91 @@
     if (!loops.has(id)) return;
     engine.stop(loopVoice(id));
     removeLoop(id);
+  }
+
+  // ---------- Speed and pitch ----------
+
+  const TUNE_PREVIEW_VOICE = 'tune-preview';
+
+  // Saved settings stop applying if someone leaves the beta, since they'd have no way to undo them.
+  function tuneFor(id) {
+    return tunesAllowed ? favorites.tune(id) : null;
+  }
+
+  function tuneSpeed(id) {
+    const tune = tuneFor(id);
+    return tune ? tune.speed : 1;
+  }
+
+  // What a key shows while it isn't playing: how long the sound takes at its speed.
+  function restingTime(id, key) {
+    return key.duration === null ? '–' : formatSeconds(key.duration / tuneSpeed(id));
+  }
+
+  // Brings the keys up to date with the tunes, whichever device changed them.
+  function renderTunes() {
+    sounds.forEach((sound) => {
+      const key = keys.get(sound.id);
+      const tune = tuneFor(sound.id);
+      const signature = tune ? JSON.stringify(tune) : '';
+      if ((key.tune || '') === signature) return;
+      key.tune = signature;
+      paintLoops(sound);
+      if (!live.has(sound.id)) {
+        key.lastLabel = '';
+        setKeyTime(key, restingTime(sound.id, key));
+      }
+      if (engine.supported && tune) engine.prepare(sound, tune);
+      if (engine.supported && loops.has(sound.id)) playLoop(sound);
+    });
+  }
+
+  async function refreshTuneAccess(state) {
+    const allowed = state.status === 'authenticated' && await stringsAccess.hasAccess(state.username);
+    if (account.getState() !== state) return; // A newer answer about the account has come in.
+    tunesAllowed = allowed;
+    renderTunes();
+  }
+
+  function editTune(id, trigger) {
+    // Browsers only allow audio to start from a gesture, and the access check takes a moment.
+    if (engine.supported) engine.unlock();
+    stringsAccess.requireTune(trigger, (username) => {
+      tunesAllowed = true;
+      renderTunes();
+      const sound = soundById.get(id);
+      tuneEditor.open({
+        name: sound.name,
+        tune: tuneFor(id),
+        trigger,
+        // Says what went wrong, or nothing if it saved.
+        onChange(tune) {
+          const state = account.getState();
+          if (state.status !== 'authenticated' || state.username !== username) {
+            return 'Sign in again as ' + username + ' to save this.';
+          }
+          if (!favorites.canSaveTune(id, tune)) {
+            return 'You’re out of room in your account. Delete a string to make some.';
+          }
+          favorites.setTune(id, tune);
+          return '';
+        },
+        onPreview(tune) {
+          if (!engine.supported) {
+            tuneEditor.setMessage('This browser can’t make sounds, sorry.');
+            return;
+          }
+          engine.unlock();
+          engine.start(sound, { id: TUNE_PREVIEW_VOICE, tune }).then(() => {
+            if (!tuneEditor.isOpen()) engine.stop(TUNE_PREVIEW_VOICE); // Closed while it got ready.
+          }).catch((error) => {
+            console.warn('Could not preview "' + sound.name + '"', error);
+            tuneEditor.setMessage('Couldn’t load “' + sound.name + '”. Try again.');
+          });
+        },
+        onClose: () => engine.stop(TUNE_PREVIEW_VOICE),
+      });
+    });
   }
 
   // ---------- Strings ----------
@@ -983,6 +1110,7 @@
   emptySignInEl.addEventListener('click', signInFromTab);
 
   function renderFavorites() {
+    renderTunes();
     keys.forEach((key, id) => {
       const favorite = String(favorites.isFavorite(id));
       key.views.forEach((view) => {
@@ -998,7 +1126,7 @@
       favoritesChipEl().focus({ preventScroll: true });
     }
 
-    const saved = favorites.hasUnsavedStrings() ? 'strings' : 'favorites';
+    const saved = favorites.hasUnsavedStrings() ? 'strings' : favorites.hasUnsavedTunes() ? 'sound settings' : 'favorites';
     const message = {
       retrying: favorites.hasUnsaved()
         ? 'Your ' + saved + ' haven’t saved yet. We’ll keep trying.'
@@ -1068,6 +1196,7 @@
     if (signedIn || state.status === 'guest' || state.status === 'incomplete') {
       favorites.setAccount(signedIn ? state.username : null);
     }
+    refreshTuneAccess(state);
     // The Favorites and Strings tabs stay put and explain the account when nobody's signed in.
     applyFilter();
     if (signedIn) {
@@ -1135,7 +1264,7 @@
     live.delete(id);
     setKeyMotion(key, 0, 0);
     key.lastLabel = '';
-    setKeyTime(key, key.duration === null ? '–' : formatSeconds(key.duration));
+    setKeyTime(key, restingTime(id, key));
     if (spring) {
       key.views.forEach((view) => {
         view.slotEl.classList.remove('is-pop');
@@ -1213,12 +1342,12 @@
 
     const starting = sound.clips
       ? engine.startClips(sound.id, sound.clips, (id) => soundById.get(id))
-      : engine.start(sound);
+      : engine.start(sound, { tune: tuneFor(sound.id) });
     starting.then((voice) => {
       const current = live.get(sound.id);
       if (current === run && run.releasedAt === null) {
         run.voice = voice;
-        if (key.duration === null) key.duration = voice.duration;
+        if (key.duration === null) key.duration = voice.duration * tuneSpeed(sound.id);
       } else if (!current || current.releasedAt !== null) {
         engine.stop(sound.id); // Stop all was hit while this sound was still loading.
       }
