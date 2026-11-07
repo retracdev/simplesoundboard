@@ -1507,6 +1507,7 @@ kbd { font: inherit; }
 }
 .string-editor__slider input { width: 100px; accent-color: #ab8fff; }
 .string-editor__slider input:disabled { opacity: .4; }
+.string-editor__speed-value { min-width: 38px; color: var(--fg); font-variant-numeric: tabular-nums; }
 .string-editor__zoom { margin-left: auto; }
 
 /* The timeline */

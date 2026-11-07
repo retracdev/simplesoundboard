@@ -35,6 +35,7 @@
   const RULER_STEPS = [0.1, 0.25, 0.5, 1, 2, 5, 10, 15, 30, 60];
   const RULER_MIN_GAP_PX = 64;
   const DELETE_CONFIRM_MS = 3000;
+  const SPEED_SNAP = 0.04; // Close to normal speed counts as normal speed.
   const PREVIEW_VOICE = 'string-editor';
 
   const soundById = new Map(sounds.map((sound) => [sound.id, sound]));
@@ -169,8 +170,12 @@
     return { wrap, input };
   }
   const gainControl = slider('Clip volume', 0, core.MAX_GAIN * 100, 100, 'string-editor__gain');
+  const speedControl = slider('Speed', 0, 100, 50, 'string-editor__speed');
+  const speedValueEl = el('span', 'string-editor__speed-value', '1x');
+  speedControl.wrap.appendChild(speedValueEl);
+  speedControl.wrap.title = 'Faster also sounds higher, and slower sounds deeper. Double-click to reset.';
   const zoomControl = slider('Zoom', 0, 100, 50, 'string-editor__zoom');
-  toolbar.append(playEl, clockEl, splitEl, duplicateEl, removeEl, gainControl.wrap, undoEl, redoEl, zoomControl.wrap);
+  toolbar.append(playEl, clockEl, splitEl, duplicateEl, removeEl, gainControl.wrap, speedControl.wrap, undoEl, redoEl, zoomControl.wrap);
 
   const timeline = el('div', 'string-editor__timeline');
   timeline.tabIndex = -1;
@@ -208,6 +213,15 @@
 
   const zoomToScale = (value) => MIN_ZOOM * Math.pow(MAX_ZOOM / MIN_ZOOM, value / 100);
   const scaleToZoom = (scale) => Math.log(scale / MIN_ZOOM) / Math.log(MAX_ZOOM / MIN_ZOOM) * 100;
+
+  // The slider is even in ratios, so its middle is normal speed and each end is the same
+  // multiple away from it.
+  function sliderToSpeed(value) {
+    const speed = core.MIN_SPEED * Math.pow(core.MAX_SPEED / core.MIN_SPEED, value / 100);
+    return Math.abs(speed - 1) < SPEED_SNAP ? 1 : Math.round(speed * 100) / 100;
+  }
+  const speedToSlider = (speed) => Math.log(speed / core.MIN_SPEED) / Math.log(core.MAX_SPEED / core.MIN_SPEED) * 100;
+  const formatSpeed = (speed) => Math.round(speed * 100) / 100 + 'x';
 
   const selectedClip = () => session && session.clips.find((clip) => clip.key === session.selected);
   const snapshot = () => JSON.stringify(session.clips.map(({ key, ...clip }) => clip));
@@ -310,7 +324,10 @@
     node.style.width = clip.length * session.scale + 'px';
     node.classList.toggle('is-selected', clip.key === session.selected);
     const item = itemFor(clip.sound);
-    node.setAttribute('aria-label', (item ? item.name : clip.sound) + ', track ' + (clip.lane + 1)
+    const speed = core.clipSpeed(clip);
+    node.querySelector('.string-clip__name').textContent = (item ? item.name : clip.sound)
+      + (speed === 1 ? '' : ' · ' + formatSpeed(speed));
+    node.setAttribute('aria-label', (item ? item.name : clip.sound) + (speed === 1 ? '' : ' at ' + formatSpeed(speed) + ' speed') + ', track ' + (clip.lane + 1)
       + ', starts at ' + formatClock(clip.at) + ', lasts ' + formatClock(clip.length));
 
     const wave = wavePath(clip.sound);
@@ -318,7 +335,7 @@
     if (wave && length) {
       const svg = node.querySelector('svg');
       const unit = wave.width / length;
-      svg.setAttribute('viewBox', clip.from * unit + ' 0 ' + clip.length * unit + ' 24');
+      svg.setAttribute('viewBox', clip.from * unit + ' 0 ' + clip.length * core.clipSpeed(clip) * unit + ' 24');
       svg.firstChild.setAttribute('d', wave.path);
     }
     return node;
@@ -383,6 +400,9 @@
     removeEl.disabled = !clip;
     gainControl.input.disabled = !clip;
     if (clip) gainControl.input.value = Math.round(core.clipGain(clip) * 100);
+    speedControl.input.disabled = !clip;
+    speedControl.input.value = speedToSlider(clip ? core.clipSpeed(clip) : 1);
+    speedValueEl.textContent = formatSpeed(clip ? core.clipSpeed(clip) : 1);
     undoEl.disabled = !session.undo.length;
     redoEl.disabled = !session.redo.length;
     playEl.textContent = session.playing ? 'Stop' : 'Play';
@@ -543,7 +563,7 @@
   function trimToPlayhead(clip, side) {
     const changes = side === 'start'
       ? core.trimStart(clip, session.playhead, session.clips)
-      : core.trimEnd(clip, session.playhead, session.clips, soundLengths.get(clip.sound) || clip.from + clip.length);
+      : core.trimEnd(clip, session.playhead, session.clips, soundLengths.get(clip.sound) || core.sourceEnd(clip));
     stopPlaying();
     remember();
     Object.assign(clip, changes);
@@ -658,7 +678,7 @@
     } else {
       const time = event && event.altKey ? pointerTime
         : core.snapTime(pointerTime, core.snapTargets(session.clips, clip, session.playhead), SNAP_PX / session.scale);
-      Object.assign(clip, core.trimEnd(clip, time, session.clips, soundLengths.get(clip.sound) || clip.from + clip.length));
+      Object.assign(clip, core.trimEnd(clip, time, session.clips, soundLengths.get(clip.sound) || core.sourceEnd(clip)));
     }
     render();
   }
@@ -1069,6 +1089,34 @@
     }
     gainBefore = null;
     renderToolbar();
+  });
+
+  let speedBefore = null;
+
+  function setSelectedSpeed(speed) {
+    const clip = selectedClip();
+    if (!clip) return;
+    if (speedBefore === null) speedBefore = snapshot();
+    stopPlaying();
+    Object.assign(clip, core.changeSpeed(clip, speed, session.clips));
+    if (speed === 1) delete clip.speed;
+    render();
+  }
+
+  function finishSpeedChange() {
+    if (speedBefore !== null && speedBefore !== snapshot()) {
+      session.undo.push(speedBefore);
+      session.redo = [];
+    }
+    speedBefore = null;
+    renderToolbar();
+  }
+
+  speedControl.input.addEventListener('input', () => setSelectedSpeed(sliderToSpeed(Number(speedControl.input.value))));
+  speedControl.input.addEventListener('change', finishSpeedChange);
+  speedControl.input.addEventListener('dblclick', () => {
+    setSelectedSpeed(1);
+    finishSpeedChange();
   });
 
   // Keeps whatever's at the left edge of the timeline in place while zooming.
