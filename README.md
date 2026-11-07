@@ -45,7 +45,7 @@ Signed-in visitors can favorite sounds. Favorites are stored in their retrac.spa
 
 ## Requesting a sound
 
-The Request a Sound Effect button opens a large dialog with Tally form `yXN0Xx`. Visitors sign in with retrac.space first; their username is passed as the URL-encoded `retracspaceusername` hidden field. Tally only loads when the dialog is open. A successful `Tally.FormSubmitted` message from the current Tally iframe replaces the form with a checkmark, a submitted confirmation, and Dismiss and Submit again buttons. Submitting again creates a fresh form.
+The Request a Sound Effect button opens a large dialog with Tally form `yXN0Xx`. Visitors sign in with retrac.space first, using the same compact sign-in dialog as favorites with wording for sound requests. After signing in, the request form opens automatically; their username is passed as the URL-encoded `retracspaceusername` hidden field. Tally only loads when the dialog is open. A successful `Tally.FormSubmitted` message from the current Tally iframe replaces the form with a checkmark, a submitted confirmation, and Dismiss and Submit again buttons. Submitting again creates a fresh form.
 
 ## Starting many sounds at once
 

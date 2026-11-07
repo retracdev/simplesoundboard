@@ -52,12 +52,22 @@
   let away = false;
   let trigger = null;
   let onCancel = null;
+  let onSuccess = null;
+  let purpose = 'favorites';
   let flow = 0;
   let returnTimer = null;
 
   function render(next) {
     stage = next;
-    const screen = screens[next];
+    const screen = { ...screens[next] };
+    if (purpose === 'request') {
+      if (next === 'confirm') {
+        screen.title = 'Request a sound effect';
+        screen.description = 'Sign in with your retrac.space account to send a sound request. We’ll open it in a new tab, then pick up right here when you’re back.';
+      } else if (next === 'incomplete') {
+        screen.description = 'Choose a username at retrac.space to send your sound request, then come back here.';
+      }
+    }
     const waiting = next === 'waiting' || next === 'checking';
     dialog.innerHTML = `<section class="signin-panel">
       <div class="signin-brand"><img src="assets/alt-favicon.png" alt=""><span>retrac.space</span></div>
@@ -88,6 +98,7 @@
   function cancel() {
     const notify = onCancel;
     onCancel = null;
+    onSuccess = null;
     close();
     if (notify) notify();
   }
@@ -157,7 +168,7 @@
   window.SoundSignIn = {
     isOpen: () => dialog.open,
 
-    // options: { stage, trigger, onCancel }
+    // options: { stage, trigger, onCancel, onSuccess, purpose }
     open(options) {
       if (dialog.open) return;
       flow++;
@@ -165,6 +176,8 @@
       away = false;
       trigger = options.trigger || null;
       onCancel = options.onCancel || null;
+      onSuccess = options.onSuccess || null;
+      purpose = options.purpose || 'favorites';
       render(screens[options.stage] ? options.stage : 'confirm');
       dialog.showModal();
       dialog.querySelector('button').focus({ preventScroll: true });
@@ -172,8 +185,11 @@
 
     // Called once the visitor is signed in. The dialog's job is done.
     finish() {
+      const notify = onSuccess;
+      onSuccess = null;
       onCancel = null;
       close();
+      if (notify) notify();
     },
   };
 })();
