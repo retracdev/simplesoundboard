@@ -755,12 +755,16 @@
   };
 
   // What a string's key needs to work like a sound's key.
-  function stringSound(string) {
-    const clips = string.clips.filter((clip) => clipCategory(clip.sound));
+  function stringSound(string, lookup) {
+    // What actually plays, with any strings inside this one opened up.
+    const clips = stringsCore.expand(string.clips, lookup).filter((clip) => clipCategory(clip.sound));
     const colors = stringsCore.colors(clips, clipCategory);
-    // Each sound once, in the order you'd hear them.
-    const names = [...clips].sort((a, b) => a.at - b.at || a.lane - b.lane)
-      .map((clip) => soundById.get(clip.sound).name);
+    // Each thing in it once, in the order you'd hear them. A string inside counts as one thing.
+    const names = [...string.clips].sort((a, b) => a.at - b.at || a.lane - b.lane).map((clip) => {
+      const nested = stringsCore.nestedId(clip.sound);
+      const item = nested === null ? clipCategory(clip.sound) && soundById.get(clip.sound) : lookup(nested);
+      return item && item.name;
+    }).filter(Boolean);
     return {
       id: 'string:' + string.id,
       name: string.name,
@@ -771,6 +775,11 @@
       fill: stringsCore.gradient(colors.map((color) => color.color)),
       sideFill: stringsCore.gradient(colors.map((color) => color.side)),
     };
+  }
+
+  function stringLookup(strings) {
+    const byId = new Map(strings.map((string) => [string.id, string]));
+    return (id) => byId.get(id);
   }
 
   function removeStringKey(id) {
@@ -815,20 +824,22 @@
   // playing isn't interrupted by a save of something else.
   function renderStringKeys() {
     const strings = favorites.strings().slice().reverse();
+    const lookup = stringLookup(strings);
     const wanted = new Set(strings.map((string) => 'string:' + string.id));
     Array.from(stringKeys.keys()).forEach((id) => {
       if (!wanted.has(id)) removeStringKey(id);
     });
     const slots = strings.map((string) => {
       const id = 'string:' + string.id;
-      const signature = JSON.stringify(string);
+      const sound = stringSound(string, lookup);
+      // Includes what plays, so changing a string also updates the strings that use it.
+      const signature = JSON.stringify([string, sound]);
       let entry = stringKeys.get(id);
       if (entry && entry.signature !== signature) {
         removeStringKey(id);
         entry = null;
       }
       if (!entry) {
-        const sound = stringSound(string);
         const view = buildKeyView(sound);
         entry = { string, signature, sound, view };
         stringKeys.set(id, entry);
@@ -848,6 +859,8 @@
     stringEditor.open({
       ...source,
       trigger,
+      favorites: arrangedFavorites(),
+      strings: favorites.strings(),
       // Says what went wrong, or nothing if it saved.
       onSave(string) {
         const state = account.getState();

@@ -45,8 +45,36 @@
     return sound && categoryById.get(sound.category);
   };
 
+  // Everything here is keyed by a clip's sound field, which can also name a string.
   const soundLengths = new Map(); // sound id -> seconds, once it has loaded
   const wavePaths = new Map(); // sound id -> { path, width }, drawn over the whole sound
+  const soundPeaks = new Map(); // catalog sound id -> { values, duration }
+
+  let stringsById = new Map(); // Every saved string, as of when the editor opened.
+  const lookupString = (id) => stringsById.get(id);
+  const expanded = (clips) => core.expand(clips, lookupString);
+  const stringKey = (id) => core.STRING_PREFIX + id;
+
+  // What the timeline and library need to show a sound or a string. Nothing if it's gone.
+  function itemFor(id) {
+    const nested = core.nestedId(id);
+    if (nested === null) {
+      const sound = soundFor(id);
+      if (!sound) return null;
+      const { color, side } = categoryById.get(sound.category);
+      return { id, name: sound.name, color, side, fill: null };
+    }
+    const string = lookupString(nested);
+    if (!string) return null;
+    const colors = core.colors(expanded(string.clips), categoryOf);
+    return {
+      id,
+      name: string.name,
+      color: colors[0].color,
+      side: colors[0].side,
+      fill: core.gradient(colors.map((entry) => entry.color)),
+    };
+  }
 
   function el(tag, className, text) {
     const node = document.createElement(tag);
@@ -210,23 +238,36 @@
 
   // ---------- Drawing ----------
 
-  function wavePath(soundId) {
-    if (wavePaths.has(soundId)) return wavePaths.get(soundId);
-    return null;
+  const wavePath = (soundId) => wavePaths.get(soundId) || null;
+  const waveBars = (seconds) => Math.max(20, Math.min(MAX_WAVE_BARS, Math.ceil(seconds * WAVE_BARS_PER_SECOND)));
+
+  function drawWave(soundId, values) {
+    const path = values.map((value, i) => {
+      const height = Math.max(0.5, value * 11);
+      return 'M' + (i * 2 + 1) + ' ' + (12 - height).toFixed(2) + 'V' + (12 + height).toFixed(2);
+    }).join('');
+    wavePaths.set(soundId, { path, width: values.length * 2 });
   }
 
-  // Draws the whole sound once. A trimmed clip just shows part of that drawing.
+  // Draws the whole sound or string once. A trimmed clip just shows part of that drawing.
   async function ensureLoaded(soundId) {
-    const sound = soundFor(soundId);
-    const buffer = await engine.load(sound);
+    const nested = core.nestedId(soundId);
+    if (nested !== null) {
+      const string = lookupString(nested);
+      if (!string) throw new Error('That string no longer exists');
+      const clips = expanded(string.clips).filter((clip) => soundFor(clip.sound));
+      await Promise.all(clips.map((clip) => ensureLoaded(clip.sound)));
+      const total = core.duration(clips);
+      soundLengths.set(soundId, total);
+      drawWave(soundId, core.mixPeaks(clips, (id) => soundPeaks.get(id), waveBars(total)));
+      return total;
+    }
+    const buffer = await engine.load(soundFor(soundId));
     soundLengths.set(soundId, buffer.duration);
     if (!wavePaths.has(soundId)) {
-      const bars = Math.max(20, Math.min(MAX_WAVE_BARS, Math.ceil(buffer.duration * WAVE_BARS_PER_SECOND)));
-      const path = engine.peaks(buffer, bars).map((value, i) => {
-        const height = Math.max(0.5, value * 11);
-        return 'M' + (i * 2 + 1) + ' ' + (12 - height).toFixed(2) + 'V' + (12 + height).toFixed(2);
-      }).join('');
-      wavePaths.set(soundId, { path, width: bars * 2 });
+      const values = engine.peaks(buffer, waveBars(buffer.duration));
+      soundPeaks.set(soundId, { values, duration: buffer.duration });
+      drawWave(soundId, values);
     }
     return buffer.duration;
   }
@@ -236,11 +277,11 @@
     node.tabIndex = 0;
     node.dataset.key = clip.key;
     node.setAttribute('role', 'group');
-    const sound = soundFor(clip.sound);
-    const category = categoryOf(clip.sound);
-    if (category) {
-      node.style.setProperty('--key', category.color);
-      node.style.setProperty('--key-side', category.side);
+    const item = itemFor(clip.sound);
+    if (item) {
+      node.style.setProperty('--key', item.color);
+      node.style.setProperty('--key-side', item.side);
+      if (item.fill) node.style.setProperty('--clip-fill', item.fill);
     }
     const svgNS = 'http://www.w3.org/2000/svg';
     const svg = document.createElementNS(svgNS, 'svg');
@@ -248,7 +289,7 @@
     svg.setAttribute('preserveAspectRatio', 'none');
     svg.setAttribute('aria-hidden', 'true');
     svg.appendChild(document.createElementNS(svgNS, 'path'));
-    const name = el('span', 'string-clip__name', sound ? sound.name : clip.sound);
+    const name = el('span', 'string-clip__name', item ? item.name : clip.sound);
     const start = el('span', 'string-clip__handle string-clip__handle--start');
     const finish = el('span', 'string-clip__handle string-clip__handle--end');
     start.dataset.trim = 'start';
@@ -268,8 +309,8 @@
     node.style.top = clip.lane * LANE_HEIGHT + 'px';
     node.style.width = clip.length * session.scale + 'px';
     node.classList.toggle('is-selected', clip.key === session.selected);
-    const sound = soundFor(clip.sound);
-    node.setAttribute('aria-label', (sound ? sound.name : clip.sound) + ', track ' + (clip.lane + 1)
+    const item = itemFor(clip.sound);
+    node.setAttribute('aria-label', (item ? item.name : clip.sound) + ', track ' + (clip.lane + 1)
       + ', starts at ' + formatClock(clip.at) + ', lasts ' + formatClock(clip.length));
 
     const wave = wavePath(clip.sound);
@@ -534,7 +575,7 @@
     let voice;
     const current = session;
     try {
-      voice = await engine.startClips(PREVIEW_VOICE, session.clips, soundFor, { offset: from });
+      voice = await engine.startClips(PREVIEW_VOICE, expanded(session.clips), soundFor, { offset: from });
     } catch (error) {
       console.warn('Could not play this string', error);
       if (session === current && session.playing === run) {
@@ -707,23 +748,62 @@
 
   // ---------- The library ----------
 
-  const rows = sounds.map((sound) => {
-    const category = categoryById.get(sound.category);
+  function rowIcon(id, className) {
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(svgNS, 'svg');
+    const use = document.createElementNS(svgNS, 'use');
+    use.setAttribute('href', '#' + id);
+    svg.setAttribute('class', className);
+    svg.setAttribute('aria-hidden', 'true');
+    svg.appendChild(use);
+    return svg;
+  }
+
+  // leading is what sits in front of the name.
+  function buildRow(item, leading, text) {
     const row = el('div', 'string-sound');
-    row.dataset.sound = sound.id;
-    row.style.setProperty('--key', category.color);
-    row.style.setProperty('--key-side', category.side);
-    const main = button('string-sound__main', undefined, 'Preview ' + sound.name);
-    main.append(el('span', 'string-sound__dot'), el('span', 'string-sound__name', sound.name));
-    const add = button('string-sound__add', '+', 'Add ' + sound.name + ' at the playhead');
+    row.dataset.sound = item.id;
+    row.style.setProperty('--key', item.color);
+    row.style.setProperty('--key-side', item.side);
+    const main = button('string-sound__main', undefined, 'Preview ' + item.name);
+    main.append(...leading, el('span', 'string-sound__name', item.name));
+    const add = button('string-sound__add', '+', 'Add ' + item.name + ' at the playhead');
     row.append(main, add);
-    listEl.insertBefore(row, noMatchEl);
-    return {
-      row,
-      sound,
-      text: normalize([sound.name, category.label, sound.tags || ''].join(' ')),
-    };
-  });
+    return { row, main, item, text: normalize(text) };
+  }
+
+  // A sound's row has both marks, and being a favorite decides which shows.
+  const soundRows = sounds.map((sound) => buildRow(itemFor(sound.id), [
+    el('span', 'string-sound__dot'),
+    rowIcon('icon-heart', 'string-sound__icon string-sound__heart'),
+  ], [sound.name, categoryById.get(sound.category).label, sound.tags || ''].join(' ')));
+  const soundRowById = new Map(soundRows.map((row) => [row.item.id, row]));
+  let stringRows = [];
+  let rows = [];
+
+  // Favorites first, then strings, then everything else. A string can't go inside itself, or
+  // inside anything that's already inside it, so those aren't offered.
+  function arrangeLibrary(favoriteIds, editingId) {
+    stringRows.forEach(({ row }) => row.remove());
+    const usable = Array.from(stringsById.values()).reverse().filter((string) => {
+      if (string.id === editingId || (editingId && core.uses(string, editingId, lookupString))) return false;
+      return core.duration(expanded(string.clips).filter((clip) => soundFor(clip.sound))) > 0;
+    });
+    stringRows = usable.map((string) => buildRow(itemFor(stringKey(string.id)),
+      [rowIcon('icon-string', 'string-sound__icon string-sound__nested')], string.name + ' string'));
+
+    const favorites = favoriteIds.map((id) => soundRowById.get(id)).filter(Boolean);
+    soundRows.forEach(({ row, main, item }) => {
+      row.classList.remove('is-favorite');
+      main.setAttribute('aria-label', 'Preview ' + item.name);
+    });
+    favorites.forEach(({ row, main, item }) => {
+      row.classList.add('is-favorite');
+      main.setAttribute('aria-label', 'Preview ' + item.name + ', a favorite');
+    });
+    rows = [...favorites, ...stringRows, ...soundRows.filter((row) => !favorites.includes(row))];
+    rows.forEach(({ row }) => listEl.insertBefore(row, noMatchEl));
+  }
 
   function filterLibrary() {
     const terms = normalize(searchEl.value).split(/\s+/).filter(Boolean);
@@ -743,12 +823,16 @@
     previewing = null;
   }
 
-  function preview(sound) {
+  function preview(id) {
     if (!engine.supported) return;
     engine.unlock();
     stopPreview();
-    previewing = sound.id;
-    engine.start(sound).catch(() => setMessage('Couldn’t load that sound. Try again.'));
+    previewing = id;
+    const nested = core.nestedId(id);
+    const starting = nested === null
+      ? engine.start(soundFor(id))
+      : engine.startClips(id, expanded(lookupString(nested).clips), soundFor);
+    starting.catch(() => setMessage('Couldn’t load that sound. Try again.'));
   }
 
   // Dragging a sound out of the library.
@@ -781,7 +865,7 @@
   function liftCarry() {
     carry.lifted = true;
     carry.float = el('div', 'string-sound__float', carry.sound.name);
-    carry.float.style.setProperty('--key', categoryById.get(carry.sound.category).color);
+    carry.float.style.setProperty('--key', carry.sound.color);
     dialog.appendChild(carry.float);
     dialog.classList.add('is-dragging-sound');
     ensureLoaded(carry.sound.id).catch(() => {});
@@ -820,7 +904,7 @@
     if (!row) return;
     carry = {
       row,
-      sound: soundFor(row.dataset.sound),
+      sound: itemFor(row.dataset.sound),
       pointerId: event.pointerId,
       touch: event.pointerType !== 'mouse',
       startX: event.clientX,
@@ -872,9 +956,9 @@
     if (suppressPreview) return;
     const row = event.target.closest('.string-sound');
     if (!row) return;
-    const sound = soundFor(row.dataset.sound);
-    if (event.target.closest('.string-sound__add')) addClip(sound.id, null, session.playhead);
-    else if (event.target.closest('.string-sound__main')) preview(sound);
+    const id = row.dataset.sound;
+    if (event.target.closest('.string-sound__add')) addClip(id, null, session.playhead);
+    else if (event.target.closest('.string-sound__main')) preview(id);
   });
 
   searchEl.addEventListener('input', filterLibrary);
@@ -915,6 +999,10 @@
       setMessage('Add at least one sound first.');
       return;
     }
+    if (expanded(session.clips).length >= core.MAX_PLAYED_CLIPS) {
+      setMessage('This string plays too many sounds. Remove some of the strings inside it.');
+      return;
+    }
     const string = { id: session.id, name, clips: core.serialize(session.clips) };
     const problem = session.onSave(string);
     if (problem) {
@@ -936,7 +1024,9 @@
   deleteEl.addEventListener('click', () => {
     if (!session.deleteArmed) {
       session.deleteArmed = true;
-      deleteEl.textContent = 'Really delete?';
+      deleteEl.textContent = session.usedBy
+        ? 'Used in ' + session.usedBy + (session.usedBy === 1 ? ' string' : ' strings') + '. Really delete?'
+        : 'Really delete?';
       deleteEl.classList.add('signin-button--danger');
       deleteEl.classList.remove('signin-button--quiet');
       session.deleteTimer = setTimeout(resetDelete, DELETE_CONFIRM_MS);
@@ -1079,15 +1169,21 @@
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   }
 
-  // options: { string or soundId, trigger, onSave(string) -> problem text or '', onSaved(id),
-  // onDelete(id) }
+  // options: { string or soundId, trigger, favorites: [sound id], strings: [every saved string],
+  // onSave(string) -> problem text or '', onSaved(id), onDelete(id) }
   async function open(options) {
     if (session) return;
     const { string } = options;
+    stringsById = new Map(options.strings.map((saved) => [saved.id, saved]));
+    // Other strings may have changed since last time, so draw them afresh.
+    Array.from(wavePaths.keys()).forEach((id) => {
+      if (core.nestedId(id) !== null) wavePaths.delete(id);
+    });
+    arrangeLibrary(options.favorites, string ? string.id : null);
     session = {
       id: string ? string.id : newId(),
       clips: string
-        ? string.clips.filter((clip) => soundFor(clip.sound)).map((clip) => ({ ...clip, key: nextKey++ }))
+        ? string.clips.filter((clip) => itemFor(clip.sound)).map((clip) => ({ ...clip, key: nextKey++ }))
         : [],
       selected: null,
       playhead: 0,
@@ -1100,6 +1196,7 @@
       rulerScale: 0,
       clipEls: new Map(),
       deleteArmed: false,
+      usedBy: string ? options.strings.filter((saved) => core.uses(saved, string.id, lookupString)).length : 0,
       trigger: options.trigger,
       onSave: options.onSave,
       onSaved: options.onSaved,
