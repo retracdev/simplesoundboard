@@ -641,24 +641,28 @@ kbd { font: inherit; }
 .key__wave path { vector-effect: non-scaling-stroke; }
 .wave-base { opacity: .26; }
 .wave-lit { clip-path: inset(0 calc((1 - var(--progress)) * 100%) 0 0); }
-/* Takes the waveform's place while a sound loops, so it fits however long the name is. */
-.key__loop {
+/* Cards that take the waveform's place while a sound loops or has its speed or pitch changed. They
+ * share the footer with the time and wrap around it, and get smaller the more of them there are,
+ * measured against the key's own width, so they fit however long the name is. */
+.key__badge {
   display: none;
   align-items: center;
-  gap: 4px;
-  height: 20px;
-  margin-right: auto;
-  padding: 0 7px 0 6px;
-  border-radius: 7px;
+  gap: .36em;
+  min-width: 0;
+  max-width: 100%;
+  height: 1.8em;
+  padding: 0 .64em 0 .55em;
+  border-radius: .64em;
   color: var(--fg);
   background: var(--ink);
-  font-size: .6875rem;
+  font-size: var(--badge-size);
   font-weight: 700;
   white-space: nowrap;
 }
-.key__loop svg {
-  width: 11px;
-  height: 11px;
+.key__badge span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.key__badge svg {
+  width: 1em;
+  height: 1em;
   flex: none;
   fill: none;
   stroke: currentColor;
@@ -666,10 +670,23 @@ kbd { font: inherit; }
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-.is-looping .key__loop { display: inline-flex; }
-.is-looping .key__wave { display: none; }
+.is-looping .key__loop,
+.has-speed .key__speed,
+.has-pitch .key__pitch { display: inline-flex; }
+.key-slot[data-badges]:not([data-badges="0"]) .key__wave { display: none; }
+.key-slot[data-badges]:not([data-badges="0"]) .key__foot { flex-wrap: wrap; gap: 3px 4px; container-type: inline-size; }
+.key-slot[data-badges="1"] { --badge-size: clamp(.5625rem, 7.6cqi, .6875rem); }
+.key-slot[data-badges="2"] { --badge-size: clamp(.5625rem, 7.4cqi, .6875rem); }
+.key-slot[data-badges="3"] { --badge-size: clamp(.5rem, 6.6cqi, .625rem); }
+.key-slot[data-badges="3"] .key__foot { gap: 2px 3px; }
+/* A long name gives way before the cards do. */
+.key-slot[data-badges="2"] .key__name,
+.key-slot[data-badges="3"] .key__name { flex: 0 1 auto; min-height: 1.16em; overflow: hidden; }
+.key-slot[data-badges="2"] .key__foot,
+.key-slot[data-badges="3"] .key__foot { flex: none; }
 .key__time {
   flex: none;
+  margin-left: auto;
   font-size: .75rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -953,6 +970,7 @@ kbd { font: inherit; }
 /* ---------- Sign-in dialog ---------- */
 .signin-dialog,
 .warning-dialog,
+.tune-editor,
 .strings-access {
   width: min(440px, calc(100vw - 32px));
   max-height: calc(100dvh - 32px);
@@ -967,7 +985,21 @@ kbd { font: inherit; }
 }
 .signin-dialog::backdrop,
 .warning-dialog::backdrop,
+.tune-editor::backdrop,
 .strings-access::backdrop { background: rgba(7, 6, 13, .72); }
+.tune-editor .signin-panel h2 { margin-top: 0; }
+.tune-editor__slider { display: block; margin-top: 18px; }
+.tune-editor__slider[hidden] { display: none; }
+.tune-editor__label { display: flex; justify-content: space-between; font-weight: 600; }
+.tune-editor__label output { color: #b9b4d0; font-variant-numeric: tabular-nums; }
+.tune-editor__slider input { display: block; width: 100%; margin: 8px 0 0; accent-color: #ab8fff; }
+.tune-editor__check { display: flex; align-items: center; gap: 9px; margin-top: 18px; font-weight: 600; cursor: pointer; }
+.tune-editor__check input { width: 18px; height: 18px; flex: none; margin: 0; accent-color: #ab8fff; }
+.tune-editor .signin-panel .tune-editor__hint { font-size: .8125rem; }
+.tune-editor .signin-panel .tune-editor__sync { margin-top: 18px; color: var(--muted); font-size: .8125rem; }
+.tune-editor .signin-panel .tune-editor__message { color: #ff6b6e; font-size: .875rem; }
+.tune-editor__message[hidden] { display: none; }
+.tune-editor .signin-button:disabled { opacity: .45; cursor: default; }
 .warning-panel { text-align: center; }
 .warning-panel h2 { margin-top: 10px; color: #ff6b6e; }
 .warning-panel p { color: #d8d3ea; }

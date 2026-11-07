@@ -4,7 +4,7 @@ Fun sound effects without the bloat. 🔊 Part of the [retrac.space](https://ret
 
 Press a key and it sinks, then slowly rises back up over the exact length of the sound.
 
-The site is plain HTML, CSS and JavaScript, with no build step and no dependencies. Fonts are stored in the repo. Outside requests go to retrac.space accounts and its cloud-save API, to greet signed-in visitors and keep their favorites and strings. Opening a sound request also loads an embedded Tally form. Sounds work without an account.
+The site is plain HTML, CSS and JavaScript, with no build step and no dependencies. Fonts are stored in the repo. Outside requests go to retrac.space accounts and its cloud-save API, to greet signed-in visitors and keep their favorites, strings and sound settings. Opening a sound request also loads an embedded Tally form. Sounds work without an account.
 
 ## Running it locally
 
@@ -69,6 +69,16 @@ Right-clicking or long-pressing any sound offers **Loop sound**, which repeats i
 
 Looping needs an account and uses the same `strings` list in `beta.yml` as Strings.
 
+## Speed and pitch
+
+Right-clicking or long-pressing any sound offers **Edit speed and pitch**, which opens a popup with a speed slider from 0.25x to 4x. By default speed changes the pitch too, like speeding up a tape. Turning on **Change pitch separately** keeps the pitch where it is and adds a pitch slider from 50% to 200%. **Reset to normal** undoes it all, and **Preview** plays the sound with the sliders as they are. Changes apply when a slider is let go. A changed sound shows a Speed card, and a Pitch card when the pitch is separate, in the waveform's place, next to any Looping card. Its time label follows the speed. Strings ignore these settings and use each clip's own speed.
+
+Browsers can only change speed and pitch together, so a separate pitch uses a time stretch written for this site in `js/tune-core.js`, which runs once per sound and setting. Plain speed changes don't need it.
+
+Settings sync across devices in the same cloud save and save cycle as favorites, as `tunes` in `{"version":1,"favorites":[],"tunes":{"sound-id":{"speed":1.25,"pitch":1.5}}}`, with `pitch` left out unless it's separate. Sounds that play normally aren't listed.
+
+It needs an account and uses the same `strings` list in `beta.yml` as Strings and looping. Anyone who leaves the list hears their sounds normally again.
+
 ## Requesting a sound
 
 The Request a Sound Effect button opens a large dialog with Tally form `yXN0Xx`. Visitors sign in with retrac.space first, using the same compact sign-in dialog as favorites with wording for sound requests. After signing in, the request form opens automatically; their username is passed as the URL-encoded `retracspaceusername` hidden field. Tally only loads when the dialog is open. A successful `Tally.FormSubmitted` message from the current Tally iframe replaces the form with a checkmark, a submitted confirmation, and Dismiss and Submit again buttons. Submitting again creates a fresh form.
@@ -98,7 +108,9 @@ npm test
 | `js/rearrange.js` | The right-click menu and the drag-and-drop dialog for top favorites |
 | `beta.yml` | Who has access to beta features |
 | `js/beta.js` | Reads `beta.yml` |
-| `js/strings-access.js` | The sign-in and beta check in front of Strings and looping |
+| `js/strings-access.js` | The sign-in and beta check in front of Strings, looping, and speed and pitch |
+| `js/tune-core.js` | The rules for a sound's speed and pitch, and the time stretch behind a separate pitch |
+| `js/tune-editor.js` | The Edit speed and pitch popup |
 | `js/strings-core.js` | The timeline rules for strings, with no page or audio involved |
 | `js/string-editor.js` | The string editor |
 | `js/account-welcome.js` | Greets signed-in retrac.space accounts |

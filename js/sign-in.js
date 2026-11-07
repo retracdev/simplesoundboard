@@ -84,6 +84,14 @@
         screen.description = 'Choose a username at retrac.space to start looping your sound effects, then come back here.';
       }
     }
+    if (purpose === 'tune') {
+      if (next === 'confirm') {
+        screen.title = 'Edit speed and pitch';
+        screen.description = 'Sign in with your retrac.space account to change a sound’s speed and pitch and sync it across your devices. We’ll open it in a new tab, then pick up right here when you’re back.';
+      } else if (next === 'incomplete') {
+        screen.description = 'Choose a username at retrac.space to start editing speed and pitch, then come back here.';
+      }
+    }
     const waiting = next === 'waiting' || next === 'checking';
     dialog.innerHTML = `<section class="signin-panel">
       <div class="signin-brand"><img src="assets/alt-favicon.png" alt=""><span>retrac.space</span></div>

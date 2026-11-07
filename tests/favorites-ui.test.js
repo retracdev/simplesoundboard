@@ -11,7 +11,7 @@ const { JSDOM } = require('jsdom');
 
 const ROOT = path.join(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(ROOT, file), 'utf8');
-const SCRIPTS = ['js/sounds.js', 'js/account.js', 'js/strings-core.js', 'js/favorites.js', 'js/sign-in.js', 'js/rearrange.js', 'js/beta.js', 'js/strings-access.js', 'js/string-editor.js', 'js/app.js', 'js/account-welcome.js'];
+const SCRIPTS = ['js/sounds.js', 'js/tune-core.js', 'js/account.js', 'js/strings-core.js', 'js/favorites.js', 'js/sign-in.js', 'js/rearrange.js', 'js/beta.js', 'js/strings-access.js', 'js/string-editor.js', 'js/tune-editor.js', 'js/app.js', 'js/account-welcome.js'];
 const SAVE_URL = 'https://space-api.retrac-space.workers.dev/v1/games/soundboard/saves/0';
 const DEBOUNCE = 800;
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -92,8 +92,10 @@ function openPage({ session = null, save, saveStatus, beta = 'strings: []\n' } =
     supported: true,
     unlock() {},
     load: async () => ({ duration: 1, getChannelData: () => new Float32Array(10) }),
-    start: async (sound) => {
+    prepare() {},
+    start: async (sound, options) => {
       world.started.push(sound.id);
+      world.startOptions = options;
       return { duration: 1, elapsed: () => 0 };
     },
     startClips: async (id, clips) => {
@@ -937,17 +939,17 @@ test('other cards offer to create a string and to loop, for guests too', async (
   const page = openPage({ session: alice, save: { version: 1, favorites: ['bruh'] } });
   await wait(40);
   assert.equal(rightClick(page, page.key('bruh')).defaultPrevented, true);
-  assert.deepEqual(menuLabels(page), ['Create string with this sound', 'Loop sound'], 'a favorite in its own category');
+  assert.deepEqual(menuLabels(page), ['Create string with this sound', 'Loop sound', 'Edit speed and pitch'], 'a favorite in its own category');
   rightClick(page, page.key('rizz'));
-  assert.deepEqual(menuLabels(page), ['Create string with this sound', 'Loop sound'], 'a card that is not a favorite');
+  assert.deepEqual(menuLabels(page), ['Create string with this sound', 'Loop sound', 'Edit speed and pitch'], 'a card that is not a favorite');
   rightClick(page, page.rowKey('bruh'));
-  assert.deepEqual(menuLabels(page), ['Rearrange top favorites', 'Create string with this sound', 'Loop sound'], 'the Favorites row');
+  assert.deepEqual(menuLabels(page), ['Rearrange top favorites', 'Create string with this sound', 'Loop sound', 'Edit speed and pitch'], 'the Favorites row');
   page.close();
 
   const guest = openPage();
   await wait(40);
   rightClick(guest, guest.key('bruh'));
-  assert.deepEqual(menuLabels(guest), ['Create string with this sound', 'Loop sound'], 'guests');
+  assert.deepEqual(menuLabels(guest), ['Create string with this sound', 'Loop sound', 'Edit speed and pitch'], 'guests');
   guest.close();
 });
 
@@ -1494,5 +1496,180 @@ test('editor tools split, duplicate, remove and undo clips', async () => {
   assert.equal(clips(), 2);
   page.click(editorButton(page, 'Redo'));
   assert.equal(clips(), 1);
+  page.close();
+});
+
+// ---------- Speed and pitch ----------
+
+const tuneDialog = (page) => page.document.querySelector('dialog.tune-editor');
+const tunePart = (page, name) => tuneDialog(page).querySelector('.tune-editor__' + name);
+const slotOf = (page, id) => page.key(id).closest('.key-slot');
+
+async function openTuneMenu(page, id) {
+  rightClick(page, page.key(id));
+  page.click([...menu(page).querySelectorAll('button')].find((b) => b.textContent === 'Edit speed and pitch'));
+  await wait(20);
+}
+
+function setSlider(page, input, value) {
+  input.value = value;
+  input.dispatchEvent(new page.window.Event('input', { bubbles: true }));
+  input.dispatchEvent(new page.window.Event('change', { bubbles: true }));
+}
+
+function setSeparate(page, on) {
+  const box = tunePart(page, 'separate');
+  box.checked = on;
+  box.dispatchEvent(new page.window.Event('change', { bubbles: true }));
+}
+
+// 1.25x and 150%, with the sliders running 0 to 100 evenly in ratios.
+const SPEED_125 = 58;
+const PITCH_150 = 79;
+
+test('editing speed and pitch asks guests to sign in with its own wording, then opens', async () => {
+  const page = openPage({ beta: BETA_ALICE });
+  await wait(30);
+  await openTuneMenu(page, 'bruh');
+  assert.equal(page.dialogTitle(), 'Edit speed and pitch');
+  assert.match(page.dialog().querySelector('p').textContent, /sync it across your devices/);
+  assert.equal(tuneDialog(page).open, false);
+  page.session = alice;
+  await page.window.RetracAccount.check();
+  await wait(30);
+  assert.equal(tuneDialog(page).open, true);
+  page.close();
+});
+
+test('editing speed and pitch is beta only, using the same list as Strings', async () => {
+  const page = openPage({ session: bob, beta: BETA_ALICE });
+  await wait(30);
+  await openTuneMenu(page, 'bruh');
+  assert.equal(tuneDialog(page).open, false);
+  assert.equal(noAccess(page).open, true);
+  assert.match(noAccess(page).querySelector('p').textContent, /speed and pitch editing/);
+  page.close();
+});
+
+test('by default the speed slider saves and shows one card, with no separate pitch', async () => {
+  const page = openPage({ session: alice, beta: BETA_ALICE, save: { version: 1, favorites: [] } });
+  await wait(30);
+  await openTuneMenu(page, 'bruh');
+  assert.equal(tunePart(page, 'separate').checked, false);
+  assert.equal(tunePart(page, 'pitch-row').hidden, true);
+  assert.equal(tunePart(page, 'reset').disabled, true, 'already normal');
+
+  setSlider(page, tunePart(page, 'speed'), SPEED_125);
+  assert.equal(tunePart(page, 'speed-value').textContent, '1.25x');
+  assert.equal(tunePart(page, 'reset').disabled, false);
+  const slot = slotOf(page, 'bruh');
+  assert.equal(slot.classList.contains('has-speed'), true);
+  assert.equal(slot.classList.contains('has-pitch'), false);
+  assert.equal(slot.dataset.badges, '1');
+  assert.equal(slot.querySelector('.key__speed').textContent, 'Speed: 1.25x');
+  assert.match(page.key('bruh').getAttribute('aria-label'), /speed 1\.25x/);
+
+  await wait(DEBOUNCE);
+  assert.deepEqual(page.save, { version: 1, favorites: [], tunes: { bruh: { speed: 1.25 } } });
+  page.close();
+});
+
+test('a separate pitch gets its own slider and card, and three cards can share a key', async () => {
+  const page = openPage({ session: alice, beta: BETA_ALICE, save: { version: 1, favorites: [] } });
+  await wait(30);
+  await openTuneMenu(page, 'bruh');
+  setSlider(page, tunePart(page, 'speed'), SPEED_125);
+  setSeparate(page, true);
+  assert.equal(tunePart(page, 'pitch-row').hidden, false);
+  assert.equal(slotOf(page, 'bruh').querySelector('.key__pitch').textContent, 'Pitch: 100%', 'speed no longer moves the pitch');
+  assert.equal(slotOf(page, 'bruh').classList.contains('has-pitch'), true);
+
+  setSlider(page, tunePart(page, 'pitch'), PITCH_150);
+  assert.equal(tunePart(page, 'pitch-value').textContent, '150%');
+  assert.equal(slotOf(page, 'bruh').querySelector('.key__pitch').textContent, 'Pitch: 150%');
+  page.click(tuneDialog(page).querySelector('.tune-editor__done'));
+  assert.equal(tuneDialog(page).open, false);
+
+  rightClick(page, page.key('bruh'));
+  page.click([...menu(page).querySelectorAll('button')].find((b) => b.textContent === 'Loop sound'));
+  await wait(20);
+  assert.equal(slotOf(page, 'bruh').dataset.badges, '3');
+  assert.deepEqual({ ...page.startOptions.tune }, { speed: 1.25, pitch: 1.5 }, 'the loop plays with them too');
+  page.close();
+});
+
+test('pressing a changed sound plays it that way, and its time follows the speed', async () => {
+  const page = openPage({ session: alice, beta: BETA_ALICE, save: { version: 1, favorites: [], tunes: { bruh: { speed: 2 } } } });
+  await wait(60);
+  assert.equal(slotOf(page, 'bruh').querySelector('.key__speed').textContent, 'Speed: 2x', 'from another device');
+  assert.equal(slotOf(page, 'bruh').querySelector('.key__time').textContent, '0.5s');
+  page.click(page.key('bruh'));
+  await wait(10);
+  assert.deepEqual({ ...page.startOptions.tune }, { speed: 2 });
+  page.close();
+});
+
+test('a sound with no changes plays normally and keeps its waveform', async () => {
+  const page = openPage({ session: alice, beta: BETA_ALICE, save: { version: 1, favorites: [] } });
+  await wait(60);
+  assert.equal(slotOf(page, 'bruh').dataset.badges || '0', '0');
+  page.click(page.key('bruh'));
+  await wait(10);
+  assert.equal(page.startOptions.tune, null);
+  page.close();
+});
+
+test('Reset to normal removes the cards and the saved settings', async () => {
+  const page = openPage({ session: alice, beta: BETA_ALICE, save: { version: 1, favorites: [], tunes: { bruh: { speed: 2, pitch: 0.5 } } } });
+  await wait(60);
+  await openTuneMenu(page, 'bruh');
+  assert.equal(tunePart(page, 'speed-value').textContent, '2x');
+  assert.equal(tunePart(page, 'separate').checked, true);
+  assert.equal(tunePart(page, 'pitch-value').textContent, '50%');
+
+  page.click(tunePart(page, 'reset'));
+  assert.equal(tunePart(page, 'speed-value').textContent, '1x');
+  assert.equal(tunePart(page, 'separate').checked, false);
+  assert.equal(tunePart(page, 'pitch-row').hidden, true);
+  assert.equal(slotOf(page, 'bruh').dataset.badges, '0');
+  assert.equal(slotOf(page, 'bruh').querySelector('.key__time').textContent, '1.0s');
+  await wait(DEBOUNCE);
+  assert.deepEqual(page.save, { version: 1, favorites: [] });
+  page.close();
+});
+
+test('Preview plays what the sliders say, on its own voice, without saving', async () => {
+  const page = openPage({ session: alice, beta: BETA_ALICE, save: { version: 1, favorites: [] } });
+  await wait(30);
+  await openTuneMenu(page, 'bruh');
+  const speed = tunePart(page, 'speed');
+  speed.value = SPEED_125;
+  speed.dispatchEvent(new page.window.Event('input', { bubbles: true }));
+  page.click(tunePart(page, 'preview'));
+  await wait(10);
+  assert.deepEqual({ ...page.startOptions.tune }, { speed: 1.25 });
+  assert.equal(page.startOptions.id, 'tune-preview');
+  assert.equal(slotOf(page, 'bruh').dataset.badges || '0', '0', 'nothing changed yet');
+  page.close();
+});
+
+test('settings stop applying for someone who has left the beta', async () => {
+  const page = openPage({ session: bob, beta: BETA_ALICE, save: { version: 1, favorites: [], tunes: { bruh: { speed: 2 } } } });
+  await wait(60);
+  assert.equal(slotOf(page, 'bruh').dataset.badges || '0', '0');
+  page.click(page.key('bruh'));
+  await wait(10);
+  assert.equal(page.startOptions.tune, null);
+  page.close();
+});
+
+test('strings do not get a speed and pitch option', async () => {
+  const string = { id: 's1', name: 'Mix', clips: [{ sound: 'bruh', at: 0, from: 0, length: 1, lane: 0 }] };
+  const page = openPage({ session: alice, beta: BETA_ALICE, save: { version: 1, favorites: [], strings: [string] } });
+  await wait(30);
+  page.click(page.chip('strings'));
+  await wait(20);
+  rightClick(page, stringKeys(page)[0]);
+  assert.deepEqual(menuLabels(page), ['Edit string']);
   page.close();
 });
