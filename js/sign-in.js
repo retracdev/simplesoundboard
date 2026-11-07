@@ -68,6 +68,14 @@
         screen.description = 'Choose a username at retrac.space to send your sound request, then come back here.';
       }
     }
+    if (purpose === 'strings') {
+      if (next === 'confirm') {
+        screen.title = 'Make your own strings';
+        screen.description = 'Sign in with your retrac.space account to combine sounds into strings and keep them. We’ll open it in a new tab, then pick up right here when you’re back.';
+      } else if (next === 'incomplete') {
+        screen.description = 'Choose a username at retrac.space to start making strings, then come back here.';
+      }
+    }
     const waiting = next === 'waiting' || next === 'checking';
     dialog.innerHTML = `<section class="signin-panel">
       <div class="signin-brand"><img src="assets/alt-favicon.png" alt=""><span>retrac.space</span></div>

@@ -11,7 +11,7 @@ const { JSDOM } = require('jsdom');
 
 const ROOT = path.join(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(ROOT, file), 'utf8');
-const SCRIPTS = ['js/sounds.js', 'js/account.js', 'js/favorites.js', 'js/sign-in.js', 'js/rearrange.js', 'js/app.js', 'js/account-welcome.js'];
+const SCRIPTS = ['js/sounds.js', 'js/account.js', 'js/strings-core.js', 'js/favorites.js', 'js/sign-in.js', 'js/rearrange.js', 'js/beta.js', 'js/strings-access.js', 'js/string-editor.js', 'js/app.js', 'js/account-welcome.js'];
 const SAVE_URL = 'https://space-api.retrac-space.workers.dev/v1/games/soundboard/saves/0';
 const DEBOUNCE = 800;
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -25,7 +25,7 @@ const respond = (status, body) => ({
   json: async () => body,
 });
 
-function openPage({ session = null, save, saveStatus } = {}) {
+function openPage({ session = null, save, saveStatus, beta = 'strings: []\n' } = {}) {
   const html = read('index.html').replace(/<script[^>]*><\/script>/g, '').replace(/<link[^>]*>/g, '');
   const dom = new JSDOM(html, { url: 'https://soundboard.retrac.space/', runScripts: 'outside-only', pretendToBeVisual: true });
   const { window } = dom;
@@ -46,6 +46,10 @@ function openPage({ session = null, save, saveStatus } = {}) {
 
   window.fetch = async (url, init = {}) => {
     const method = init.method || 'GET';
+    if (url === 'beta.yml') {
+      if (world.betaFails) return { ok: false, status: 500 };
+      return { ok: true, status: 200, text: async () => beta };
+    }
     if (url === 'https://accounts.retrac.space/api/auth/get-session') {
       world.sessionCalls++;
       assert.equal(init.credentials, 'include');
@@ -92,6 +96,11 @@ function openPage({ session = null, save, saveStatus } = {}) {
       world.started.push(sound.id);
       return { duration: 1, elapsed: () => 0 };
     },
+    startClips: async (id, clips) => {
+      world.started.push(id);
+      world.startedClips = clips;
+      return { duration: 1, elapsed: () => 0 };
+    },
     stop() {},
     stopAll() {},
     setVolume() {},
@@ -107,7 +116,7 @@ function openPage({ session = null, save, saveStatus } = {}) {
   SCRIPTS.forEach((file) => window.eval(read(file)));
 
   // The sound's own button in its category, as opposed to its copy in the Favorites row.
-  const inCategory = '#banks .bank:not(.bank--favorites)';
+  const inCategory = '#banks .bank:not(.bank--favorites):not(.bank--strings)';
   world.heart = (id) => document.querySelector(`${inCategory} .key__heart[data-favorite="${id}"]`);
   world.key = (id) => document.querySelector(`${inCategory} .key[data-id="${id}"]`);
   world.row = () => document.querySelector('.bank--favorites');
@@ -366,10 +375,14 @@ test('an account without a username is guided to finish setup', async () => {
   page.close();
 });
 
-test('the Favorites filter is hidden from guests and stays visible when signed in', async () => {
+test('the Favorites and Strings filters show 0 to guests and stay visible when signed in', async () => {
   const guest = openPage();
   await wait(30);
-  assert.equal(guest.chip('favorites').hidden, true);
+  ['favorites', 'strings'].forEach((id) => {
+    assert.equal(guest.chip(id).hidden, false);
+    assert.equal(guest.chip(id).querySelector('.chip__count').textContent, '0');
+  });
+  assert.equal(guest.chip('favorites').querySelector('.chip__spinner').hasAttribute('hidden'), true, 'no spinner for guests');
   assert.ok(guest.visible().length > 0);
   guest.close();
 
@@ -918,19 +931,23 @@ test('right-clicking inside the Favorites filter offers it too, including See al
   page.close();
 });
 
-test('other cards keep the browser menu', async () => {
+const menuLabels = (page) => [...menu(page).querySelectorAll('[role="menuitem"]')].map((item) => item.textContent);
+
+test('other cards only offer to create a string, for guests too', async () => {
   const page = openPage({ session: alice, save: { version: 1, favorites: ['bruh'] } });
   await wait(40);
-  const onCategoryCopy = rightClick(page, page.key('bruh'));
-  assert.equal(onCategoryCopy.defaultPrevented, false, 'a favorite in its own category');
-  const onOther = rightClick(page, page.key('rizz'));
-  assert.equal(onOther.defaultPrevented, false, 'a card that is not a favorite');
-  assert.equal(menu(page), null);
+  assert.equal(rightClick(page, page.key('bruh')).defaultPrevented, true);
+  assert.deepEqual(menuLabels(page), ['Create string with this sound'], 'a favorite in its own category');
+  rightClick(page, page.key('rizz'));
+  assert.deepEqual(menuLabels(page), ['Create string with this sound'], 'a card that is not a favorite');
+  rightClick(page, page.rowKey('bruh'));
+  assert.deepEqual(menuLabels(page), ['Rearrange top favorites', 'Create string with this sound'], 'the Favorites row');
   page.close();
 
   const guest = openPage();
   await wait(40);
-  assert.equal(rightClick(guest, guest.key('bruh')).defaultPrevented, false, 'guests');
+  rightClick(guest, guest.key('bruh'));
+  assert.deepEqual(menuLabels(guest), ['Create string with this sound'], 'guests');
   guest.close();
 });
 
@@ -1220,7 +1237,7 @@ test('unsaved changes get a quiet note, and no technical language', async () => 
   page.close();
 });
 
-test('signing out clears hearts and the filter', async () => {
+test('signing out clears hearts and explains the account on the Favorites tab', async () => {
   const page = openPage({ session: alice, save: { version: 1, favorites: ['bruh'] } });
   await wait(30);
   page.click(page.chip('favorites'));
@@ -1228,9 +1245,10 @@ test('signing out clears hearts and the filter', async () => {
   await page.window.RetracAccount.check();
   await wait(5);
   assert.equal(page.pressed('bruh'), false);
-  assert.equal(page.chip('favorites').hidden, true);
-  assert.equal(page.chip('all').getAttribute('aria-pressed'), 'true');
-  assert.ok(page.visible().length > 1);
+  assert.equal(page.chip('favorites').querySelector('.chip__count').textContent, '0');
+  assert.equal(page.chip('favorites').getAttribute('aria-pressed'), 'true');
+  assert.deepEqual(page.visible(), []);
+  assert.equal(page.document.getElementById('emptySignIn').hidden, false);
   page.close();
 });
 
@@ -1264,5 +1282,217 @@ test('nothing sensitive reaches browser storage', async () => {
       assert.equal(value.includes(jwtFor('alice')), false);
     }
   });
+  page.close();
+});
+
+// ---------- Strings ----------
+
+const BETA_ALICE = 'strings: [Alice, someone_else]\n';
+const STRING = {
+  id: 'one',
+  name: 'My string',
+  clips: [
+    { sound: 'bruh', at: 0, from: 0, length: 0.5, lane: 0 },
+    { sound: 'windows-xp-error', at: 0.25, from: 0, length: 0.5, lane: 1 },
+  ],
+};
+const noAccess = (page) => page.document.querySelector('dialog.strings-access');
+const editor = (page) => page.document.querySelector('dialog.string-editor');
+const editorButton = (page, label) => [...editor(page).querySelectorAll('button')].find((b) => b.textContent === label);
+const stringKeys = (page) => [...page.document.querySelectorAll('.bank--strings .key')];
+
+async function createFromMenu(page, id) {
+  rightClick(page, page.key(id));
+  page.click([...menu(page).querySelectorAll('button')].find((b) => b.textContent === 'Create string with this sound'));
+  await wait(20);
+}
+
+test('the Strings tab asks guests for an account, and its button opens the strings sign-in', async () => {
+  const page = openPage();
+  await wait(30);
+  page.click(page.chip('strings'));
+  await wait(10);
+  assert.equal(page.chip('strings').getAttribute('aria-pressed'), 'true');
+  assert.equal(page.dialog().open, false, 'the tab explains it first');
+  assert.equal(page.document.getElementById('emptyTitle').textContent, 'You need an account.');
+  const button = page.document.getElementById('emptySignIn');
+  assert.equal(button.hidden, false);
+  assert.equal(page.document.getElementById('emptyReset').hidden, true);
+  page.click(button);
+  await wait(10);
+  assert.equal(page.dialog().open, true);
+  assert.equal(page.dialogTitle(), 'Make your own strings');
+  page.close();
+});
+
+test('the Favorites tab asks guests for an account, and its button opens the favorites sign-in', async () => {
+  const page = openPage();
+  await wait(30);
+  page.click(page.chip('favorites'));
+  await wait(10);
+  assert.equal(page.chip('favorites').getAttribute('aria-pressed'), 'true');
+  assert.equal(page.document.getElementById('emptyTitle').textContent, 'You need an account.');
+  page.click(page.document.getElementById('emptySignIn'));
+  await wait(10);
+  assert.equal(page.dialogTitle(), 'Save your favorite sounds');
+
+  page.session = alice;
+  await page.window.RetracAccount.check();
+  await wait(30);
+  assert.equal(page.dialog().open, false);
+  assert.equal(page.document.getElementById('emptySignIn').hidden, true);
+  assert.equal(page.document.getElementById('emptyTitle').textContent, 'No favorites yet.');
+  page.close();
+});
+
+test('creating a string asks guests to sign in, then carries on into the editor', async () => {
+  const page = openPage({ beta: BETA_ALICE });
+  await wait(30);
+  await createFromMenu(page, 'bruh');
+  assert.equal(page.dialogTitle(), 'Make your own strings');
+  assert.equal(editor(page).open, false);
+  page.session = alice;
+  await page.window.RetracAccount.check();
+  await wait(30);
+  assert.equal(editor(page).open, true);
+  page.close();
+});
+
+test('signed-in visitors outside the beta are told they have no access', async () => {
+  const page = openPage({ session: bob, beta: BETA_ALICE });
+  await wait(30);
+  page.click(page.chip('strings'));
+  await wait(20);
+  assert.equal(noAccess(page).open, true);
+  assert.equal(noAccess(page).querySelector('h2').textContent, 'You don’t have access yet.');
+  assert.equal(noAccess(page).querySelector('p').textContent, 'We’re rolling out strings to everyone soon. You may not have access yet.');
+  assert.equal(page.chip('strings').getAttribute('aria-pressed'), 'false');
+  page.click(noAccess(page).querySelector('button'));
+  assert.equal(noAccess(page).open, false);
+
+  await createFromMenu(page, 'bruh');
+  assert.equal(noAccess(page).open, true, 'creating one too');
+  assert.equal(editor(page).open, false);
+  page.close();
+});
+
+test('an unreadable beta list gives nobody access', async () => {
+  const page = openPage({ session: alice, beta: BETA_ALICE });
+  page.betaFails = true;
+  await wait(30);
+  page.click(page.chip('strings'));
+  await wait(20);
+  assert.equal(noAccess(page).open, true);
+  page.close();
+});
+
+test('a beta account can name and save a string, which lands in its tab and the cloud save', async () => {
+  const page = openPage({ session: alice, beta: BETA_ALICE, save: { version: 1, favorites: ['bruh'], other: 'kept' } });
+  await wait(30);
+  await createFromMenu(page, 'bruh');
+  assert.equal(editor(page).open, true);
+  assert.equal(editor(page).querySelectorAll('.string-clip').length, 1, 'starts with the chosen sound');
+
+  page.click(editorButton(page, 'Save string'));
+  assert.equal(editor(page).open, true, 'it needs a name');
+  assert.match(editor(page).querySelector('.string-editor__message').textContent, /name/);
+
+  editor(page).querySelector('.string-editor__name').value = 'Bruh mix';
+  page.click(editorButton(page, 'Save string'));
+  assert.equal(editor(page).open, false);
+  assert.equal(page.chip('strings').getAttribute('aria-pressed'), 'true');
+  assert.deepEqual(stringKeys(page).map((key) => key.querySelector('.key__name').textContent), ['Bruh mix']);
+  assert.equal(page.chip('strings').querySelector('.chip__count').textContent, '1');
+
+  await wait(DEBOUNCE + 40);
+  assert.equal(page.save.other, 'kept');
+  assert.deepEqual([...page.save.favorites], ['bruh']);
+  assert.equal(page.save.strings.length, 1);
+  assert.equal(page.save.strings[0].name, 'Bruh mix');
+  assert.equal(page.save.strings[0].clips[0].sound, 'bruh');
+  page.close();
+});
+
+test('saved strings only show under their tab, painted with the colors of their sounds', async () => {
+  const page = openPage({ session: alice, beta: BETA_ALICE, save: { version: 1, favorites: [], strings: [STRING] } });
+  await wait(40);
+  assert.equal(page.document.querySelector('.bank--strings').hidden, true, 'not on All');
+  assert.equal(page.chip('strings').querySelector('.chip__count').textContent, '1');
+
+  page.click(page.chip('strings'));
+  await wait(20);
+  assert.equal(page.document.querySelector('.bank--strings').hidden, false);
+  assert.deepEqual(page.visible(), [], 'and no sounds with them');
+  const [key] = stringKeys(page);
+  const slot = key.closest('.key-slot');
+  const { categories, sounds } = page.window.SOUND_CATALOG;
+  const color = (id) => categories.find((c) => c.id === sounds.find((s) => s.id === id).category).color;
+  const fill = slot.style.getPropertyValue('--string-fill');
+  assert.ok(fill.includes(color('bruh')), fill);
+  assert.ok(fill.includes(color('windows-xp-error')), fill);
+  assert.equal(slot.querySelector('.key__heart'), null);
+
+  page.click(key);
+  await wait(10);
+  assert.deepEqual(page.started, ['string:one']);
+  assert.equal(page.startedClips.length, 2);
+  page.close();
+});
+
+test('right-clicking a string edits it, and deleting it takes two clicks', async () => {
+  const page = openPage({ session: alice, beta: BETA_ALICE, save: { version: 1, favorites: [], strings: [STRING] } });
+  await wait(40);
+  page.click(page.chip('strings'));
+  await wait(20);
+  rightClick(page, stringKeys(page)[0]);
+  assert.deepEqual(menuLabels(page), ['Edit string']);
+  page.click(menu(page).querySelector('button'));
+  await wait(20);
+  assert.equal(editor(page).open, true);
+  assert.equal(editor(page).querySelector('.string-editor__name').value, 'My string');
+  assert.equal(editor(page).querySelectorAll('.string-clip').length, 2);
+
+  page.click(editorButton(page, 'Delete string'));
+  assert.equal(editor(page).open, true);
+  page.click(editorButton(page, 'Really delete?'));
+  assert.equal(editor(page).open, false);
+  assert.equal(stringKeys(page).length, 0);
+  await wait(DEBOUNCE + 40);
+  assert.equal(page.save.strings, undefined);
+  page.close();
+});
+
+test('closing the editor with changes asks first, and without them just closes', async () => {
+  const page = openPage({ session: alice, beta: BETA_ALICE });
+  await wait(30);
+  await createFromMenu(page, 'bruh');
+  page.click(editorButton(page, 'Cancel'));
+  assert.equal(editor(page).open, false, 'nothing changed yet');
+
+  await createFromMenu(page, 'bruh');
+  editor(page).querySelector('.string-editor__name').value = 'Something';
+  page.click(editorButton(page, 'Cancel'));
+  assert.equal(editor(page).open, true);
+  page.click(editorButton(page, 'Keep editing'));
+  assert.equal(editor(page).open, true);
+  page.click(editorButton(page, 'Cancel'));
+  page.click(editorButton(page, 'Discard'));
+  assert.equal(editor(page).open, false);
+  page.close();
+});
+
+test('editor tools split, duplicate, remove and undo clips', async () => {
+  const page = openPage({ session: alice, beta: BETA_ALICE });
+  await wait(30);
+  await createFromMenu(page, 'bruh');
+  const clips = () => editor(page).querySelectorAll('.string-clip').length;
+  page.click(editorButton(page, 'Duplicate'));
+  assert.equal(clips(), 2);
+  page.click(editorButton(page, 'Remove'));
+  assert.equal(clips(), 1);
+  page.click(editorButton(page, 'Undo'));
+  assert.equal(clips(), 2);
+  page.click(editorButton(page, 'Redo'));
+  assert.equal(clips(), 1);
   page.close();
 });
