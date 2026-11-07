@@ -1272,7 +1272,7 @@ kbd { font: inherit; }
 
 /* ---------- Strings ---------- */
 .chip[data-category="strings"] { --key: #35d6c8; --key-side: #12877c; }
-.chip[data-category="strings"] > svg {
+.chip[data-category="strings"] > svg:not(.chip__spinner) {
   fill: none;
   stroke: var(--key);
   stroke-width: 2.5;
@@ -1281,7 +1281,7 @@ kbd { font: inherit; }
 .chip[data-category="strings"][aria-pressed="true"] {
   background: linear-gradient(115deg, #35d6c8, #ab8fff, #ff7eb6);
 }
-.chip[data-category="strings"][aria-pressed="true"] > svg { fill: none; stroke: var(--ink); }
+.chip[data-category="strings"][aria-pressed="true"] > svg:not(.chip__spinner) { fill: none; stroke: var(--ink); }
 .chip[data-category="strings"] .chip__count { min-width: 14px; text-align: center; }
 .empty--string svg { fill: none; stroke: var(--muted); stroke-width: 2.25; stroke-linecap: round; }
 
