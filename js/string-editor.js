@@ -21,6 +21,8 @@
   const MIN_ZOOM = 15;
   const MAX_ZOOM = 400;
   const SPARE_SECONDS = 8; // Empty timeline past the last clip, to drag into.
+  const SPARE_PX = 600; // A short string still leaves room to scroll, however wide the window.
+  const WHEEL_LINE_PX = 40; // Some mice report scrolling in lines rather than pixels.
   const SNAP_PX = 8;
   const LIFT_DISTANCE_PX = 4;
   const TOUCH_HOLD_MS = 180;
@@ -161,7 +163,7 @@
   timeline.appendChild(content);
 
   const hint = el('p', 'string-editor__hint',
-    'Drag sounds onto a track. Drag a clip to move it, or its edges to trim it. Space plays, S splits, Delete removes, Ctrl+Z undoes.');
+    'Drag sounds onto a track. Drag a clip to move it, or its edges to trim it. Scroll to move along the timeline. Space plays, S splits, Delete removes, Ctrl+Z undoes.');
   stage.append(toolbar, timeline, hint);
 
   const work = el('div', 'string-editor__work');
@@ -316,7 +318,7 @@
 
     const seconds = Math.min(core.MAX_TIME, core.duration(session.clips) + SPARE_SECONDS);
     const available = Math.max(0, timeline.clientWidth - labels.offsetWidth);
-    const width = Math.max(available, seconds * session.scale);
+    const width = Math.min(core.MAX_TIME * session.scale, Math.max(available + SPARE_PX, seconds * session.scale));
     if (width !== session.width || session.scale !== session.rulerScale) {
       session.width = width;
       session.rulerScale = session.scale;
@@ -669,6 +671,19 @@
   tracks.addEventListener('pointercancel', (event) => {
     if (gesture && event.pointerId === gesture.pointerId) endGesture(true);
   });
+
+  // A touchpad's sideways swipe already scrolls the timeline. A mouse wheel only goes up and
+  // down, so that moves it sideways too. Over the track numbers it still goes up and down, for
+  // when there are more tracks than fit.
+  timeline.addEventListener('wheel', (event) => {
+    if (event.ctrlKey || event.metaKey) return; // Browser zoom.
+    if (Math.abs(event.deltaX) >= Math.abs(event.deltaY)) return;
+    if (labels.contains(event.target) && !event.shiftKey) return;
+    if (timeline.scrollWidth <= timeline.clientWidth) return;
+    event.preventDefault();
+    const unit = event.deltaMode === 1 ? WHEEL_LINE_PX : event.deltaMode === 2 ? timeline.clientWidth : 1;
+    timeline.scrollLeft += event.deltaY * unit;
+  }, { passive: false });
 
   let scrubbing = null;
 
