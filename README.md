@@ -47,7 +47,7 @@ The Favorites and Strings chips always show. For guests they say 0, and their ta
 
 ## Strings
 
-A string combines sounds into one key. Right-clicking or long-pressing any sound offers **Create string with this sound**, which opens the editor: name the string, drag sounds onto tracks, move and trim clips, split them at the playhead, duplicate them and set each clip's volume. Clips on different tracks play over each other. Saving adds the string to the Strings tab, which doesn't appear on the All board. A string's key plays when pressed, offers **Edit string** on right-click or long-press, and is painted with a gradient of every category color it uses.
+A string combines sounds into one key. Right-clicking or long-pressing any sound offers **Create string with this sound**, which opens the editor: name the string, drag sounds onto tracks, move and trim clips, split them at the playhead, duplicate them and set each clip's volume. Clips on different tracks play over each other. Saving adds the string to the Strings tab, which doesn't appear on the All board. A string's key plays when pressed, offers **Edit string** on right-click or long-press, and is painted with a gradient of every category color it uses. It also says what's in it, such as "Faa, Boom (Vine), and 2 others", naming two to four sounds depending on how long their names are.
 
 Strings are kept in the same cloud save and save cycle as favorites, as `strings` in `{"version":1,"favorites":[],"strings":[{"id":"...","name":"...","clips":[{"sound":"sound-id","at":0,"from":0,"length":1.2,"lane":0}]}]}`. The API limits a save to 64 KB, shared with favorites, and the editor refuses a string that wouldn't fit. `js/strings-core.js` describes the clip fields.
 
