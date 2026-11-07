@@ -991,6 +991,88 @@ kbd { font: inherit; }
   .signin-waiting span { animation: none; }
 }
 
+/* ---------- Request a sound ---------- */
+.sound-request-prompt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: .875rem;
+}
+.sound-request-prompt button { color: #cbb5ff; }
+.sound-request {
+  width: min(920px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  margin: auto;
+  padding: 0;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 26px;
+  color: var(--fg);
+  background: linear-gradient(180deg, var(--panel), var(--panel-deep));
+  box-shadow: 0 30px 80px rgba(0, 0, 0, .7);
+}
+.sound-request::backdrop { background: rgba(7, 6, 13, .8); }
+.sound-request__header { display: flex; align-items: flex-start; gap: 16px; padding: 26px; }
+.sound-request__header > div { flex: 1; min-width: 0; }
+.sound-request__header h2 {
+  color: #cbb5ff;
+  font-family: var(--display);
+  font-size: clamp(1.6rem, 4vw, 2.25rem);
+  font-weight: 400;
+  line-height: 1.15;
+}
+.sound-request__header p { margin-top: 8px; color: #b9b4d0; }
+.sound-request__close {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  color: var(--fg);
+  background: #262138;
+  font-size: 1.75rem;
+  line-height: 1;
+}
+.sound-request__close:hover { background: #39304f; }
+.sound-request__body { margin: 0 16px 16px; overflow: hidden; border-radius: 16px; }
+.sound-request__frame {
+  display: block;
+  width: 100%;
+  height: clamp(320px, 65dvh, 720px);
+  border: 0;
+  background: #fff;
+  color-scheme: light;
+}
+.sound-request__message, .sound-request__success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: min(440px, 55dvh);
+  padding: 32px 20px;
+  text-align: center;
+  background: rgba(171, 143, 255, .05);
+}
+.sound-request__body .signin-actions { justify-content: center; }
+.sound-request__signin { display: inline-flex; align-items: center; text-decoration: none; }
+.sound-request__body button:disabled { opacity: .6; cursor: wait; }
+.sound-request__check { width: 76px; height: 76px; margin-bottom: 20px; }
+.sound-request__check circle { fill: rgba(131, 232, 179, .12); stroke: #83e8b3; stroke-width: 2; }
+.sound-request__check path { fill: none; stroke: #83e8b3; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.sound-request__success h3 { font-family: var(--display); font-weight: 400; font-size: 2rem; }
+.sound-request__success p { margin-top: 8px; color: #b9b4d0; }
+@media (max-width: 640px) {
+  .sound-request__header { gap: 10px; padding: 20px 16px; }
+  .sound-request__body { margin: 0 8px 8px; }
+  .sound-request-prompt { justify-content: center; text-align: center; }
+}
+
 /* ---------- Right-click menu on favorites ---------- */
 .card-menu {
   position: fixed;
