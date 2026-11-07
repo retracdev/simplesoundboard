@@ -115,7 +115,8 @@
     playable.forEach((clip, i) => {
       const buffer = loaded[i];
       const from = Math.min(clip.from, buffer.duration);
-      const length = Math.min(clip.length, buffer.duration - from);
+      const speed = clip.speed === undefined ? 1 : clip.speed;
+      const length = Math.min(clip.length, (buffer.duration - from) / speed);
       const clipEnd = clip.at + length;
       if (length <= 0 || clipEnd <= offset) return;
       last = Math.max(last, clipEnd);
@@ -129,6 +130,7 @@
       const source = ctx.createBufferSource();
       const clipGain = ctx.createGain();
       source.buffer = buffer;
+      if (speed !== 1) source.playbackRate.value = speed;
       clipGain.gain.setValueAtTime(0, when);
       clipGain.gain.linearRampToValueAtTime(level, when + fade);
       clipGain.gain.setValueAtTime(level, when + played - fade);
@@ -140,7 +142,8 @@
         if (!voice.sources.length && voices.get(id) === voice) voices.delete(id);
       };
       voice.sources.push(source);
-      source.start(when, from + skipped, played);
+      // These two are in the sound's own seconds, whatever speed it plays at.
+      source.start(when, from + skipped * speed, played * speed);
     });
 
     if (voice.sources.length) voices.set(id, voice);

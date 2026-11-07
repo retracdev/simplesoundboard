@@ -5,9 +5,11 @@
  *   sound   the sound's id, or "string:" and an id for another string used as one clip
  *   at      when it starts in the string, in seconds
  *   from    how far into the sound it starts, which is what trimming the front changes
- *   length  how much of the sound plays
+ *   length  how long it lasts on the timeline
  *   lane    which track it sits on
  *   gain    its volume, left out at the normal 1
+ *   speed   how fast it plays, left out at the normal 1. At 2, it uses 2 seconds of the sound
+ *           for every second on the timeline, so `from` is in the sound's own seconds.
  */
 (function () {
   'use strict';
@@ -22,6 +24,8 @@
   const MIN_LANES = 4;
   const MAX_NAME = 40;
   const MAX_GAIN = 2;
+  const MIN_SPEED = 0.25;
+  const MAX_SPEED = 4;
   const EPSILON = 0.0005;
   const FALLBACK_COLOR = { color: '#8b86a3', side: '#4a4560' };
   const SUMMARY_MIN_NAMES = 2;
@@ -32,6 +36,9 @@
   const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
   const end = (clip) => clip.at + clip.length;
   const clipGain = (clip) => (clip.gain === undefined ? 1 : clip.gain);
+  const clipSpeed = (clip) => (clip.speed === undefined ? 1 : clip.speed);
+  // Where a clip stops in its sound.
+  const sourceEnd = (clip) => clip.from + clip.length * clipSpeed(clip);
 
   const duration = (clips) => clips.reduce((longest, clip) => Math.max(longest, end(clip)), 0);
 
@@ -103,14 +110,15 @@
   // Trimming the front keeps the audio where it is on the timeline and hides or reveals it.
   function trimStart(clip, time, clips) {
     const before = neighbors(clips, clip.lane, clip).filter((other) => other.at < clip.at).pop();
-    const low = Math.max(0, clip.at - clip.from, before ? end(before) : 0);
+    const speed = clipSpeed(clip);
+    const low = Math.max(0, clip.at - clip.from / speed, before ? end(before) : 0);
     const at = clamp(time, low, end(clip) - MIN_CLIP);
-    return { at, from: clip.from + (at - clip.at), length: end(clip) - at };
+    return { at, from: Math.max(0, clip.from + (at - clip.at) * speed), length: end(clip) - at };
   }
 
   function trimEnd(clip, time, clips, soundLength) {
     const after = neighbors(clips, clip.lane, clip).find((other) => other.at >= end(clip) - EPSILON);
-    const high = Math.min(clip.at + (soundLength - clip.from), after ? after.at : Infinity, MAX_TIME);
+    const high = Math.min(clip.at + (soundLength - clip.from) / clipSpeed(clip), after ? after.at : Infinity, MAX_TIME);
     return { length: Math.max(MIN_CLIP, Math.min(time, high) - clip.at) };
   }
 
@@ -120,8 +128,21 @@
     const left = time - clip.at;
     return [
       { ...clip, length: left },
-      { ...clip, at: time, from: clip.from + left, length: clip.length - left },
+      { ...clip, at: time, from: clip.from + left * clipSpeed(clip), length: clip.length - left },
     ];
+  }
+
+  // Plays the same part of the sound faster or slower, so the clip gets shorter or longer. If
+  // that no longer fits its track, it moves to the first track with room at the same time. With
+  // every track full, it's cut to the room it has.
+  function changeSpeed(clip, speed, clips) {
+    const others = clips.filter((other) => other !== clip);
+    const length = Math.max(MIN_CLIP, Math.min(clip.length * clipSpeed(clip) / speed, MAX_TIME - clip.at));
+    if (freeStart(others, clip.lane, length, clip.at) === clip.at) return { speed, length, lane: clip.lane };
+    const lane = freeLane(others, length, clip.at);
+    if (lane !== null) return { speed, length, lane };
+    const next = neighbors(others, clip.lane).find((other) => other.at >= clip.at);
+    return { speed, length: next ? Math.max(MIN_CLIP, next.at - clip.at) : length, lane: clip.lane };
   }
 
   const nestedId = (soundId) => (soundId.startsWith(STRING_PREFIX) ? soundId.slice(STRING_PREFIX.length) : null);
@@ -132,26 +153,32 @@
   function expand(clips, lookup) {
     const played = [];
     let steps = 0;
-    function walk(list, offset, windowStart, windowEnd, gain, path) {
+    // scale is how many real seconds one second of this list lasts, once the speed of every
+    // string around it is applied.
+    function walk(list, offset, scale, windowStart, windowEnd, gain, path) {
       list.forEach((clip) => {
         if (played.length >= MAX_PLAYED_CLIPS || steps >= MAX_EXPAND_STEPS) return;
         steps++;
-        const at = offset + clip.at;
+        const at = offset + clip.at * scale;
         const start = Math.max(at, windowStart);
-        const finish = Math.min(at + clip.length, windowEnd);
+        const finish = Math.min(at + clip.length * scale, windowEnd);
         if (finish <= start) return;
-        const from = clip.from + (start - at);
+        const speed = clipSpeed(clip);
+        const from = clip.from + (start - at) / scale * speed;
         const level = gain * clipGain(clip);
         const id = nestedId(clip.sound);
         if (id === null) {
-          played.push({ ...clip, at: start, from, length: finish - start, gain: level });
+          played.push({ ...clip, at: start, from, length: finish - start, gain: level, speed: speed / scale });
           return;
         }
         const string = lookup(id);
-        if (string && !path.includes(id)) walk(string.clips, start - from, start, finish, level, [...path, id]);
+        if (string && !path.includes(id)) {
+          const innerScale = scale / speed;
+          walk(string.clips, start - from * innerScale, innerScale, start, finish, level, [...path, id]);
+        }
       });
     }
-    walk(clips, 0, 0, Infinity, 1, []);
+    walk(clips, 0, 1, 0, Infinity, 1, []);
     return played;
   }
 
@@ -179,6 +206,7 @@
         lane: clip.lane,
       };
       if (clipGain(clip) !== 1) saved.gain = ms(clipGain(clip));
+      if (clipSpeed(clip) !== 1) saved.speed = ms(clipSpeed(clip));
       return saved;
     }).sort((a, b) => a.at - b.at || a.lane - b.lane);
   }
@@ -194,7 +222,8 @@
         && number(clip.at, 0, Infinity) && number(clip.from, 0, Infinity)
         && number(clip.length, 0, Infinity) && clip.length > 0
         && Number.isInteger(clip.lane) && clip.lane >= 0
-        && (clip.gain === undefined || number(clip.gain, 0, MAX_GAIN)));
+        && (clip.gain === undefined || number(clip.gain, 0, MAX_GAIN))
+        && (clip.speed === undefined || number(clip.speed, MIN_SPEED, MAX_SPEED)));
   }
 
   // Every category a string uses, once each, in the order you'd hear them.
@@ -223,7 +252,7 @@
       for (let bar = 0; bar < count; bar++) {
         const time = (bar + 0.5) / count * total;
         if (time < clip.at || time >= end(clip)) continue;
-        const position = (clip.from + time - clip.at) / peaks.duration;
+        const position = (clip.from + (time - clip.at) * clipSpeed(clip)) / peaks.duration;
         const value = peaks.values[Math.min(peaks.values.length - 1, Math.floor(position * peaks.values.length))] || 0;
         bars[bar] = Math.max(bars[bar], Math.min(1, value * Math.sqrt(clipGain(clip))));
       }
@@ -244,11 +273,11 @@
   }
 
   window.StringsCore = {
-    MIN_CLIP, MAX_TIME, MAX_CLIPS, MAX_PLAYED_CLIPS, MAX_LANES, MAX_NAME, MAX_GAIN, STRING_PREFIX,
-    clamp, end, clipGain, duration,
+    MIN_CLIP, MAX_TIME, MAX_CLIPS, MAX_PLAYED_CLIPS, MAX_LANES, MAX_NAME, MAX_GAIN, MIN_SPEED, MAX_SPEED, STRING_PREFIX,
+    clamp, end, clipGain, clipSpeed, sourceEnd, duration,
     freeStart, freeLane, laneCount,
     snapTargets, snapTime, snapMove,
-    trimStart, trimEnd, split,
+    trimStart, trimEnd, split, changeSpeed,
     nestedId, expand, uses,
     serialize, isValid,
     colors, gradient, mixPeaks, summarize,
