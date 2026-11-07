@@ -171,7 +171,7 @@
     const button = el('button', 'key');
     button.type = 'button';
     button.dataset.id = sound.id;
-    button.setAttribute('aria-label', 'Start ' + sound.name);
+    button.setAttribute('aria-label', 'Start ' + sound.name + (sound.summary ? ', with ' + sound.summary : ''));
 
     const tilt = el('span', 'key__tilt');
     const face = el('span', 'key__face');
@@ -193,7 +193,9 @@
     });
 
     foot.append(wave, time);
-    face.append(el('span', 'key__name', sound.name), foot);
+    face.append(el('span', 'key__name', sound.name));
+    if (sound.summary) face.append(el('span', 'key__summary', sound.summary));
+    face.append(foot);
     tilt.append(el('span', 'key__well'), el('span', 'key__side'), face);
     button.appendChild(tilt);
 
@@ -745,9 +747,13 @@
   function stringSound(string) {
     const clips = string.clips.filter((clip) => clipCategory(clip.sound));
     const colors = stringsCore.colors(clips, clipCategory);
+    // Each sound once, in the order you'd hear them.
+    const names = [...clips].sort((a, b) => a.at - b.at || a.lane - b.lane)
+      .map((clip) => soundById.get(clip.sound).name);
     return {
       id: 'string:' + string.id,
       name: string.name,
+      summary: stringsCore.summarize(Array.from(new Set(names))),
       clips,
       color: colors[0].color,
       side: colors[0].side,

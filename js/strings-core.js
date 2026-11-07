@@ -21,6 +21,9 @@
   const MAX_GAIN = 2;
   const EPSILON = 0.0005;
   const FALLBACK_COLOR = { color: '#8b86a3', side: '#4a4560' };
+  const SUMMARY_MIN_NAMES = 2;
+  const SUMMARY_MAX_NAMES = 4;
+  const SUMMARY_CHARACTERS = 28; // About what fits on a small key beside "and 2 others".
 
   const ms = (value) => Math.round(value * 1000) / 1000;
   const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
@@ -181,6 +184,18 @@
     return bars;
   }
 
+  // Says what's in a string: "Faa, Boom (Vine), and 2 others". Short names leave room for more.
+  function summarize(names) {
+    let shown = Math.min(SUMMARY_MIN_NAMES, names.length);
+    while (shown < Math.min(SUMMARY_MAX_NAMES, names.length)
+      && names.slice(0, shown + 1).join(', ').length <= SUMMARY_CHARACTERS) shown++;
+    const others = names.length - shown;
+    const listed = names.slice(0, shown);
+    if (others) return listed.join(', ') + ', and ' + others + (others === 1 ? ' other' : ' others');
+    if (shown < 3) return listed.join(' and ');
+    return listed.slice(0, -1).join(', ') + ', and ' + listed[shown - 1];
+  }
+
   window.StringsCore = {
     MIN_CLIP, MAX_TIME, MAX_CLIPS, MAX_LANES, MAX_NAME, MAX_GAIN,
     clamp, end, clipGain, duration,
@@ -188,6 +203,6 @@
     snapTargets, snapTime, snapMove,
     trimStart, trimEnd, split,
     serialize, isValid,
-    colors, gradient, mixPeaks,
+    colors, gradient, mixPeaks, summarize,
   };
 })();

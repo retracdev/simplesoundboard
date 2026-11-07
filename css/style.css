@@ -1298,6 +1298,30 @@ kbd { font: inherit; }
     var(--string-side);
 }
 .key-slot--string .key__name::before { display: none; }
+/* A little taller than other keys, to fit what's in the string. */
+.key-slot--string .key { height: 148px; }
+.key-slot--string .key__name {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.key__summary {
+  position: relative;
+  display: -webkit-box;
+  margin-bottom: auto;
+  overflow: hidden;
+  font-size: .75rem;
+  font-weight: 600;
+  line-height: 1.25;
+  opacity: .72;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+@media (max-width: 640px) {
+  .key-slot--string .key { height: 150px; }
+  .key__summary { font-size: .6875rem; }
+}
 
 
 /* ---------- The string editor ---------- */
