@@ -74,23 +74,27 @@
 
   // Starts a sound, replacing the same sound if it's already going.
   // Resolves to { duration, elapsed() } with both in seconds.
-  async function start(sound) {
+  // options.loop repeats it until stopped. options.id runs it as its own voice, so it doesn't
+  // replace a press of the same sound, and stop(options.id) is what stops it.
+  async function start(sound, options) {
+    const id = (options && options.id) || sound.id;
     const buffer = await load(sound);
     const ctx = getContext();
-    stop(sound.id);
+    stop(id);
 
     const source = ctx.createBufferSource();
     const gain = ctx.createGain();
     source.buffer = buffer;
+    source.loop = Boolean(options && options.loop);
     source.connect(gain);
     gain.connect(master);
 
     const startedAt = ctx.currentTime;
     const voice = { sources: [source], gain };
     source.onended = () => {
-      if (voices.get(sound.id) === voice) voices.delete(sound.id);
+      if (voices.get(id) === voice) voices.delete(id);
     };
-    voices.set(sound.id, voice);
+    voices.set(id, voice);
     source.start();
 
     return { duration: buffer.duration, elapsed: () => ctx.currentTime - startedAt };

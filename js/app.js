@@ -50,6 +50,7 @@
   const emptySignInEl = $('emptySignIn');
   const emptyResetEl = $('emptyReset');
   const favoritesNoteEl = $('favoritesNote');
+  const loopsEl = $('loops');
   const stopAllEl = $('stopAll');
   const everythingEl = $('everything');
   const volumeEl = $('volume');
@@ -72,6 +73,7 @@
   // "string:" plus its own id, and it's a regular entry in `keys` and `soundById` as well.
   const stringKeys = new Map();
   let stringsGridEl = null;
+  const loops = new Map(); // sound id -> that loop's small card on the page
   const filter = { category: 'all', query: '' };
 
   // ---------- DOM helpers ----------
@@ -662,6 +664,9 @@
     }
     if (id) {
       items.push({ icon: 'icon-string', label: 'Create string with this sound', onSelect: () => createString(id, card) });
+      items.push(loops.has(id)
+        ? { icon: 'icon-stop', label: 'Stop loop sound', onSelect: () => stopLoop(id) }
+        : { icon: 'icon-loop', label: 'Loop sound', onSelect: () => loopSound(id, card) });
     }
     return items;
   }
@@ -741,6 +746,76 @@
     if (consoleEl.scrollIntoView) {
       consoleEl.scrollIntoView({ block: 'start', behavior: reducedMotion.matches ? 'auto' : 'smooth' });
     }
+  }
+
+  // ---------- Looping ----------
+
+  // A loop is its own voice, so pressing the sound's key plays it over the loop.
+  const loopVoice = (id) => 'loop:' + id;
+
+  function buildLoopCard(sound) {
+    const category = categoryById.get(sound.category);
+    const card = el('div', 'loop-card');
+    card.style.setProperty('--key', category.color);
+    card.style.setProperty('--key-side', category.side);
+    const loopIcon = icon('icon-loop');
+    loopIcon.setAttribute('class', 'loop-card__icon');
+    loopIcon.setAttribute('aria-hidden', 'true');
+    const text = el('span', 'loop-card__text');
+    text.append(el('span', 'loop-card__label', 'Looping'), el('span', 'loop-card__name', sound.name));
+    const stop = el('button', 'loop-card__stop');
+    stop.type = 'button';
+    stop.setAttribute('aria-label', 'Stop looping ' + sound.name);
+    const stopIcon = icon('icon-stop');
+    stopIcon.setAttribute('aria-hidden', 'true');
+    stop.append(stopIcon, el('span', '', 'Stop'));
+    stop.addEventListener('click', () => stopLoop(sound.id));
+    card.append(loopIcon, text, stop);
+    return card;
+  }
+
+  function startLoop(sound) {
+    if (loops.has(sound.id)) return;
+    const key = keys.get(sound.id);
+    if (!engine.supported) {
+      flagProblem(key, 'This browser can’t make sounds, sorry.');
+      return;
+    }
+    engine.unlock();
+    const card = buildLoopCard(sound);
+    loops.set(sound.id, card);
+    loopsEl.appendChild(card);
+    loopsEl.hidden = false;
+    setArmed(true);
+    engine.start(sound, { id: loopVoice(sound.id), loop: true }).then(() => {
+      if (!loops.has(sound.id)) engine.stop(loopVoice(sound.id)); // Stopped while still loading.
+    }).catch((error) => {
+      console.warn('Could not loop "' + sound.name + '"', error);
+      if (loops.get(sound.id) === card) removeLoop(sound.id);
+      flagProblem(key, 'Couldn’t load “' + sound.name + '”. Try looping it again.');
+    });
+  }
+
+  function loopSound(id, trigger) {
+    // Browsers only allow audio to start from a gesture, and the access check takes a moment.
+    if (engine.supported) engine.unlock();
+    stringsAccess.requireLoop(trigger, () => startLoop(soundById.get(id)));
+  }
+
+  function removeLoop(id) {
+    const card = loops.get(id);
+    // Removing a focused button would drop keyboard users back at the top of the page.
+    if (card.contains(document.activeElement)) keys.get(id).view.el.focus({ preventScroll: true });
+    card.remove();
+    loops.delete(id);
+    loopsEl.hidden = loops.size === 0;
+    setArmed(isSounding());
+  }
+
+  function stopLoop(id) {
+    if (!loops.has(id)) return;
+    engine.stop(loopVoice(id));
+    removeLoop(id);
   }
 
   // ---------- Strings ----------
@@ -1055,6 +1130,10 @@
     $('everythingIcon').setAttribute('href', armed ? '#icon-stop' : '#icon-play-all');
   }
 
+  function isSounding() {
+    return live.size > 0 || loops.size > 0;
+  }
+
   function setTimeLabel(key, seconds) {
     const label = formatSeconds(Math.max(0, seconds));
     if (label !== key.lastLabel) {
@@ -1076,7 +1155,7 @@
         view.slotEl.classList.add('is-pop');
       });
     }
-    setArmed(live.size > 0);
+    setArmed(isSounding());
   }
 
   function tick() {
@@ -1249,6 +1328,7 @@
         run.releaseFrom = run.depth;
       }
     });
+    Array.from(loops.keys()).forEach(removeLoop);
     setArmed(false);
     requestFrame();
   }
@@ -1375,7 +1455,7 @@
 
   const confirmEverything = buildEverythingDialog();
   everythingEl.addEventListener('click', () => {
-    if (live.size > 0) stopAll();
+    if (isSounding()) stopAll();
     else confirmEverything();
   });
 
@@ -1398,7 +1478,7 @@
   // Some browsers only accept an audio unlock from certain gestures, so keep offering.
   ['pointerup', 'keydown'].forEach((type) => {
     document.addEventListener(type, () => {
-      if (live.size > 0 && engine.supported) engine.unlock();
+      if (isSounding() && engine.supported) engine.unlock();
     });
   });
 

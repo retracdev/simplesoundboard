@@ -63,6 +63,12 @@ strings: [retrac, someone_else]
 - Everyone sees the Strings buttons. Guests are asked to sign in, and anyone signed in who isn't listed is told they don't have access yet.
 - The file is public, and the check runs in the visitor's browser, so this controls who's offered the feature rather than securing it.
 
+## Looping
+
+Right-clicking or long-pressing any sound offers **Loop sound**, which repeats it until **Stop all** or **Stop loop sound** in the same menu. Each loop gets a small Looping card above the board, with its own Stop button. Several sounds can loop at once, and pressing a looping sound's key plays it over the loop. Strings can't be looped.
+
+Looping needs an account and uses the same `strings` list in `beta.yml` as Strings.
+
 ## Requesting a sound
 
 The Request a Sound Effect button opens a large dialog with Tally form `yXN0Xx`. Visitors sign in with retrac.space first, using the same compact sign-in dialog as favorites with wording for sound requests. After signing in, the request form opens automatically; their username is passed as the URL-encoded `retracspaceusername` hidden field. Tally only loads when the dialog is open. A successful `Tally.FormSubmitted` message from the current Tally iframe replaces the form with a checkmark, a submitted confirmation, and Dismiss and Submit again buttons. Submitting again creates a fresh form.
@@ -92,7 +98,7 @@ npm test
 | `js/rearrange.js` | The right-click menu and the drag-and-drop dialog for top favorites |
 | `beta.yml` | Who has access to beta features |
 | `js/beta.js` | Reads `beta.yml` |
-| `js/strings-access.js` | The sign-in and beta check in front of Strings |
+| `js/strings-access.js` | The sign-in and beta check in front of Strings and looping |
 | `js/strings-core.js` | The timeline rules for strings, with no page or audio involved |
 | `js/string-editor.js` | The string editor |
 | `js/account-welcome.js` | Greets signed-in retrac.space accounts |
