@@ -13,6 +13,9 @@
   const favorites = window.SoundFavorites;
   const signIn = window.SoundSignIn;
   const rearrange = window.FavoritesRearrange;
+  const stringsCore = window.StringsCore;
+  const stringsAccess = window.SoundStringsAccess;
+  const stringEditor = window.StringEditor;
 
   const PRESS_MS = 70; // How fast a key sinks when hit.
   const MIN_RISE_SECONDS = 0.22; // Very short sounds still get a visible pop back up.
@@ -44,6 +47,8 @@
   const emptyTextEl = $('emptyText');
   const emptyTitleEl = $('emptyTitle');
   const emptyIconEl = $('emptyIcon');
+  const emptySignInEl = $('emptySignIn');
+  const emptyResetEl = $('emptyReset');
   const favoritesNoteEl = $('favoritesNote');
   const stopAllEl = $('stopAll');
   const everythingEl = $('everything');
@@ -63,6 +68,10 @@
   let favoritesRow = null; // { el, countEl, gridEl, noteEl, noteTextEl, seeAllEl, seeAllCountEl }
   const live = new Map(); // sound id -> the run animating that key
   const banks = new Map(); // category id -> { el, countEl, chipCountEl }
+  // key id -> { string, signature, sound, view } for each string's key. A string's key id is
+  // "string:" plus its own id, and it's a regular entry in `keys` and `soundById` as well.
+  const stringKeys = new Map();
+  let stringsGridEl = null;
   const filter = { category: 'all', query: '' };
 
   // ---------- DOM helpers ----------
@@ -158,6 +167,7 @@
   }
 
   function buildKeyView(sound) {
+    const isString = Boolean(sound.clips);
     const button = el('button', 'key');
     button.type = 'button';
     button.dataset.id = sound.id;
@@ -187,6 +197,17 @@
     tilt.append(el('span', 'key__well'), el('span', 'key__side'), face);
     button.appendChild(tilt);
 
+    const slot = el('div', 'key-slot');
+    if (isString) {
+      slot.classList.add('key-slot--string');
+      slot.style.setProperty('--key', sound.color);
+      slot.style.setProperty('--key-side', sound.side);
+      slot.style.setProperty('--string-fill', sound.fill);
+      slot.style.setProperty('--string-side', sound.sideFill);
+      slot.appendChild(button);
+      return { slotEl: slot, el: button, heartEl: null, timeEl: time, baseEl: paths[0], litEl: paths[1] };
+    }
+
     // The key is already a button and buttons can't nest, so the heart sits beside it in
     // its own layer. That layer sinks and tilts along with the key's face.
     const heart = el('button', 'key__heart');
@@ -198,7 +219,6 @@
     const heartLayer = el('span', 'key__heart-layer');
     heartLayer.appendChild(heart);
 
-    const slot = el('div', 'key-slot');
     const category = categoryById.get(sound.category);
     slot.style.setProperty('--key', category.color);
     slot.style.setProperty('--key-side', category.side);
@@ -325,12 +345,28 @@
     return count;
   }
 
+  // Only ever shows under its own Strings chip, never on the All board.
+  function buildStringsBank() {
+    const bank = el('section', 'bank bank--strings');
+    bank.setAttribute('aria-label', 'Strings');
+    bank.hidden = true;
+    const head = el('div', 'bank__head');
+    const count = el('span', 'bank__count');
+    head.append(el('h2', 'bank__title', 'Strings'), count);
+    stringsGridEl = el('div', 'bank__keys');
+    bank.append(head, stringsGridEl);
+    banksEl.appendChild(bank);
+    Object.assign(banks.get('strings'), { el: bank, countEl: count });
+  }
+
   function buildBoard() {
     buildFavoritesRow();
     banks.set('all', { chipCountEl: buildChip('all', 'All') });
     banks.set('favorites', { chipCountEl: buildChip('favorites', 'Favorites') });
+    banks.set('strings', { chipCountEl: buildChip('strings', 'Strings') });
+    stringsChipEl().querySelector('.chip__dot').replaceWith(icon('icon-string'));
+    buildStringsBank();
     const favoritesChip = favoritesChipEl();
-    favoritesChip.hidden = true;
     favoritesChip.querySelector('.chip__dot').replaceWith(icon('icon-heart'));
     const spinner = icon('icon-loader');
     spinner.classList.add('chip__spinner');
@@ -404,15 +440,34 @@
     normalize([sound.name, categoryById.get(sound.category).label, sound.tags || ''].join(' ')),
   ]));
 
-  function setEmptyState(icon, title, text) {
+  function setEmptyState(icon, title, text, asksToSignIn) {
     emptyIconEl.setAttribute('href', '#' + icon);
     emptyTitleEl.textContent = title;
     emptyTextEl.textContent = text;
+    emptyEl.classList.toggle('empty--string', icon === 'icon-string');
+    emptySignInEl.hidden = !asksToSignIn;
+    emptyResetEl.hidden = Boolean(asksToSignIn);
+  }
+
+  // Someone we know isn't signed in, as opposed to someone we haven't heard back about yet.
+  function needsAccount() {
+    const { status } = account.getState();
+    return status !== 'authenticated' && status !== 'unknown';
   }
 
   function showEmptyState() {
     const query = filter.query.trim();
-    if (filter.category !== 'favorites') {
+    if (needsAccount() && filter.category === 'favorites') {
+      setEmptyState('icon-heart', 'You need an account.', 'Log in or sign up to keep your favorite sounds.', true);
+    } else if (needsAccount() && filter.category === 'strings') {
+      setEmptyState('icon-string', 'You need an account.', 'Log in or sign up to combine sounds into strings and keep them.', true);
+    } else if (filter.category === 'strings') {
+      if (query) setEmptyState('icon-string', 'No matching strings.', 'Nothing in your strings matches “' + query + '”.');
+      else if (!favorites.isLoaded()) {
+        setEmptyState('icon-string', 'Your strings', favorites.getStatus() === 'ok'
+          ? 'Getting your strings…' : 'We can’t show your strings just now.');
+      } else setEmptyState('icon-string', 'No strings yet.', 'Right-click or long-press any sound and choose “Create string with this sound”.');
+    } else if (filter.category !== 'favorites') {
       const where = filter.category === 'all' ? '' : ' in ' + categoryById.get(filter.category).label;
       setEmptyState('icon-note-eighth', 'Total silence.',
         query ? 'Nothing' + where + ' matches “' + query + '”.' : 'Nothing' + where + ' yet.');
@@ -431,6 +486,20 @@
     const terms = normalize(filter.query).split(/\s+/).filter(Boolean);
     const inQuery = (sound) => terms.every((term) => searchText.get(sound.id).includes(term));
     const onlyFavorites = filter.category === 'favorites';
+    const onlyStrings = filter.category === 'strings';
+
+    renderStringKeys();
+    let stringMatches = 0;
+    stringKeys.forEach(({ string, view }) => {
+      const name = normalize(string.name);
+      const matchesQuery = terms.every((term) => name.includes(term));
+      view.slotEl.hidden = !matchesQuery;
+      if (matchesQuery) stringMatches++;
+    });
+    const stringsBank = banks.get('strings');
+    stringsBank.chipCountEl.textContent = favorites.isLoaded() || needsAccount() ? stringMatches : '';
+    stringsBank.countEl.textContent = stringMatches + (stringMatches === 1 ? ' string' : ' strings');
+    stringsBank.el.hidden = !onlyStrings || stringMatches === 0;
 
     let visible = 0;
     let matches = 0;
@@ -467,12 +536,14 @@
       bank.el.hidden = !shown || count === 0;
     });
 
-    emptyEl.hidden = visible > 0;
-    if (visible === 0) showEmptyState();
+    const shown = onlyStrings ? stringMatches : visible;
+    emptyEl.hidden = shown > 0;
+    if (shown === 0) showEmptyState();
 
-    const label = filter.query.trim() ? plural(visible) + ' for “' + filter.query.trim() + '”' : plural(visible);
+    const count = onlyStrings ? stringsBank.countEl.textContent : plural(visible);
+    const label = filter.query.trim() ? count + ' for “' + filter.query.trim() + '”' : count;
     // "0 sounds" would be just as misleading as a 0 on the chip until the save has been read.
-    statusEl.textContent = onlyFavorites && !favorites.isLoaded() ? '' : label;
+    statusEl.textContent = (onlyFavorites || onlyStrings) && !favorites.isLoaded() ? '' : label;
   }
 
   function setCategory(id) {
@@ -498,6 +569,7 @@
   // A count before the save has been read would be a guess, usually a wrong 0. So the chip
   // shows a spinner while we're still trying, and nothing once we've stopped.
   function favoritesLoading() {
+    if (needsAccount()) return false;
     const status = favorites.getStatus();
     return !favorites.isLoaded() && (status === 'ok' || status === 'retrying');
   }
@@ -506,7 +578,7 @@
     const loaded = favorites.isLoaded();
     const loading = favoritesLoading();
     const chip = favoritesChipEl();
-    banks.get('favorites').chipCountEl.textContent = loaded ? count : '';
+    banks.get('favorites').chipCountEl.textContent = loaded || needsAccount() ? count : '';
     chip.setAttribute('aria-busy', String(loading));
     chip.querySelector('.chip__spinner').toggleAttribute('hidden', !loading);
   }
@@ -558,15 +630,34 @@
     }
   }
 
-  // ---------- Rearranging favorites ----------
+  // ---------- The right-click menu ----------
 
-  // Only cards in the Favorites row, or in the Favorites filter, offer this. Others keep the
-  // browser's normal menu.
-  function rearrangeTargetFrom(target) {
+  // Only cards in the Favorites row, or in the Favorites filter, can rearrange.
+  function canRearrange(card) {
+    if (!favorites.isLoaded() || account.getState().status !== 'authenticated') return false;
+    return Boolean(card.closest('.bank--favorites')) || filter.category === 'favorites';
+  }
+
+  function menuItemsFor(card) {
+    const id = card.dataset.id;
+    if (stringKeys.has(id)) {
+      return [{ icon: 'icon-pencil', label: 'Edit string', onSelect: () => editString(id, card) }];
+    }
+    const items = [];
+    if (canRearrange(card)) {
+      items.push({ icon: 'icon-rearrange', label: 'Rearrange top favorites', onSelect: () => openRearrange(card) });
+    }
+    if (id) {
+      items.push({ icon: 'icon-string', label: 'Create string with this sound', onSelect: () => createString(id, card) });
+    }
+    return items;
+  }
+
+  // Cards with nothing to offer keep the browser's normal menu.
+  function menuTargetFrom(target) {
     const slot = target.closest && target.closest('.key-slot');
-    if (!slot || !favorites.isLoaded() || account.getState().status !== 'authenticated') return null;
-    if (!slot.closest('.bank--favorites') && filter.category !== 'favorites') return null;
-    return slot.querySelector('.key') || null;
+    const card = slot && slot.querySelector('.key');
+    return card && menuItemsFor(card).length ? card : null;
   }
 
   function openRearrange(trigger) {
@@ -583,18 +674,18 @@
     });
   }
 
-  function showRearrangeMenu(trigger, x, y) {
-    rearrange.openMenu({ x, y, trigger, onSelect: () => openRearrange(trigger) });
+  function showCardMenu(trigger, x, y) {
+    rearrange.openMenu({ x, y, trigger, label: 'Sound options', items: menuItemsFor(trigger) });
   }
 
   banksEl.addEventListener('contextmenu', (event) => {
-    const card = rearrangeTargetFrom(event.target);
+    const card = menuTargetFrom(event.target);
     if (!card) return;
     event.preventDefault();
     // The keyboard's menu key has no pointer position, so it opens at the card instead.
     const box = card.getBoundingClientRect();
     const fromKeyboard = event.clientX === 0 && event.clientY === 0;
-    showRearrangeMenu(card, fromKeyboard ? box.left + 16 : event.clientX, fromKeyboard ? box.top + 16 : event.clientY);
+    showCardMenu(card, fromKeyboard ? box.left + 16 : event.clientX, fromKeyboard ? box.top + 16 : event.clientY);
   });
 
   // iPhones have no right-click and send no contextmenu event, so a long press does the job.
@@ -609,7 +700,7 @@
   banksEl.addEventListener('pointerdown', (event) => {
     cancelLongPress();
     if (event.pointerType === 'mouse') return;
-    const card = rearrangeTargetFrom(event.target);
+    const card = menuTargetFrom(event.target);
     if (!card) return;
     const { clientX: x, clientY: y } = event;
     longPress = {
@@ -618,7 +709,7 @@
       timer: setTimeout(() => {
         longPress = null;
         suppressClickUntil = Date.now() + 800; // Letting go mustn't also start the sound.
-        showRearrangeMenu(card, x, y);
+        showCardMenu(card, x, y);
       }, LONG_PRESS_MS),
     };
   });
@@ -639,10 +730,171 @@
     }
   }
 
+  // ---------- Strings ----------
+
+  function stringsChipEl() {
+    return chipsEl.querySelector('.chip[data-category="strings"]');
+  }
+
+  const clipCategory = (soundId) => {
+    const sound = soundById.get(soundId);
+    return sound && categoryById.get(sound.category);
+  };
+
+  // What a string's key needs to work like a sound's key.
+  function stringSound(string) {
+    const clips = string.clips.filter((clip) => clipCategory(clip.sound));
+    const colors = stringsCore.colors(clips, clipCategory);
+    return {
+      id: 'string:' + string.id,
+      name: string.name,
+      clips,
+      color: colors[0].color,
+      side: colors[0].side,
+      fill: stringsCore.gradient(colors.map((color) => color.color)),
+      sideFill: stringsCore.gradient(colors.map((color) => color.side)),
+    };
+  }
+
+  function removeStringKey(id) {
+    const entry = stringKeys.get(id);
+    const run = live.get(id);
+    if (run) {
+      engine.stop(id);
+      settle(id, run, false);
+    }
+    entry.view.slotEl.remove();
+    stringKeys.delete(id);
+    keys.delete(id);
+    soundById.delete(id);
+  }
+
+  // Draws the waveform of the whole string once its sounds have loaded.
+  async function paintStringKey(entry) {
+    const { sound } = entry;
+    const total = stringsCore.duration(sound.clips);
+    const key = keys.get(sound.id);
+    key.duration = total;
+    setKeyTime(key, formatSeconds(total));
+    if (!engine.supported) return;
+    const ids = Array.from(new Set(sound.clips.map((clip) => clip.sound)));
+    const peaks = new Map();
+    try {
+      await Promise.all(ids.map(async (id) => {
+        const buffer = await engine.load(soundById.get(id));
+        peaks.set(id, { values: engine.peaks(buffer, 200), duration: buffer.duration });
+      }));
+    } catch (error) {
+      return; // Its waveform stays flat, and pressing it reports the problem.
+    }
+    if (stringKeys.get(sound.id) !== entry) return;
+    const path = waveformPath(stringsCore.mixPeaks(sound.clips, (id) => peaks.get(id), WAVE_BARS));
+    key.path = path;
+    entry.view.baseEl.setAttribute('d', path);
+    entry.view.litEl.setAttribute('d', path);
+  }
+
+  // Newest first. A key is only rebuilt when its string actually changed, so one that's
+  // playing isn't interrupted by a save of something else.
+  function renderStringKeys() {
+    const strings = favorites.strings().slice().reverse();
+    const wanted = new Set(strings.map((string) => 'string:' + string.id));
+    Array.from(stringKeys.keys()).forEach((id) => {
+      if (!wanted.has(id)) removeStringKey(id);
+    });
+    const slots = strings.map((string) => {
+      const id = 'string:' + string.id;
+      const signature = JSON.stringify(string);
+      let entry = stringKeys.get(id);
+      if (entry && entry.signature !== signature) {
+        removeStringKey(id);
+        entry = null;
+      }
+      if (!entry) {
+        const sound = stringSound(string);
+        const view = buildKeyView(sound);
+        entry = { string, signature, sound, view };
+        stringKeys.set(id, entry);
+        soundById.set(id, sound);
+        keys.set(id, { view, views: [view], duration: null, lastLabel: '', path: null });
+        paintStringKey(entry);
+      }
+      return entry.view.slotEl;
+    });
+    const current = Array.from(stringsGridEl.children);
+    if (slots.length !== current.length || slots.some((slot, i) => slot !== current[i])) {
+      stringsGridEl.replaceChildren(...slots);
+    }
+  }
+
+  function openStringEditor(trigger, username, source) {
+    stringEditor.open({
+      ...source,
+      trigger,
+      // Says what went wrong, or nothing if it saved.
+      onSave(string) {
+        const state = account.getState();
+        if (state.status !== 'authenticated' || state.username !== username) {
+          return 'Sign in again as ' + username + ' to save this string.';
+        }
+        if (!favorites.canSaveString(string)) {
+          return 'You’re out of room for strings. Delete one or make this one shorter.';
+        }
+        favorites.saveString(string);
+        return '';
+      },
+      onSaved(id) {
+        searchEl.value = '';
+        filter.query = '';
+        setCategory('strings');
+        const entry = stringKeys.get('string:' + id);
+        if (entry) entry.view.el.focus({ preventScroll: true });
+      },
+      onDelete(id) {
+        favorites.deleteString(id);
+      },
+    });
+  }
+
+  function createString(soundId, trigger) {
+    stringsAccess.require(trigger, (username) => openStringEditor(trigger, username, { soundId }));
+  }
+
+  function editString(id, trigger) {
+    const entry = stringKeys.get(id);
+    if (!entry) return; // Deleted on another device while the menu was open.
+    stringsAccess.require(trigger, (username) => openStringEditor(trigger, username, { string: entry.string }));
+  }
+
+  // Guests get the tab itself, which explains the account. Signed-in visitors outside the beta
+  // are told so instead.
+  async function openStringsTab(chip) {
+    let state = account.getState();
+    if (state.status === 'unknown' || state.status === 'error') state = await account.check();
+    if (state.status === 'authenticated') stringsAccess.require(chip, () => setCategory('strings'));
+    else setCategory('strings');
+  }
+
+  // The button on the Favorites and Strings tabs for anyone without an account.
+  async function signInFromTab() {
+    if (filter.category === 'strings') {
+      stringsAccess.require(emptySignInEl, () => setCategory('strings'), () => setCategory('all'));
+      return;
+    }
+    let state = account.getState();
+    if (state.status === 'unknown' || state.status === 'error') state = await account.check();
+    if (state.status === 'authenticated') return;
+    signIn.open({ stage: state.status === 'guest' ? 'confirm' : state.status, trigger: emptySignInEl });
+  }
+
+  emptySignInEl.addEventListener('click', signInFromTab);
+
   function renderFavorites() {
     keys.forEach((key, id) => {
       const favorite = String(favorites.isFavorite(id));
-      key.views.forEach((view) => view.heartEl.setAttribute('aria-pressed', favorite));
+      key.views.forEach((view) => {
+        if (view.heartEl) view.heartEl.setAttribute('aria-pressed', favorite);
+      });
     });
 
     const focused = document.activeElement;
@@ -650,20 +902,20 @@
     applyFilter();
     // Unfavoriting inside the Favorites filter removes the heart that was just clicked.
     if (hadHeartFocus && (!focused.isConnected || focused.closest('[hidden]'))) {
-      const chip = favoritesChipEl();
-      if (!chip.hidden) chip.focus({ preventScroll: true });
+      favoritesChipEl().focus({ preventScroll: true });
     }
 
+    const saved = favorites.hasUnsavedStrings() ? 'strings' : 'favorites';
     const message = {
       retrying: favorites.hasUnsaved()
-        ? 'Your favorites haven’t saved yet. We’ll keep trying.'
+        ? 'Your ' + saved + ' haven’t saved yet. We’ll keep trying.'
         : 'We couldn’t get your favorites yet. We’ll keep trying.',
       paused: favorites.hasUnsaved()
-        ? 'Your favorites haven’t saved yet. We’ll try again when you come back.'
+        ? 'Your ' + saved + ' haven’t saved yet. We’ll try again when you come back.'
         : 'We couldn’t get your favorites yet. We’ll try again when you come back.',
-      blocked: 'Your favorites can’t be updated right now.',
-      signin: 'Sign in again to save your favorites.',
-      setup: 'Finish setting up your account to save your favorites.',
+      blocked: 'Your ' + saved + ' can’t be updated right now.',
+      signin: 'Sign in again to save your ' + saved + '.',
+      setup: 'Finish setting up your account to save your ' + saved + '.',
     }[favorites.getStatus()];
     favoritesNoteEl.textContent = message || '';
     favoritesNoteEl.hidden = !message;
@@ -723,11 +975,8 @@
     if (signedIn || state.status === 'guest' || state.status === 'incomplete') {
       favorites.setAccount(signedIn ? state.username : null);
     }
-    // A failed check says nothing about who is signed in, so it changes nothing here.
-    if (state.status !== 'error') {
-      favoritesChipEl().hidden = !signedIn;
-      if (!signedIn && filter.category === 'favorites') setCategory('all');
-    }
+    // The Favorites and Strings tabs stay put and explain the account when nobody's signed in.
+    applyFilter();
     if (signedIn) {
       const intended = readIntent();
       clearIntent();
@@ -824,7 +1073,7 @@
         const rise = elapsed / Math.max(run.voice.duration, MIN_RISE_SECONDS);
         if (rise >= 1) return settle(id, run, true);
         depth = Math.min(sunk, 1 - rise);
-        progress = Math.min(1, elapsed / run.voice.duration);
+        progress = run.voice.duration ? Math.min(1, elapsed / run.voice.duration) : 1;
         setTimeLabel(run.key, run.voice.duration - elapsed);
       }
 
@@ -865,7 +1114,10 @@
     requestFrame();
     if (!quiet) celebrate(pressedEl || key.view.el, sound);
 
-    engine.start(sound).then((voice) => {
+    const starting = sound.clips
+      ? engine.startClips(sound.id, sound.clips, (id) => soundById.get(id))
+      : engine.start(sound);
+    starting.then((voice) => {
       const current = live.get(sound.id);
       if (current === run && run.releasedAt === null) {
         run.voice = voice;
@@ -983,7 +1235,7 @@
     const drift = (hopIndex % 2 ? 1 : -1) * (16 + (hopIndex * 11) % 26);
     note.style.left = box.left + box.width / 2 + 'px';
     note.style.top = box.top + 10 + 'px';
-    note.style.fill = categoryById.get(sound.category).color;
+    note.style.fill = sound.color || categoryById.get(sound.category).color;
     burstEl.appendChild(note);
     note.animate([
       { transform: 'translate(0, 0) scale(.5) rotate(-10deg)', opacity: 0 },
@@ -1074,7 +1326,9 @@
 
   chipsEl.addEventListener('click', (event) => {
     const chip = event.target.closest('.chip');
-    if (chip) setCategory(chip.dataset.category);
+    if (!chip) return;
+    if (chip.dataset.category === 'strings') openStringsTab(chip);
+    else setCategory(chip.dataset.category);
   });
 
   searchEl.addEventListener('input', () => {

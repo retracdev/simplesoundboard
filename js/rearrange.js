@@ -46,18 +46,25 @@
 
   let closeMenu = null;
 
-  // options: { x, y, trigger, onSelect }
+  // options: { x, y, trigger, label, items: [{ icon, label, onSelect }] }
   function openMenu(options) {
     if (closeMenu) closeMenu(false);
 
     const menu = el('div', 'card-menu');
     menu.setAttribute('role', 'menu');
-    menu.setAttribute('aria-label', 'Favorite options');
-    const item = el('button', 'card-menu__item');
-    item.type = 'button';
-    item.setAttribute('role', 'menuitem');
-    item.append(icon('icon-rearrange', 'card-menu__icon'), el('span', '', 'Rearrange top favorites'));
-    menu.appendChild(item);
+    menu.setAttribute('aria-label', options.label);
+    const buttons = options.items.map((entry) => {
+      const item = el('button', 'card-menu__item');
+      item.type = 'button';
+      item.setAttribute('role', 'menuitem');
+      item.append(icon(entry.icon, 'card-menu__icon'), el('span', '', entry.label));
+      item.addEventListener('click', () => {
+        close(false);
+        entry.onSelect();
+      });
+      menu.appendChild(item);
+      return item;
+    });
     document.body.appendChild(menu);
 
     // Stays on screen, opening up or to the left when there isn't room.
@@ -86,12 +93,14 @@
     }
     closeMenu = close;
 
-    item.addEventListener('click', () => {
-      close(false);
-      options.onSelect();
-    });
     menu.addEventListener('keydown', (event) => {
       event.stopPropagation();
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        const step = event.key === 'ArrowDown' ? 1 : -1;
+        const index = buttons.indexOf(document.activeElement);
+        buttons[(index + step + buttons.length) % buttons.length].focus({ preventScroll: true });
+      }
       if (event.key === 'Escape' || event.key === 'Tab') {
         event.preventDefault();
         close(true);
@@ -103,7 +112,7 @@
     window.addEventListener('scroll', onDismiss, true);
     window.addEventListener('resize', onDismiss);
     window.addEventListener('blur', onDismiss);
-    item.focus({ preventScroll: true });
+    buttons[0].focus({ preventScroll: true });
   }
 
   // ---------- The dialog ----------

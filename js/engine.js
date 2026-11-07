@@ -9,6 +9,8 @@
   const OfflineCtx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
 
   const SAMPLE_RATE = 44100;
+  const CLIPS_LEAD_SECONDS = 0.03; // Time to schedule every clip before the first has to play.
+  const CLIP_FADE_SECONDS = 0.004;
 
   const buffers = new Map(); // sound id -> Promise<AudioBuffer>
   const voices = new Map(); // sound id -> the voice currently sounding
@@ -67,7 +69,7 @@
     // A very short fade avoids an audible click from cutting the waveform mid-cycle.
     const now = context.currentTime;
     voice.gain.gain.setTargetAtTime(0, now, 0.012);
-    voice.source.stop(now + 0.06);
+    voice.sources.forEach((source) => source.stop(now + 0.06));
   }
 
   // Starts a sound, replacing the same sound if it's already going.
@@ -84,7 +86,7 @@
     gain.connect(master);
 
     const startedAt = ctx.currentTime;
-    const voice = { source, gain };
+    const voice = { sources: [source], gain };
     source.onended = () => {
       if (voices.get(sound.id) === voice) voices.delete(sound.id);
     };
@@ -92,6 +94,57 @@
     source.start();
 
     return { duration: buffer.duration, elapsed: () => ctx.currentTime - startedAt };
+  }
+
+  // Starts a whole timeline of clips as one voice, so stopping `id` stops all of it. Starting
+  // waits for every file, so nothing comes in late. options.offset starts partway through.
+  // soundFor(id) returns a sound from the catalog, or nothing for one that no longer exists.
+  async function startClips(id, clips, soundFor, options) {
+    const offset = (options && options.offset) || 0;
+    const playable = clips.filter((clip) => soundFor(clip.sound));
+    const loaded = await Promise.all(playable.map((clip) => load(soundFor(clip.sound))));
+    const ctx = getContext();
+    stop(id);
+
+    const gain = ctx.createGain();
+    gain.connect(master);
+    const startsAt = ctx.currentTime + CLIPS_LEAD_SECONDS;
+    const voice = { sources: [], gain };
+    let last = offset;
+
+    playable.forEach((clip, i) => {
+      const buffer = loaded[i];
+      const from = Math.min(clip.from, buffer.duration);
+      const length = Math.min(clip.length, buffer.duration - from);
+      const clipEnd = clip.at + length;
+      if (length <= 0 || clipEnd <= offset) return;
+      last = Math.max(last, clipEnd);
+
+      const skipped = Math.max(0, offset - clip.at);
+      const played = length - skipped;
+      const when = startsAt + Math.max(0, clip.at - offset);
+      const level = clip.gain === undefined ? 1 : clip.gain;
+      const fade = Math.min(CLIP_FADE_SECONDS, played / 2); // A trim can cut mid-wave, which clicks.
+
+      const source = ctx.createBufferSource();
+      const clipGain = ctx.createGain();
+      source.buffer = buffer;
+      clipGain.gain.setValueAtTime(0, when);
+      clipGain.gain.linearRampToValueAtTime(level, when + fade);
+      clipGain.gain.setValueAtTime(level, when + played - fade);
+      clipGain.gain.linearRampToValueAtTime(0, when + played);
+      source.connect(clipGain);
+      clipGain.connect(gain);
+      source.onended = () => {
+        voice.sources = voice.sources.filter((other) => other !== source);
+        if (!voice.sources.length && voices.get(id) === voice) voices.delete(id);
+      };
+      voice.sources.push(source);
+      source.start(when, from + skipped, played);
+    });
+
+    if (voice.sources.length) voices.set(id, voice);
+    return { duration: last - offset, elapsed: () => Math.max(0, ctx.currentTime - startsAt) };
   }
 
   function stopAll() {
@@ -128,6 +181,7 @@
     unlock,
     load,
     start,
+    startClips,
     stop,
     stopAll,
     setVolume,

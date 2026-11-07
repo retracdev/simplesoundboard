@@ -1,0 +1,11 @@
+# Who can use beta features.
+#
+# Put retrac.space usernames inside the brackets, separated by commas. Capitals don't matter.
+#   strings: [retrac, someone_else]
+#
+# Use usernames, not emails or ids: accounts only tells this site a visitor's username.
+# Put * in the brackets to open a feature to every signed-in account.
+#
+# This file is public, like the rest of the site, so anyone can read these usernames.
+# Changes reach visitors once the site has deployed.
+strings: []

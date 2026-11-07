@@ -9,6 +9,7 @@ const test = require('node:test');
 const vm = require('node:vm');
 
 const SOURCE = fs.readFileSync(path.join(__dirname, '..', 'js', 'favorites.js'), 'utf8');
+const CORE = fs.readFileSync(path.join(__dirname, '..', 'js', 'strings-core.js'), 'utf8');
 const SAVE_URL = 'https://space-api.retrac-space.workers.dev/v1/games/soundboard/saves/0';
 const SESSION_URL = 'https://space-api.retrac-space.workers.dev/v1/session';
 const settle = async () => {
@@ -162,6 +163,7 @@ function createWorld(options = {}) {
       timers.delete(id);
     },
   });
+  vm.runInContext(CORE, context);
   vm.runInContext(SOURCE, context);
   world.favorites = window.SoundFavorites;
   return world;
@@ -479,6 +481,7 @@ for (const [label, save] of [
   ['a bare array', ['bruh']],
   ['no favorites list', { version: 1 }],
   ['non-string ids', { version: 1, favorites: [1, 2] }],
+  ['malformed strings', { version: 1, favorites: [], strings: [{ id: 'x' }] }],
 ]) {
   test(`a save with ${label} is never overwritten or retried`, async () => {
     const saves = new Map([['alice', save]]);
@@ -865,4 +868,89 @@ test('returning to the tab refreshes favorites only once they are a minute old',
   await world.advance(0);
   assert.equal(world.reads().length, reads + 1);
   assert.equal(world.favorites.isFavorite('from-phone'), true);
+});
+
+const aString = (id, name = 'Mix') => ({ id, name, clips: [{ sound: 'bruh', at: 0, from: 0, length: 1, lane: 0 }] });
+
+test('a string saves alongside favorites and unknown fields, without disturbing them', async () => {
+  const saves = new Map([['alice', { version: 1, favorites: ['rizz'], top: ['rizz'], theme: 'dark' }]]);
+  const world = await signedIn({ saves });
+  world.favorites.saveString(aString('one'));
+  assert.equal(world.favorites.strings().length, 1, 'the screen updates before any request');
+  assert.equal(world.favorites.hasUnsavedStrings(), true);
+  await world.advance(700);
+  assert.deepEqual(plain(saves.get('alice')), {
+    theme: 'dark', version: 1, favorites: ['rizz'], top: ['rizz'], strings: [aString('one')],
+  });
+  assert.equal(world.favorites.hasUnsaved(), false);
+});
+
+test('existing strings load without writing, and a save with none stays without the field', async () => {
+  const saves = new Map([['alice', { version: 1, favorites: [], strings: [aString('one')] }]]);
+  const world = await signedIn({ saves });
+  assert.deepEqual(plain(world.favorites.strings()), [aString('one')]);
+  assert.equal(world.writes().length, 0);
+
+  world.favorites.deleteString('one');
+  assert.deepEqual(plain(world.favorites.strings()), []);
+  await world.advance(700);
+  assert.deepEqual(plain(saves.get('alice')), { version: 1, favorites: [] });
+});
+
+test('editing a string replaces it in place, and strings from another device survive', async () => {
+  const saves = new Map([['alice', { version: 1, favorites: [], strings: [aString('one'), aString('two')] }]]);
+  const world = await signedIn({ saves });
+  saves.set('alice', { version: 1, favorites: [], strings: [aString('one'), aString('two'), aString('phone')] });
+  world.favorites.saveString(aString('one', 'Renamed'));
+  await world.advance(700);
+  assert.deepEqual(saves.get('alice').strings.map((string) => string.name + ':' + string.id),
+    ['Renamed:one', 'Mix:two', 'Mix:phone']);
+});
+
+test('an edit made during a save waits for the next one', async () => {
+  const world = await signedIn();
+  const first = aString('one', 'First');
+  world.favorites.saveString(first);
+  world.holdRequests('PUT');
+  await world.advance(700);
+  world.favorites.saveString(aString('one', 'Second'));
+  await world.release();
+  await world.advance(0);
+  assert.equal(world.favorites.hasUnsavedStrings(), true);
+  await world.advance(700);
+  assert.equal(world.lastWrite().data.strings[0].name, 'Second');
+  assert.equal(world.favorites.hasUnsavedStrings(), false);
+});
+
+test('an unsaved string survives a refresh, and only returns to its own account', async () => {
+  const storage = new Map();
+  const before = await signedIn({ storage });
+  before.tokenError = { status: 0 };
+  before.favorites.saveString(aString('one'));
+  await before.advance(700);
+  assert.equal(before.favorites.hasUnsavedStrings(), true);
+
+  const other = createWorld({ storage, user: 'bob' });
+  other.favorites.setAccount('bob');
+  await other.advance(0);
+  assert.deepEqual(plain(other.favorites.strings()), []);
+
+  const after = await signedIn({ storage });
+  assert.deepEqual(plain(after.favorites.strings()), [aString('one')]);
+  await after.advance(700);
+  assert.deepEqual(plain(after.saves.get('alice').strings), [aString('one')]);
+});
+
+test('a string that would overflow the save is refused up front', async () => {
+  const world = await signedIn();
+  const clips = Array.from({ length: 2000 }, (_, i) => ({ sound: 'a-fairly-long-sound-id', at: i, from: 0, length: 1, lane: 0 }));
+  assert.equal(world.favorites.canSaveString({ id: 'huge', name: 'Huge', clips }), false);
+  assert.equal(world.favorites.canSaveString(aString('small')), true);
+});
+
+test('signing out forgets strings on screen', async () => {
+  const saves = new Map([['alice', { version: 1, favorites: [], strings: [aString('one')] }]]);
+  const world = await signedIn({ saves });
+  world.favorites.setAccount(null);
+  assert.deepEqual(plain(world.favorites.strings()), []);
 });
