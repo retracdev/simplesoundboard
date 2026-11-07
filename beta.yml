@@ -8,4 +8,5 @@
 #
 # This file is public, like the rest of the site, so anyone can read these usernames.
 # Changes reach visitors once the site has deployed.
+# Test deploy - ignore this!
 strings: [retrac,TheDragon191,justdafinn,uppercobra]
