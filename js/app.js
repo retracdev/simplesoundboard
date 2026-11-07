@@ -50,7 +50,6 @@
   const emptySignInEl = $('emptySignIn');
   const emptyResetEl = $('emptyReset');
   const favoritesNoteEl = $('favoritesNote');
-  const loopsEl = $('loops');
   const stopAllEl = $('stopAll');
   const everythingEl = $('everything');
   const volumeEl = $('volume');
@@ -73,7 +72,7 @@
   // "string:" plus its own id, and it's a regular entry in `keys` and `soundById` as well.
   const stringKeys = new Map();
   let stringsGridEl = null;
-  const loops = new Map(); // sound id -> that loop's small card on the page
+  const loops = new Set(); // ids of the sounds looping right now
   const filter = { category: 'all', query: '' };
 
   // ---------- DOM helpers ----------
@@ -194,6 +193,11 @@
       return path;
     });
 
+    if (!isString) {
+      const loopBadge = el('span', 'key__loop');
+      loopBadge.append(icon('icon-loop'), el('span', '', 'Looping'));
+      foot.append(loopBadge);
+    }
     foot.append(wave, time);
     face.append(el('span', 'key__name', sound.name));
     if (sound.summary) face.append(el('span', 'key__summary', sound.summary));
@@ -253,6 +257,7 @@
       const value = original.slotEl.style.getPropertyValue(name);
       if (value) view.slotEl.style.setProperty(name, value);
     });
+    paintLoop(view, sound);
     key.views.push(view);
     favoritesRowViews.set(sound.id, view);
     return view;
@@ -753,25 +758,14 @@
   // A loop is its own voice, so pressing the sound's key plays it over the loop.
   const loopVoice = (id) => 'loop:' + id;
 
-  function buildLoopCard(sound) {
-    const category = categoryById.get(sound.category);
-    const card = el('div', 'loop-card');
-    card.style.setProperty('--key', category.color);
-    card.style.setProperty('--key-side', category.side);
-    const loopIcon = icon('icon-loop');
-    loopIcon.setAttribute('class', 'loop-card__icon');
-    loopIcon.setAttribute('aria-hidden', 'true');
-    const text = el('span', 'loop-card__text');
-    text.append(el('span', 'loop-card__label', 'Looping'), el('span', 'loop-card__name', sound.name));
-    const stop = el('button', 'loop-card__stop');
-    stop.type = 'button';
-    stop.setAttribute('aria-label', 'Stop looping ' + sound.name);
-    const stopIcon = icon('icon-stop');
-    stopIcon.setAttribute('aria-hidden', 'true');
-    stop.append(stopIcon, el('span', '', 'Stop'));
-    stop.addEventListener('click', () => stopLoop(sound.id));
-    card.append(loopIcon, text, stop);
-    return card;
+  function paintLoop(view, sound) {
+    const looping = loops.has(sound.id);
+    view.slotEl.classList.toggle('is-looping', looping);
+    view.el.setAttribute('aria-label', 'Start ' + sound.name + (looping ? ', looping' : ''));
+  }
+
+  function paintLoops(sound) {
+    keys.get(sound.id).views.forEach((view) => paintLoop(view, sound));
   }
 
   function startLoop(sound) {
@@ -782,16 +776,14 @@
       return;
     }
     engine.unlock();
-    const card = buildLoopCard(sound);
-    loops.set(sound.id, card);
-    loopsEl.appendChild(card);
-    loopsEl.hidden = false;
+    loops.add(sound.id);
+    paintLoops(sound);
     setArmed(true);
     engine.start(sound, { id: loopVoice(sound.id), loop: true }).then(() => {
       if (!loops.has(sound.id)) engine.stop(loopVoice(sound.id)); // Stopped while still loading.
     }).catch((error) => {
       console.warn('Could not loop "' + sound.name + '"', error);
-      if (loops.get(sound.id) === card) removeLoop(sound.id);
+      if (loops.has(sound.id)) removeLoop(sound.id);
       flagProblem(key, 'Couldn’t load “' + sound.name + '”. Try looping it again.');
     });
   }
@@ -803,12 +795,8 @@
   }
 
   function removeLoop(id) {
-    const card = loops.get(id);
-    // Removing a focused button would drop keyboard users back at the top of the page.
-    if (card.contains(document.activeElement)) keys.get(id).view.el.focus({ preventScroll: true });
-    card.remove();
     loops.delete(id);
-    loopsEl.hidden = loops.size === 0;
+    paintLoops(soundById.get(id));
     setArmed(isSounding());
   }
 
@@ -1328,7 +1316,7 @@
         run.releaseFrom = run.depth;
       }
     });
-    Array.from(loops.keys()).forEach(removeLoop);
+    Array.from(loops).forEach(removeLoop);
     setArmed(false);
     requestFrame();
   }

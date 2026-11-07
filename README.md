@@ -65,7 +65,7 @@ strings: [retrac, someone_else]
 
 ## Looping
 
-Right-clicking or long-pressing any sound offers **Loop sound**, which repeats it until **Stop all** or **Stop loop sound** in the same menu. Each loop gets a small Looping card above the board, with its own Stop button. Several sounds can loop at once, and pressing a looping sound's key plays it over the loop. Strings can't be looped.
+Right-clicking or long-pressing any sound offers **Loop sound**, which repeats it until **Stop all** or **Stop loop sound** in the same menu. While it loops, a small Looping badge takes the place of the waveform on its key. Several sounds can loop at once, and pressing a looping sound's key plays it over the loop. Strings can't be looped.
 
 Looping needs an account and uses the same `strings` list in `beta.yml` as Strings.
 

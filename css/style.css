@@ -369,56 +369,6 @@ kbd { font: inherit; }
   font-size: .875rem;
 }
 
-/* ---------- Looping ---------- */
-/* Outside the banks, so a search or filter can't hide what's still playing. */
-.loops { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 22px; }
-.loop-card {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  max-width: 100%;
-  padding: 8px 8px 8px 12px;
-  border-radius: 12px;
-  color: var(--ink);
-  background: var(--key);
-  box-shadow: 0 4px 0 var(--key-side), inset 0 1px 0 rgba(255, 255, 255, .45);
-}
-.loop-card__icon {
-  width: 20px;
-  height: 20px;
-  flex: none;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2.25;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.loop-card__text { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
-.loop-card__label { font-size: .75rem; font-weight: 600; }
-.loop-card__name { overflow: hidden; font-size: .9375rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
-.loop-card__stop {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  flex: none;
-  height: 32px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: 9px;
-  color: var(--fg);
-  background: var(--ink);
-  font-size: .8125rem;
-  font-weight: 700;
-  white-space: nowrap;
-  touch-action: manipulation;
-}
-.loop-card__stop svg { width: 12px; height: 12px; fill: currentColor; }
-.loop-card__stop:hover { background: #2f2945; }
-@media (pointer: coarse) {
-  .loop-card__stop { height: 40px; }
-}
-
 /* ---------- Banks ---------- */
 /* Each panel's width follows its key count (--n, set in app.js), so small categories
  * share a row and large ones take a full row of their own. */
@@ -691,6 +641,33 @@ kbd { font: inherit; }
 .key__wave path { vector-effect: non-scaling-stroke; }
 .wave-base { opacity: .26; }
 .wave-lit { clip-path: inset(0 calc((1 - var(--progress)) * 100%) 0 0); }
+/* Takes the waveform's place while a sound loops, so it fits however long the name is. */
+.key__loop {
+  display: none;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  margin-right: auto;
+  padding: 0 7px 0 6px;
+  border-radius: 7px;
+  color: var(--fg);
+  background: var(--ink);
+  font-size: .6875rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.key__loop svg {
+  width: 11px;
+  height: 11px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.is-looping .key__loop { display: inline-flex; }
+.is-looping .key__wave { display: none; }
 .key__time {
   flex: none;
   font-size: .75rem;
