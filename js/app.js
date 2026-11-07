@@ -361,20 +361,25 @@
     Object.assign(banks.get('strings'), { el: bank, countEl: count });
   }
 
+  function addChipSpinner(chip) {
+    const spinner = icon('icon-loader');
+    spinner.classList.add('chip__spinner');
+    spinner.setAttribute('role', 'img');
+    spinner.setAttribute('aria-label', 'Loading');
+    chip.appendChild(spinner);
+  }
+
   function buildBoard() {
     buildFavoritesRow();
     banks.set('all', { chipCountEl: buildChip('all', 'All') });
     banks.set('favorites', { chipCountEl: buildChip('favorites', 'Favorites') });
     banks.set('strings', { chipCountEl: buildChip('strings', 'Strings') });
     stringsChipEl().querySelector('.chip__dot').replaceWith(icon('icon-string'));
+    addChipSpinner(stringsChipEl());
     buildStringsBank();
     const favoritesChip = favoritesChipEl();
     favoritesChip.querySelector('.chip__dot').replaceWith(icon('icon-heart'));
-    const spinner = icon('icon-loader');
-    spinner.classList.add('chip__spinner');
-    spinner.setAttribute('role', 'img');
-    spinner.setAttribute('aria-label', 'Loading');
-    favoritesChip.appendChild(spinner);
+    addChipSpinner(favoritesChip);
     categories.forEach((category) => {
       const bank = el('section', 'bank');
       bank.style.setProperty('--key', category.color);
@@ -500,6 +505,7 @@
     });
     const stringsBank = banks.get('strings');
     stringsBank.chipCountEl.textContent = favorites.isLoaded() || needsAccount() ? stringMatches : '';
+    showChipLoading(stringsChipEl());
     stringsBank.countEl.textContent = stringMatches + (stringMatches === 1 ? ' string' : ' strings');
     stringsBank.el.hidden = !onlyStrings || stringMatches === 0;
 
@@ -568,21 +574,25 @@
     return chipsEl.querySelector('.chip[data-category="favorites"]');
   }
 
-  // A count before the save has been read would be a guess, usually a wrong 0. So the chip
-  // shows a spinner while we're still trying, and nothing once we've stopped.
+  // A count before the save has been read would be a guess, usually a wrong 0. So the Favorites
+  // and Strings chips show a spinner while we're still trying, and nothing once we've stopped.
+  // Both come from the same save, so they finish loading together.
   function favoritesLoading() {
     if (needsAccount()) return false;
     const status = favorites.getStatus();
     return !favorites.isLoaded() && (status === 'ok' || status === 'retrying');
   }
 
-  function renderFavoritesCount(count) {
-    const loaded = favorites.isLoaded();
+  function showChipLoading(chip) {
     const loading = favoritesLoading();
-    const chip = favoritesChipEl();
-    banks.get('favorites').chipCountEl.textContent = loaded || needsAccount() ? count : '';
     chip.setAttribute('aria-busy', String(loading));
     chip.querySelector('.chip__spinner').toggleAttribute('hidden', !loading);
+  }
+
+  function renderFavoritesCount(count) {
+    const loaded = favorites.isLoaded();
+    banks.get('favorites').chipCountEl.textContent = loaded || needsAccount() ? count : '';
+    showChipLoading(favoritesChipEl());
   }
 
   const newestFavorites = () => favorites.list().filter((id) => soundById.has(id)).reverse();
