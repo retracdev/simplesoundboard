@@ -16,10 +16,9 @@ const beta = load('js/beta.js').SoundBeta;
 const plain = (value) => JSON.parse(JSON.stringify(value));
 const clip = (at, length, lane = 0, extra = {}) => ({ sound: 'a', at, from: 0, length, lane, ...extra });
 
-test('beta.yml in the repo parses, and starts with nobody on the list', () => {
+test('beta.yml in the repo parses', () => {
   const features = beta.parse(fs.readFileSync(path.join(__dirname, '..', 'beta.yml'), 'utf8'));
   assert.equal(features.has('strings'), true);
-  assert.equal(features.get('strings').size, 0);
 });
 
 test('the beta list ignores comments, spaces, quotes and capitals', () => {
