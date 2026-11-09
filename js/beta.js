@@ -57,5 +57,13 @@
       const names = features && features.get(feature);
       return Boolean(names && username && (names.has('*') || names.has(username.toLowerCase())));
     },
+    // Whether this username is named on any feature's list. A * doesn't count: a feature that's
+    // open to everyone isn't early access.
+    async hasEarlyAccess(username) {
+      const features = await read();
+      if (!features || !username) return false;
+      const name = username.toLowerCase();
+      return Array.from(features.values()).some((names) => names.has(name));
+    },
   };
 })();

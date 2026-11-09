@@ -971,7 +971,8 @@ kbd { font: inherit; }
 .signin-dialog,
 .warning-dialog,
 .tune-editor,
-.strings-access {
+.strings-access,
+.early-access {
   width: min(440px, calc(100vw - 32px));
   max-height: calc(100dvh - 32px);
   margin: auto;
@@ -986,7 +987,8 @@ kbd { font: inherit; }
 .signin-dialog::backdrop,
 .warning-dialog::backdrop,
 .tune-editor::backdrop,
-.strings-access::backdrop { background: rgba(7, 6, 13, .72); }
+.strings-access::backdrop,
+.early-access::backdrop { background: rgba(7, 6, 13, .72); }
 .tune-editor .signin-panel h2 { margin-top: 0; }
 .tune-editor__slider { display: block; margin-top: 18px; }
 .tune-editor__slider[hidden] { display: none; }

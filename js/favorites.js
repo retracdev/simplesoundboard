@@ -3,7 +3,8 @@
  * slot 0) as { version: 1, favorites: ["sound-id", ...], top: ["sound-id", ...] }. The
  * optional `top` is the arrangement someone chose for the top of their board, and the
  * optional `strings` holds the strings they made (see strings-core.js), and the optional
- * `tunes` holds each changed sound's speed and pitch (see tune-core.js). Everything shares
+ * `tunes` holds each changed sound's speed and pitch (see tune-core.js), and the optional
+ * `earlyAccessSeen` is true once the Early Access popup has been dismissed. Everything shares
  * one save, and so one save cycle, because the API replaces a save whole: two separate cycles
  * could overwrite each other's changes.
  *
@@ -73,6 +74,8 @@
   let pendingTop = null; // A newly chosen arrangement not yet saved, or null if there isn't one.
   let cloudTunes = new Map(); // sound id -> its speed and pitch in the last save read
   const pendingTunes = new Map(); // sound id -> the new speed and pitch, or null to go back to normal
+  let cloudEarlyAccessSeen = false; // Whether the last save read says the popup was dismissed.
+  let pendingEarlyAccessSeen = false; // Dismissed here, and not yet saved.
   let status = 'ok';
   let lastReadAt = 0;
   let lastAttemptAt = 0;
@@ -94,7 +97,8 @@
   }
 
   function hasChanges() {
-    return pending.size > 0 || pendingTop !== null || pendingStrings.size > 0 || pendingTunes.size > 0;
+    return pending.size > 0 || pendingTop !== null || pendingStrings.size > 0 || pendingTunes.size > 0
+      || pendingEarlyAccessSeen;
   }
 
   // ---------- Local storage of unsaved changes ----------
@@ -112,6 +116,7 @@
           top: pendingTop,
           ...(pendingStrings.size ? { strings: Array.from(pendingStrings) } : {}),
           ...(pendingTunes.size ? { tunes: Array.from(pendingTunes) } : {}),
+          ...(pendingEarlyAccessSeen ? { earlyAccessSeen: true } : {}),
         }));
       } else {
         window.localStorage.removeItem(storageKey(accountId));
@@ -126,8 +131,10 @@
     pendingStrings.clear();
     pendingTunes.clear();
     pendingTop = null;
+    pendingEarlyAccessSeen = false;
     try {
       const saved = JSON.parse(window.localStorage.getItem(storageKey(id)));
+      if (saved && saved.earlyAccessSeen === true) pendingEarlyAccessSeen = true;
       if (saved && validIds(saved.top)) pendingTop = saved.top;
       if (saved && Array.isArray(saved.ops)) {
         saved.ops.forEach((entry) => {
@@ -212,12 +219,13 @@
       (save.strings === undefined || (Array.isArray(save.strings) && save.strings.every(window.StringsCore.isValid))) &&
       (save.tunes === undefined || validTunes(save.tunes));
     if (!valid) throw new SaveError(-1, 'unsupported_save');
-    const { version, favorites, top, strings, tunes, ...rest } = save;
+    const { version, favorites, top, strings, tunes, earlyAccessSeen, ...rest } = save;
     return {
       favorites: Array.from(new Set(favorites)),
       top: Array.from(new Set(top || [])),
       strings: strings || [],
       tunes: new Map(Object.entries(tunes || {})),
+      earlyAccessSeen: earlyAccessSeen === true,
       extras: rest,
     };
   }
@@ -228,7 +236,7 @@
       return parseSave(body && body.data && body.data.data);
     } catch (error) {
       // Only this exact answer means "no save yet". Any other failure means we don't know.
-      if (error.status === 404 && error.code === 'save_not_found') return { favorites: [], top: [], strings: [], tunes: new Map(), extras: {} };
+      if (error.status === 404 && error.code === 'save_not_found') return { favorites: [], top: [], strings: [], tunes: new Map(), earlyAccessSeen: false, extras: {} };
       throw error;
     }
   }
@@ -262,7 +270,7 @@
 
   const sameList = (a, b) => a.length === b.length && a.every((id, i) => id === b[i]);
 
-  function savePayload(favorites, top, strings, tunes) {
+  function savePayload(favorites, top, strings, tunes, earlyAccessSeen) {
     return JSON.stringify({
       data: {
         ...extras,
@@ -271,6 +279,7 @@
         ...(top.length ? { top } : {}),
         ...(strings.length ? { strings } : {}),
         ...(tunes.size ? { tunes: Object.fromEntries(tunes) } : {}),
+        ...(earlyAccessSeen ? { earlyAccessSeen: true } : {}),
       },
     });
   }
@@ -313,6 +322,7 @@
     cloudTop = save.top;
     cloudStrings = save.strings;
     cloudTunes = save.tunes;
+    cloudEarlyAccessSeen = save.earlyAccessSeen;
     extras = save.extras;
     lastReadAt = Date.now();
     emit();
@@ -331,10 +341,13 @@
     const nextTop = (writingTop || cloudTop).filter((id) => next.includes(id));
     const nextStrings = applyStringChanges(cloudStrings, writingStrings);
     const nextTunes = applyTuneChanges(cloudTunes, writingTunes);
+    const writingSeen = pendingEarlyAccessSeen;
+    const nextSeen = cloudEarlyAccessSeen || writingSeen;
     if (!sameList(next, cloud) || !sameList(nextTop, cloudTop)
       || JSON.stringify(nextStrings) !== JSON.stringify(cloudStrings)
-      || JSON.stringify([...nextTunes]) !== JSON.stringify([...cloudTunes])) {
-      const payload = savePayload(next, nextTop, nextStrings, nextTunes);
+      || JSON.stringify([...nextTunes]) !== JSON.stringify([...cloudTunes])
+      || nextSeen !== cloudEarlyAccessSeen) {
+      const payload = savePayload(next, nextTop, nextStrings, nextTunes, nextSeen);
       if (payloadTooLarge(payload)) {
         throw new SaveError(413, 'save_too_large');
       }
@@ -345,6 +358,7 @@
       cloudTop = nextTop;
       cloudStrings = nextStrings;
       cloudTunes = nextTunes;
+      cloudEarlyAccessSeen = nextSeen;
     }
 
     // Forget only what was written. A newer click on the same sound stays pending.
@@ -358,6 +372,7 @@
     writingTunes.forEach((tune, id) => {
       if (pendingTunes.get(id) === tune) pendingTunes.delete(id);
     });
+    if (writingSeen) pendingEarlyAccessSeen = false;
     persist();
     succeed();
     if (hasChanges()) queueSave();
@@ -481,6 +496,8 @@
     cloudTop = [];
     cloudStrings = [];
     cloudTunes = new Map();
+    cloudEarlyAccessSeen = false;
+    pendingEarlyAccessSeen = false;
     pendingStrings.clear();
     pendingTunes.clear();
     pendingTop = null;
@@ -523,7 +540,7 @@
     const favorites = applyChanges(cloud || [], pending);
     const top = (pendingTop || cloudTop).filter((id) => favorites.includes(id));
     return !payloadTooLarge(savePayload(favorites, top, applyStringChanges(cloudStrings, stringChanges),
-      applyTuneChanges(cloudTunes, tuneChanges)));
+      applyTuneChanges(cloudTunes, tuneChanges), true));
   }
 
   window.SoundFavorites = {
@@ -594,6 +611,15 @@
     },
 
     canSaveString: (string) => fits(new Map(pendingStrings).set(string.id, string), pendingTunes),
+
+    // Whether this account has dismissed the Early Access popup, on any device.
+    hasSeenEarlyAccess: () => cloudEarlyAccessSeen || pendingEarlyAccessSeen,
+
+    markEarlyAccessSeen() {
+      if (!accountId || cloudEarlyAccessSeen || pendingEarlyAccessSeen) return;
+      pendingEarlyAccessSeen = true;
+      afterChange();
+    },
 
     // Called when the visitor returns, or the network does. Honors any rate-limit wait.
     resume() {
