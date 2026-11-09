@@ -8,6 +8,14 @@
   const account = window.RetracAccount;
   const ACCOUNTS_URL = 'https://accounts.retrac.space';
 
+  // What each reason from accounts means for the visitor. Any other reason gets no sentence.
+  const ACTION_REASONS = {
+    account_review: 'Your account needs a quick review. There may be a few steps to verify it’s really you.',
+    inappropriate_username: 'Your username isn’t allowed and needs to be changed.',
+    inappropriate_content: 'Some of what you’ve posted on retrac.space needs to be removed.',
+    account_suspended: 'Your account is temporarily unavailable.',
+  };
+
   const screens = {
     confirm: {
       title: 'Save your favorite sounds',
@@ -39,6 +47,11 @@
       description: 'Choose a username at retrac.space to start saving favorites, then come back here.',
       actions: [['open', 'Open accounts'], ['verify', 'I’ve finished'], ['cancel', 'Cancel']],
     },
+    action: {
+      title: 'Action is required on your account',
+      description: 'You can keep playing sounds, but favorites and other account features are off until it’s resolved.',
+      actions: [['resolve', 'Resolve Issue'], ['cancel', 'Continue Signed Out']],
+    },
   };
 
   const dialog = document.createElement('dialog');
@@ -60,6 +73,10 @@
   function render(next) {
     stage = next;
     const screen = { ...screens[next] };
+    if (next === 'action') {
+      const reason = ACTION_REASONS[account.getState().reason];
+      if (reason) screen.description = reason + ' ' + screen.description;
+    }
     if (purpose === 'request') {
       if (next === 'confirm') {
         screen.title = 'Request a sound effect';
@@ -135,6 +152,14 @@
     render('waiting');
   }
 
+  function resolveIssue() {
+    // Runs directly in a button click, so browsers allow the new tab. Coming back to this
+    // tab checks the account again, the same as after signing in.
+    started = true;
+    away = false;
+    window.open(account.getState().url || ACCOUNTS_URL, '_blank', 'noopener');
+  }
+
   async function verify() {
     clearTimeout(returnTimer);
     if (!dialog.open || stage === 'checking') return;
@@ -171,6 +196,7 @@
     const button = event.target.closest('[data-action]');
     if (!button) return;
     if (button.dataset.action === 'open') openAccounts();
+    else if (button.dataset.action === 'resolve') resolveIssue();
     else if (button.dataset.action === 'verify') verify();
     else cancel();
   });
