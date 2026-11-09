@@ -116,6 +116,7 @@ npm test
 | `js/strings-core.js` | The timeline rules for strings, with no page or audio involved |
 | `js/string-editor.js` | The string editor |
 | `js/account-welcome.js` | Greets signed-in retrac.space accounts |
+| `js/early-access.js` | Tells accounts named in `beta.yml` they have Early Access, once |
 | `js/sound-request.js` | Embeds sound requests with the account username and shows submission confirmation |
 | `tests/` | Automated tests, which aren't part of the running site |
 | `js/app.js` | Builds the board, animates the keys, handles search and categories |
