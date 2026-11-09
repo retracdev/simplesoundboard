@@ -43,6 +43,8 @@ Signed-in visitors can favorite sounds. Favorites are stored in their retrac.spa
 - Each save reads the latest cloud save, applies the visitor's changes and writes the result. The API has no conditional writes, so two devices saving at the same instant can still conflict.
 - Signed-in visitors see a Favorites row above the first category, showing their top 5 favorites and a link to the rest. Right-clicking or long-pressing a favorite offers "Rearrange top favorites", which saves their chosen order as an optional `top` list in the same cloud save. Without one, the row shows the newest favorites. A sound in that row is a second button for the same sound, so both copies animate together.
 
+The session check can also say the account needs action (`actionRequired` with a `reason` and `url`). A popup then explains why, with "Resolve Issue" opening that url in a new tab and "Continue Signed Out" leaving the visitor without account features here until it's resolved. Reaching for any account feature brings the popup back.
+
 The Favorites and Strings chips always show. For guests they say 0, and their tabs explain that an account is needed, with a button that opens the usual sign-in dialog.
 
 ## Strings

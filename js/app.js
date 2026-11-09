@@ -495,7 +495,12 @@
 
   function showEmptyState() {
     const query = filter.query.trim();
-    if (needsAccount() && filter.category === 'favorites') {
+    const actionRequired = account.getState().status === 'action';
+    emptySignInEl.textContent = actionRequired ? 'See what’s needed' : 'Log in or sign up';
+    if (actionRequired && (filter.category === 'favorites' || filter.category === 'strings')) {
+      setEmptyState(filter.category === 'strings' ? 'icon-string' : 'icon-heart', 'Action is required on your account.',
+        'Resolve the issue to get back to your ' + filter.category + '.', true);
+    } else if (needsAccount() && filter.category === 'favorites') {
       setEmptyState('icon-heart', 'You need an account.', 'Log in or sign up to keep your favorite sounds.', true);
     } else if (needsAccount() && filter.category === 'strings') {
       setEmptyState('icon-string', 'You need an account.', 'Log in or sign up to combine sounds into strings and keep them.', true);
@@ -1191,9 +1196,11 @@
     });
   }
 
+  let actionPrompted = false;
+
   function onAccountChange(state) {
     const signedIn = state.status === 'authenticated';
-    if (signedIn || state.status === 'guest' || state.status === 'incomplete') {
+    if (signedIn || state.status === 'guest' || state.status === 'incomplete' || state.status === 'action') {
       favorites.setAccount(signedIn ? state.username : null);
     }
     refreshTuneAccess(state);
@@ -1206,6 +1213,14 @@
       // The add is applied on top of the cloud save, once that has been read.
       if (intended) favorites.add(intended);
       if (signIn.isOpen()) signIn.finish();
+    }
+    // An account that needs action is told so once, straight away. After "Continue Signed Out",
+    // the same popup comes back whenever they reach for an account feature.
+    if (state.status !== 'action') {
+      if (state.status !== 'error') actionPrompted = false;
+    } else if (!actionPrompted) {
+      actionPrompted = true;
+      if (!signIn.isOpen()) signIn.open({ stage: 'action' });
     }
   }
 
