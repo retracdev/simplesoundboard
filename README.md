@@ -29,3 +29,7 @@ There are 2 ways to get a sound effect you want on Simple Soundboard:
 There is "Request a Sound Effect" button at the top of the page. You can press that to open a form where you can put in the details to your sound effect. If your sound effect is approved, it will usually be added to the site within a few days.
 ### 2. Submit it in a PR.
 If you understand the codebase (or know how to use an AI Development Tool like [Claude Code](https://claude.com/claude-code), you can create a branch, add the sound effect, and then create a PR.
+
+## retrac.space Accounts
+[retrac.space](retrac.space) are required to use some features on the soundboard. This requirement is in place so your data can cloud sync across your devices, free of charge.
+You can create an account [here](https://accounts.retrac.space), and you'll be automatically logged in on Simple Soundboard and other retrac.space projects.
