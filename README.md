@@ -22,3 +22,10 @@ Some features like **Favorites** and **Strings** do require a **retrac.space acc
 This site is Open Source and licensed under the MIT license. You are free to [fork](https://github.com/retracdev/simplesoundboard/fork) this repository to use it for your own projects as long as you give credit to the original website and/or GitHub Repo URL.
 
 If you want to add a feature or change something on the site, go ahead! You can create a branch and make a PR when you are ready. However, there is no guarantee we approve the PR.
+
+## A Sound I Want Is Not on This Site
+There are 2 ways to get a sound effect you want on Simple Soundboard:
+### 1. Submit it directly on the website. (Easiest, requires a retrac.space account)
+There is "Request a Sound Effect" button at the top of the page. You can press that to open a form where you can put in the details to your sound effect. If your sound effect is approved, it will usually be added to the site within a few days.
+### 2. Submit it in a PR.
+If you understand the codebase (or know how to use an AI Development Tool like [Claude Code](https://claude.com/claude-code), you can create a branch, add the sound effect, and then create a PR.
