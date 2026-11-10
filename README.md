@@ -11,6 +11,8 @@
 
 Fun sound effects without the bloat. 🔊 Part of the [retrac.space](https://retrac.space) collection.
 
+If you are looking to get to the Simple Soundboard, press [here](https://soundboard.retrac.space) or go to [https://soundboard.retrac.space](https://soundboard.retrac.space).
+
 Press a key and it sinks, then slowly rises back up over the exact length of the sound.
 
 ## "What's the catch? Is there a subscription or ads?"
@@ -23,7 +25,7 @@ This project is open source and licensed under the MIT license. You're welcome t
 
 If you want to add a feature or change something on the site, go ahead! You can create a branch and make a PR when you are ready. However, there is no guarantee we approve the PR.
 
-## A Sound I Want Is Not on This Site
+## Want a Sound That's Missing?
 There are 2 ways to get a sound effect you want on Simple Soundboard:
 ### 1. Submit it directly on the website. (Easiest, requires a retrac.space account)
 There is "Request a Sound Effect" button at the top of the page. You can press that to open a form where you can put in the details to your sound effect. If your sound effect is approved, it will usually be added to the site within a few days.
