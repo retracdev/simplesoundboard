@@ -17,3 +17,8 @@ Press a key and it sinks, then slowly rises back up over the exact length of the
 Nope! None of that. I build Simple Soundboard as an easy and fun way to play sound effects.
 The site is completely free with no advertisements or intrusive popups.
 Some features like **Favorites** and **Strings** do require a **retrac.space account**, but the account is free, and is used to Cloud Save your data across devices.
+
+## Open Source
+This site is Open Source and licensed under the MIT license. You are free to [fork](https://github.com/retracdev/simplesoundboard/fork) this repository to use it for your own projects as long as you give credit to the original website and/or GitHub Repo URL.
+
+If you want to add a feature or change something on the site, go ahead! You can create a branch and make a PR when you are ready. However, there is no guarantee we approve the PR.
