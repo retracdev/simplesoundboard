@@ -1,3 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect x="3" y="7" width="26" height="23" rx="7" fill="#6442c9"/>
+  <rect x="3" y="2" width="26" height="24" rx="7" fill="#ab8fff"/>
+  <path fill="#171029" d="M15 7v9.4a3.6 3.6 0 1 0 1.8 3.1v-8.2h4.4V7z"/>
+</svg>
+<img width="150" height="150" alt="simple-soundboard-logo" src="https://github.com/user-attachments/assets/c0148050-f61c-4aa1-bf35-df09eeded5d1" />
+
 # Simple Soundboard
 
 Fun sound effects without the bloat. 🔊 Part of the [retrac.space](https://retrac.space) collection.
