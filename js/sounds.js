@@ -103,6 +103,8 @@
       src: 'sounds/wake-up-first-of-the-month.mp3', requestedBy: 'f6zHbQSsHYmjZORQYT4fCP64iCbDkxz0', isNew: true },
     { id: 'he-need-some-milk', name: 'He Need Some Milk', category: 'internet', tags: 'milk reaction meme',
       src: 'sounds/he-need-some-milk.mp3', requestedBy: '5qVRbJMj43eaPns1yVfDMAQynM83V5ya', isNew: true },
+    { id: 'patrisha', name: 'Patrisha', category: 'internet', tags: 'meme',
+      src: 'sounds/patrisha.mp3', requestedBy: 'SyyQsk1W6935NN9bA8qIIAQd7FD0lb3j', isNew: true },
     { id: 'get-out', name: 'Get Out!', category: 'tv-movies', tags: 'tuco breaking bad yell quote',
       src: 'sounds/tuco-get-out.mp3' },
     { id: 'spongebob-failure', name: 'SpongeBob Failure', category: 'tv-movies', tags: 'fail cartoon sad lose',
