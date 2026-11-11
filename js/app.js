@@ -75,7 +75,7 @@
   const stringKeys = new Map();
   let stringsGridEl = null;
   const loops = new Set(); // ids of the sounds looping right now
-  let tunesAllowed = false; // Whether this account is in the beta, so its speed and pitch apply.
+  let tunesAllowed = false; // Whether an account is signed in, so its speed and pitch apply.
   const filter = { category: 'all', query: '' };
 
   // ---------- DOM helpers ----------
@@ -1081,7 +1081,7 @@
 
   const TUNE_PREVIEW_VOICE = 'tune-preview';
 
-  // Saved settings stop applying if someone leaves the beta, since they'd have no way to undo them.
+  // Saved settings only apply while an account is signed in.
   function tuneFor(id) {
     return tunesAllowed ? favorites.tune(id) : null;
   }
@@ -1114,10 +1114,8 @@
     });
   }
 
-  async function refreshTuneAccess(state) {
-    const allowed = state.status === 'authenticated' && await stringsAccess.hasAccess(state.username);
-    if (account.getState() !== state) return; // A newer answer about the account has come in.
-    tunesAllowed = allowed;
+  function refreshTuneAccess(state) {
+    tunesAllowed = state.status === 'authenticated';
     renderTunes();
   }
 
@@ -1315,19 +1313,10 @@
     stringsAccess.require(trigger, (username) => openStringEditor(trigger, username, { string: entry.string }));
   }
 
-  // Guests get the tab itself, which explains the account. Signed-in visitors outside the beta
-  // are told so instead.
-  async function openStringsTab(chip) {
-    let state = account.getState();
-    if (state.status === 'unknown' || state.status === 'error') state = await account.check();
-    if (state.status === 'authenticated') stringsAccess.require(chip, () => setCategory('strings'));
-    else setCategory('strings');
-  }
-
   // The button on the Favorites and Strings tabs for anyone without an account.
   async function signInFromTab() {
     if (filter.category === 'strings') {
-      stringsAccess.require(emptySignInEl, () => setCategory('strings'), () => setCategory('all'));
+      stringsAccess.require(emptySignInEl, () => setCategory('strings'));
       return;
     }
     let state = account.getState();
@@ -1805,8 +1794,7 @@
   chipsEl.addEventListener('click', (event) => {
     const chip = event.target.closest('.chip');
     if (!chip) return;
-    if (chip.dataset.category === 'strings') openStringsTab(chip);
-    else setCategory(chip.dataset.category);
+    setCategory(chip.dataset.category);
   });
 
   searchEl.addEventListener('input', () => {
