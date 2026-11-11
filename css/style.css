@@ -1311,6 +1311,21 @@ kbd { font: inherit; }
 }
 .sound-info__body { padding: 14px 22px 24px; color: #d8d3ea; white-space: pre-line; }
 .sound-info__body .sound-info__empty { color: #b9b4d0; }
+.sound-info__spinner {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  vertical-align: -.125em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  animation: chip-spin .8s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sound-info__spinner { animation: none; }
+}
 @media (min-width: 641px) {
   .sound-info { margin-bottom: 24px; }
 }
