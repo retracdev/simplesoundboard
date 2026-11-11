@@ -696,11 +696,13 @@ kbd { font: inherit; }
 @media (hover: hover) {
   .key-slot:hover .key__face,
   .key-slot:hover .key__heart,
+  .key-slot:hover .key__info,
   .key-slot:hover .key__more { translate: 0 -2px; }
 }
 @media (hover: none) {
   .key:active .key__face,
   .key:active ~ .key__heart-layer .key__heart,
+  .key:active ~ .key__heart-layer .key__info,
   .key:active ~ .key__heart-layer .key__more { translate: 0 3px; }
 }
 
@@ -769,6 +771,49 @@ kbd { font: inherit; }
 .key__name::before { content: ""; float: right; width: 22px; height: 20px; }
 @media (pointer: coarse) {
   .key__heart { top: 0; right: 0; width: 44px; height: 44px; }
+}
+
+/* ---------- The info button ----------
+ * Just left of the heart, in the same layer, styled to match it.
+ */
+.key__info {
+  position: absolute;
+  top: 2px;
+  right: 38px;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  border-radius: 14px;
+  color: var(--ink);
+  background: none;
+  pointer-events: auto;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transform: translateY(calc(var(--depth) * (var(--travel) - 3px)));
+  transition: translate .13s var(--ease);
+}
+.key__info svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: .62;
+  transition: transform .15s var(--ease), opacity .12s;
+}
+.key__info:hover svg { opacity: 1; transform: scale(1.14); }
+.key__info:active svg { transform: scale(.88); }
+.key__info:focus-visible { outline: 3px solid var(--ink); outline-offset: -5px; }
+/* Sounds have both the info button and the heart in that corner, so the name leaves room for both. */
+.key-slot:not(.key-slot--string) .key__name::before { width: 56px; }
+@media (pointer: coarse) {
+  .key__info { top: 0; right: 40px; width: 44px; height: 44px; }
+  .key-slot:not(.key-slot--string) .key__name::before { width: 62px; }
 }
 
 /* ---------- The options button ----------
@@ -853,6 +898,7 @@ kbd { font: inherit; }
 /* A little spring when the key gets all the way back up. */
 .key-slot.is-pop .key__face,
 .key-slot.is-pop .key__heart,
+.key-slot.is-pop .key__info,
 .key-slot.is-pop .key__more { animation: pop .3s var(--ease); }
 @keyframes pop {
   40% { translate: 0 -6px; }
@@ -942,9 +988,11 @@ kbd { font: inherit; }
   .key__tilt, .key__heart-layer { transition: none; }
   .key-slot.is-pop .key__face,
   .key-slot.is-pop .key__heart,
+  .key-slot.is-pop .key__info,
   .key-slot.is-pop .key__more,
   .key-hint { animation: none; }
-  .key__heart svg, .key__more svg { transition: none; }
+  .key__heart svg, .key__info svg, .key__more svg { transition: none; }
+  .sound-info[open] .sound-info__panel, .sound-info[open]::backdrop { animation: none; }
   .chip > svg.chip__spinner, .bank__spinner { animation: none; }
   .key__see-all-arrow { transition: none; }
   .card-menu, .rearrange[open] .rearrange__panel { animation: none; }
@@ -1216,6 +1264,54 @@ kbd { font: inherit; }
   .sound-request__header { gap: 10px; padding: 20px 16px; }
   .sound-request__body { margin: 0 8px 8px; }
   .sound-request-prompt { justify-content: center; text-align: center; }
+}
+
+/* ---------- Sound effect information ----------
+ * A sheet that rises from the bottom of the screen over a blurred board.
+ */
+.sound-info {
+  width: min(520px, calc(100vw - 24px));
+  max-width: none;
+  max-height: calc(100dvh - 24px);
+  margin: auto auto 12px;
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  color: var(--fg);
+  background: none;
+}
+.sound-info::backdrop {
+  background: rgba(7, 6, 13, .55);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+.sound-info[open]::backdrop { animation: sound-info-fade .24s ease-out; }
+.sound-info__panel {
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 26px;
+  background: linear-gradient(180deg, var(--panel), var(--panel-deep));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 30px 80px rgba(0, 0, 0, .7);
+}
+.sound-info[open] .sound-info__panel { animation: sound-info-rise .34s cubic-bezier(.2, .9, .3, 1.1); }
+@keyframes sound-info-rise { from { opacity: 0; transform: translateY(70px); } }
+@keyframes sound-info-fade { from { opacity: 0; } }
+.sound-info__header { display: flex; align-items: flex-start; gap: 16px; padding: 22px 22px 0; }
+.sound-info__header > div { flex: 1; min-width: 0; }
+.sound-info__name { color: var(--muted); font-size: .875rem; font-weight: 600; overflow-wrap: anywhere; }
+.sound-info__header h2 {
+  margin-top: 4px;
+  color: #cbb5ff;
+  font-family: var(--display);
+  font-size: clamp(1.4rem, 4vw, 1.8rem);
+  font-weight: 400;
+  line-height: 1.15;
+}
+.sound-info__body { padding: 14px 22px 24px; color: #d8d3ea; white-space: pre-line; }
+.sound-info__body .sound-info__empty { color: #b9b4d0; }
+@media (min-width: 641px) {
+  .sound-info { margin-bottom: 24px; }
 }
 
 /* ---------- Right-click menu on favorites ---------- */
