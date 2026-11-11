@@ -340,6 +340,7 @@ kbd { font: inherit; }
 }
 .chip[data-category="all"] { --key: var(--fg); --key-side: var(--muted); }
 .chip[data-category="favorites"] { --key: #ff7eb6; --key-side: #c0407b; }
+.chip[data-category="new"] { --key: #ffc93c; --key-side: #bd8406; }
 .chip > svg { width: 14px; height: 14px; fill: var(--key); }
 .chip[aria-pressed="true"] > svg { fill: var(--ink); }
 .chip > svg.chip__spinner {
