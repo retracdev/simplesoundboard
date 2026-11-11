@@ -847,8 +847,12 @@
     }
     let requester;
     if (sound.requestedBy) {
-      requester = el('p', '', 'Requested By: [loading]');
+      requester = el('p', '', 'Requested By: ');
       requester.setAttribute('role', 'status');
+      const spinner = icon('icon-loader');
+      spinner.classList.add('sound-info__spinner');
+      spinner.setAttribute('aria-hidden', 'true');
+      requester.append(spinner, el('span', 'sr-only', 'Loading requester'));
       infoBodyEl.appendChild(requester);
     }
     infoDialog.showModal();

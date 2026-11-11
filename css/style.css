@@ -620,6 +620,7 @@ kbd { font: inherit; }
 
 /* --name-fit is set from the script, only on names too long to fit their key at full size. */
 .key__name {
+  flex-shrink: 0;
   font-size: calc(1.0625rem * var(--name-fit, 1));
   font-weight: 700;
   line-height: 1.16;
@@ -627,7 +628,8 @@ kbd { font: inherit; }
   overflow-wrap: anywhere;
 }
 
-.key__foot { display: flex; align-items: center; gap: 8px; }
+/* Reserve the footer's full height; long titles are fitted by the script instead. */
+.key__foot { display: flex; flex: none; align-items: center; gap: 8px; }
 .key__wave { position: relative; display: block; flex: 1; min-width: 0; height: 24px; }
 .key__wave svg {
   position: absolute;
@@ -1311,6 +1313,21 @@ kbd { font: inherit; }
 }
 .sound-info__body { padding: 14px 22px 24px; color: #d8d3ea; white-space: pre-line; }
 .sound-info__body .sound-info__empty { color: #b9b4d0; }
+.sound-info__spinner {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  vertical-align: -.125em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  animation: chip-spin .8s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sound-info__spinner { animation: none; }
+}
 @media (min-width: 641px) {
   .sound-info { margin-bottom: 24px; }
 }
