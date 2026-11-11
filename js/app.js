@@ -849,7 +849,7 @@
     infoNameEl.textContent = sound.name;
     const text = typeof sound.info === 'string' ? sound.info.trim() : '';
     infoBodyEl.replaceChildren();
-    if (text || !sound.requestedBy) {
+    if (text || (!sound.requestedBy && !sound.dateAdded)) {
       infoBodyEl.appendChild(el('p', text ? '' : 'sound-info__empty',
         text || 'There is no information available for this sound effect.'));
     }
@@ -862,6 +862,9 @@
       spinner.setAttribute('aria-hidden', 'true');
       requester.append(spinner, el('span', 'sr-only', 'Loading requester'));
       infoBodyEl.appendChild(requester);
+    }
+    if (sound.dateAdded) {
+      infoBodyEl.appendChild(el('p', '', 'Date Added: ' + sound.dateAdded));
     }
     infoDialog.showModal();
     infoCloseEl.focus({ preventScroll: true });
