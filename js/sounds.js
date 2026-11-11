@@ -9,6 +9,7 @@
  *   tags      extra words for search
  *   src       the file, relative to index.html
  *   info      optional: a few words about the sound, shown under "Sound Effect Information"
+ *   requestedBy optional: retrac.space user ID, looked up when sound information opens
  *
  * The waveform, the time label and the pop-up speed all come from the audio itself.
  * A new category only needs a row in `categories`: its panel and filter chip appear
@@ -71,6 +72,8 @@
       src: 'sounds/boneless-wing.mp3' },
     { id: 'new-bugatti', name: 'I WOKE UP IN A NEW BUGATTI', category: 'internet', tags: 'meme car song music',
       src: 'sounds/new-bugatti.mp3' },
+    { id: 'wake-up-first-of-the-month', name: 'WAKE UP ITS DA FIRST OF THE MONTH', category: 'internet', tags: 'wake up first month song music meme',
+      src: 'sounds/wake-up-first-of-the-month.mp3', requestedBy: 'f6zHbQSsHYmjZORQYT4fCP64iCbDkxz0' },
     { id: 'and-his-name-is', name: 'And His Name Is...', category: 'internet', tags: 'john cena wrestling meme',
       src: 'sounds/and-his-name-is.mp3' },
     { id: 'jet2holiday', name: 'Jet2Holiday', category: 'internet', tags: 'nothing beats a jet2 holiday travel advert music meme',
