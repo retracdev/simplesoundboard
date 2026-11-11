@@ -247,7 +247,14 @@
     heart.setAttribute('aria-label', 'Favorite ' + sound.name);
     heart.setAttribute('aria-pressed', 'false');
     heart.appendChild(icon('icon-heart'));
-    heartLayer.append(heart, more);
+    // Opens what we know about the sound, from the optional `info` in the catalog.
+    const info = el('button', 'key__info');
+    info.type = 'button';
+    info.dataset.info = sound.id;
+    info.setAttribute('aria-label', 'Information about ' + sound.name);
+    info.setAttribute('aria-haspopup', 'dialog');
+    info.appendChild(icon('icon-info'));
+    heartLayer.append(info, heart, more);
 
     const category = categoryById.get(sound.category);
     slot.style.setProperty('--key', category.color);
@@ -713,6 +720,7 @@
         ? { icon: 'icon-stop', label: 'Stop loop sound', onSelect: () => stopLoop(id) }
         : { icon: 'icon-loop', label: 'Loop sound', onSelect: () => loopSound(id, card) });
       items.push({ icon: 'icon-speed', label: 'Edit speed and pitch', onSelect: () => editTune(id, card) });
+      items.push({ icon: 'icon-info', label: 'Show sound information', onSelect: () => showSoundInfo(id, card) });
     }
     return items;
   }
@@ -750,6 +758,39 @@
     const box = more.getBoundingClientRect();
     showCardMenu(card, box.left + 8, box.bottom - 4, more);
   }
+
+  // ---------- Sound effect information ----------
+
+  // A panel that rises from the bottom over a blurred board. Sounds without `info` in the
+  // catalog say so, until there's something to tell.
+  const infoDialog = $('soundInfoDialog');
+  const infoNameEl = $('soundInfoName');
+  const infoBodyEl = $('soundInfoBody');
+  const infoCloseEl = $('soundInfoClose');
+  let infoTrigger = null;
+
+  function showSoundInfo(id, trigger) {
+    const sound = soundById.get(id);
+    if (!sound || infoDialog.open) return;
+    infoTrigger = trigger || null;
+    infoNameEl.textContent = sound.name;
+    const text = typeof sound.info === 'string' ? sound.info.trim() : '';
+    const paragraph = el('p', text ? '' : 'sound-info__empty',
+      text || 'There is no information available for this sound effect.');
+    infoBodyEl.replaceChildren(paragraph);
+    infoDialog.showModal();
+    infoCloseEl.focus({ preventScroll: true });
+  }
+
+  infoCloseEl.addEventListener('click', () => infoDialog.close());
+  infoDialog.addEventListener('click', (event) => {
+    if (event.target === infoDialog) infoDialog.close();
+  });
+  infoDialog.addEventListener('keydown', (event) => event.stopPropagation());
+  infoDialog.addEventListener('close', () => {
+    if (infoTrigger && infoTrigger.isConnected) infoTrigger.focus({ preventScroll: true });
+    infoTrigger = null;
+  });
 
   // ---------- The hint for the options button ----------
 
@@ -1591,6 +1632,11 @@
     const heart = event.target.closest('.key__heart');
     if (heart) {
       onHeartClick(heart);
+      return;
+    }
+    const info = event.target.closest('.key__info');
+    if (info) {
+      showSoundInfo(info.dataset.info, info);
       return;
     }
     const more = event.target.closest('.key__more');

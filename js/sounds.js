@@ -8,6 +8,7 @@
  *   category  an id from `categories` below
  *   tags      extra words for search
  *   src       the file, relative to index.html
+ *   info      optional: a few words about the sound, shown under "Sound Effect Information"
  *
  * The waveform, the time label and the pop-up speed all come from the audio itself.
  * A new category only needs a row in `categories`: its panel and filter chip appear
