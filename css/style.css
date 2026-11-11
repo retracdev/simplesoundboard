@@ -618,8 +618,9 @@ kbd { font: inherit; }
 }
 .key__name, .key__foot { position: relative; }
 
+/* --name-fit is set from the script, only on names too long to fit their key at full size. */
 .key__name {
-  font-size: 1.0625rem;
+  font-size: calc(1.0625rem * var(--name-fit, 1));
   font-weight: 700;
   line-height: 1.16;
   letter-spacing: -.01em;
@@ -974,7 +975,7 @@ kbd { font: inherit; }
   /* Tall enough for a long name to wrap around the heart without squeezing the footer. */
   .key { height: 134px; }
   .key__face { padding: 11px 12px 10px; }
-  .key__name { font-size: .9375rem; line-height: 1.12; }
+  .key__name { font-size: calc(.9375rem * var(--name-fit, 1)); line-height: 1.12; }
 }
 
 /* ---------- Reduced motion ----------
