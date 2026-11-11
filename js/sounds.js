@@ -20,7 +20,7 @@
   'use strict';
 
   const categories = [
-    { id: 'internet', label: 'Internet Culture', color: '#ab8fff', side: '#6442c9' },
+    { id: 'internet', label: 'Memes', color: '#ab8fff', side: '#6442c9' },
     { id: 'tv-movies', label: 'TV & Movies', color: '#ffc93c', side: '#bd8406' },
     { id: 'games', label: 'Games', color: '#93e571', side: '#479c2c' },
     { id: 'sports', label: 'Sports', color: '#ffad66', side: '#bd6325' },
@@ -101,6 +101,8 @@
       src: 'sounds/toyota-yaris.mp3' },
     { id: 'wake-up-first-of-the-month', name: 'WAKE UP ITS DA FIRST OF THE MONTH', category: 'internet', tags: 'wake up first month song music meme',
       src: 'sounds/wake-up-first-of-the-month.mp3', requestedBy: 'f6zHbQSsHYmjZORQYT4fCP64iCbDkxz0', isNew: true },
+    { id: 'he-need-some-milk', name: 'He Need Some Milk', category: 'internet', tags: 'milk reaction meme',
+      src: 'sounds/he-need-some-milk.mp3', requestedBy: '5qVRbJMj43eaPns1yVfDMAQynM83V5ya', isNew: true },
     { id: 'get-out', name: 'Get Out!', category: 'tv-movies', tags: 'tuco breaking bad yell quote',
       src: 'sounds/tuco-get-out.mp3' },
     { id: 'spongebob-failure', name: 'SpongeBob Failure', category: 'tv-movies', tags: 'fail cartoon sad lose',
