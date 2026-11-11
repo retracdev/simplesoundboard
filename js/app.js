@@ -805,13 +805,34 @@
 
   // ---------- Sound effect information ----------
 
-  // A panel that rises from the bottom over a blurred board. Sounds without `info` in the
-  // catalog say so, until there's something to tell.
+  // A panel that rises from the bottom over a blurred board. Requester usernames are
+  // looked up on each open so they reflect the user's current retrac.space name.
   const infoDialog = $('soundInfoDialog');
   const infoNameEl = $('soundInfoName');
   const infoBodyEl = $('soundInfoBody');
   const infoCloseEl = $('soundInfoClose');
   let infoTrigger = null;
+
+  async function loadRequester(userId, paragraph) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    try {
+      const response = await fetch(
+        `https://space-api.retrac-space.workers.dev/v1/players/id/${encodeURIComponent(userId)}`,
+        { credentials: 'omit', signal: controller.signal }
+      );
+      if (!response.ok) throw new Error('Lookup failed: ' + response.status);
+      const { data } = await response.json();
+      if (typeof data?.username !== 'string' || !data.username.trim()) {
+        throw new Error('Lookup returned no username');
+      }
+      paragraph.textContent = 'Requested By: ' + data.username;
+    } catch {
+      paragraph.textContent = 'Requested By: Unavailable. Reopen info to try again.';
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
 
   function showSoundInfo(id, trigger) {
     const sound = soundById.get(id);
@@ -819,11 +840,20 @@
     infoTrigger = trigger || null;
     infoNameEl.textContent = sound.name;
     const text = typeof sound.info === 'string' ? sound.info.trim() : '';
-    const paragraph = el('p', text ? '' : 'sound-info__empty',
-      text || 'There is no information available for this sound effect.');
-    infoBodyEl.replaceChildren(paragraph);
+    infoBodyEl.replaceChildren();
+    if (text || !sound.requestedBy) {
+      infoBodyEl.appendChild(el('p', text ? '' : 'sound-info__empty',
+        text || 'There is no information available for this sound effect.'));
+    }
+    let requester;
+    if (sound.requestedBy) {
+      requester = el('p', '', 'Requested By: [loading]');
+      requester.setAttribute('role', 'status');
+      infoBodyEl.appendChild(requester);
+    }
     infoDialog.showModal();
     infoCloseEl.focus({ preventScroll: true });
+    if (requester) loadRequester(sound.requestedBy, requester);
   }
 
   infoCloseEl.addEventListener('click', () => infoDialog.close());
