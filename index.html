@@ -55,6 +55,10 @@
       <span class="title__art" id="titleArt" aria-hidden="true"></span>
     </h1>
     <p class="hero__tag">Fun sound effects without the bloat.</p>
+    <button class="changelog-pill" id="changelogOpen" type="button" aria-haspopup="dialog">
+      <span class="changelog-pill__badge">NEW</span>
+      View v1.1 changelog
+    </button>
     <div class="ribbon" aria-hidden="true">
       <div class="ribbon__track" id="ribbonTrack"></div>
     </div>
@@ -145,6 +149,60 @@
     </div>
   </dialog>
 
+  <dialog class="changelog" id="changelogDialog" aria-labelledby="changelogTitle">
+    <div class="changelog__panel">
+      <header class="changelog__header">
+        <div>
+          <p class="changelog__version">Version 1.1</p>
+          <h2 id="changelogTitle">Simple Soundboard's Biggest Update Yet: Version 1.1 is Here</h2>
+        </div>
+        <button class="sound-request__close" id="changelogClose" type="button" aria-label="Close changelog">&times;</button>
+      </header>
+      <div class="changelog__body">
+        <img class="changelog__image" src="assets/changelog-1.1.png" alt="Simple Soundboard 1.1: Strings, Loop Sound, Edit Speed and Pitch, NEW Tag, and the Three-Dot Menu" width="1600" height="900" loading="lazy">
+
+        <p>Hi everyone,</p>
+        <p>I've been working hard on getting this update out ASAP, and I think everybody will really enjoy it. I've added a bunch of new features and sound effects, so enjoy!</p>
+
+        <h3><span>1.</span> <strong>Strings</strong></h3>
+        <p>This is probably the best feature I've added yet. Strings let you combine any sounds you want into one sound. You can add as many sounds as you want, duplicate them, and even use strings inside other strings. It's really fun to play around with.</p>
+        <p>There is no limit for how many strings you make, you just need a retrac.space account. Your strings will save across all your devices, just like your favorites.</p>
+        <p>To get started with your first string, find any sound effect, press the 3-Dot-Menu button and select "Create string with this sound."</p>
+
+        <h3><span>2.</span> <strong>Loop Sound</strong></h3>
+        <p>This one was needed. Sometimes you just really want to play a sound effect, over and over again. At first, I was creating Strings with the same sound duplicated, and that got tedious, so that is how Loop Sound was added!</p>
+        <p>To loop any sound effect, press the 3-Dot-Menu button and select "Loop sound." To stop a sound from looping, you can press 3-Dot-Menu button and select "Stop loop sound," or press the Stop All button.</p>
+
+        <h3><span>3.</span> <strong>Edit Speed and Pitch</strong></h3>
+        <p>This one's just fun. You can now edit any sound effect's Speed and Pitch! You could make "Enrique" faster, "Get Out!" slower, "I got this" deeper, and just about anything. The best part? It saves across your devices, just like Strings and Favorites.</p>
+        <p>To edit a sound effect's speed and pitch, press the 3-Dot-Menu button and select "Edit Speed and Pitch." A menu will open where you can drag sliders to change how a sound sounds. If you ever want to go back to the original sound, press the 3-Dot-Menu button, select "Edit Speed and Pitch," and press "Reset to normal."</p>
+
+        <h3><span>4.</span> <strong>New Tag</strong></h3>
+        <p>This one is pretty simple. Now, when new sound effects are added to the site, they'll have a NEW tag on them for a few days or weeks. You can also filter sound effects to only show new ones at the top, in the same place as the other filters.</p>
+
+        <h3><span>5.</span> <strong>3-Dot-Menu</strong></h3>
+        <p>I probably have said the word "3-Dot-Menu" a lot in this change log. But what is the 3-Dot-Menu? The 3-Dot-Menu is a new button on every sound effect that lets you open more options for the sound effect, like creating a String, Looping the sound, and more. I added this because originally you had to right-click a sound effect to open the menu, but that was complicated and impossible to do on mobile and touchscreen.</p>
+
+        <h3><span>6.</span> <strong>The About Button</strong></h3>
+        <p>I've added an About button to every sound effect, where you can see who requested it, when it was added, and more information.</p>
+
+        <hr>
+
+        <p>Version 1.1 is a very big update, and I hope everybody enjoys it.<br>
+        Some people did have Beta access to certain features before they were published to everyone, but now anyone can try out Strings, Looping, Speed changing, and more!</p>
+        <p>Thank you to everybody who chose to use Simple Soundboard, it really means the world to me.</p>
+        <p>By the way, I've published <a href="https://glowstudio.retrac.space/" target="_blank" rel="noopener">Glow</a>, a fun light studio where you can make glowing tubes, neon braids, and more.</p>
+        <p>Glow is a pretty simple website, but I have a few Projects that I'm cooking up, which will be available in a couple of weeks.</p>
+        <p>Thanks everyone! :)</p>
+        <p class="changelog__signoff">Retrac</p>
+
+        <div class="changelog__actions">
+          <button class="signin-button" id="changelogDone" type="button">Let's make some noise</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
   <script src="js/sounds.js"></script>
   <script src="js/tune-core.js"></script>
   <script src="js/engine.js"></script>
@@ -159,5 +217,6 @@
   <script src="js/app.js"></script>
   <script src="js/account-welcome.js"></script>
   <script src="js/sound-request.js"></script>
+  <script src="js/changelog.js"></script>
 </body>
 </html>
