@@ -598,6 +598,7 @@
     const label = filter.query.trim() ? count + ' for “' + filter.query.trim() + '”' : count;
     // "0 sounds" would be just as misleading as a 0 on the chip until the save has been read.
     statusEl.textContent = (onlyFavorites || onlyStrings) && !favorites.isLoaded() ? '' : label;
+    placeHint();
   }
 
   function setCategory(id) {
@@ -686,8 +687,6 @@
         : loaded ? 'Tap the heart on any sound to keep it here.'
           : 'We can’t show your favorites just now.';
     }
-    // Until a sound has been pressed, the options hint points at the first favorite.
-    if (!hintFollowsPresses) pointHintAt(shown.length ? row.gridEl.firstElementChild : null);
   }
 
   // ---------- The right-click menu ----------
@@ -781,6 +780,31 @@
     if (!slot) return;
     slot.classList.add('has-hint');
     slot.appendChild(hintEl);
+  }
+
+  // Until a sound has been pressed, the hint points at the first favorite. Without any (signed
+  // out, or nothing favorited yet) it falls back to the first sound showing in the first category.
+  function placeHint() {
+    if (!hintEl || hintFollowsPresses) return;
+    const row = favoritesRow;
+    const rowShowing = !row.el.hidden;
+    if (rowShowing && !row.gridEl.hidden && row.gridEl.firstElementChild) {
+      pointHintAt(row.gridEl.firstElementChild);
+      return;
+    }
+    // Favorites still loading would likely move it in a moment, so wait for them.
+    if (rowShowing && favoritesLoading()) {
+      pointHintAt(null);
+      return;
+    }
+    for (const category of categories) {
+      const sound = sounds.find((s) => s.category === category.id && !keys.get(s.id).view.slotEl.hidden);
+      if (sound) {
+        pointHintAt(keys.get(sound.id).view.slotEl);
+        return;
+      }
+    }
+    pointHintAt(null);
   }
 
   // Strings have a different menu, with no speed or looping in it, so the hint skips them.
