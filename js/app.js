@@ -218,6 +218,17 @@
     tilt.append(el('span', 'key__well'), el('span', 'key__side'), face);
     button.appendChild(tilt);
 
+    // The key is already a button and buttons can't nest, so the heart and the options button
+    // sit beside it in their own layer. That layer sinks and tilts along with the key's face.
+    const heartLayer = el('span', 'key__heart-layer');
+
+    // Opens the same menu as a right-click or a long press, for anyone who'd never find those.
+    const more = el('button', 'key__more');
+    more.type = 'button';
+    more.setAttribute('aria-label', 'Options for ' + sound.name);
+    more.setAttribute('aria-haspopup', 'menu');
+    more.appendChild(icon('icon-more'));
+
     const slot = el('div', 'key-slot');
     if (isString) {
       slot.classList.add('key-slot--string');
@@ -225,20 +236,18 @@
       slot.style.setProperty('--key-side', sound.side);
       slot.style.setProperty('--string-fill', sound.fill);
       slot.style.setProperty('--string-side', sound.sideFill);
-      slot.appendChild(button);
+      heartLayer.appendChild(more);
+      slot.append(button, heartLayer);
       return { slotEl: slot, el: button, heartEl: null, timeEl: time, baseEl: paths[0], litEl: paths[1] };
     }
 
-    // The key is already a button and buttons can't nest, so the heart sits beside it in
-    // its own layer. That layer sinks and tilts along with the key's face.
     const heart = el('button', 'key__heart');
     heart.type = 'button';
     heart.dataset.favorite = sound.id;
     heart.setAttribute('aria-label', 'Favorite ' + sound.name);
     heart.setAttribute('aria-pressed', 'false');
     heart.appendChild(icon('icon-heart'));
-    const heartLayer = el('span', 'key__heart-layer');
-    heartLayer.appendChild(heart);
+    heartLayer.append(heart, more);
 
     const category = categoryById.get(sound.category);
     slot.style.setProperty('--key', category.color);
@@ -677,6 +686,8 @@
         : loaded ? 'Tap the heart on any sound to keep it here.'
           : 'We can’t show your favorites just now.';
     }
+    // Until a sound has been pressed, the options hint points at the first favorite.
+    if (!hintFollowsPresses) pointHintAt(shown.length ? row.gridEl.firstElementChild : null);
   }
 
   // ---------- The right-click menu ----------
@@ -727,8 +738,67 @@
     });
   }
 
-  function showCardMenu(trigger, x, y) {
-    rearrange.openMenu({ x, y, trigger, label: 'Sound options', items: menuItemsFor(trigger) });
+  // focusEl is where focus goes back to if the menu is closed from the keyboard.
+  function showCardMenu(trigger, x, y, focusEl) {
+    dismissHint(); // Whichever way the menu was opened, they've found it.
+    rearrange.openMenu({ x, y, trigger: focusEl || trigger, label: 'Sound options', items: menuItemsFor(trigger) });
+  }
+
+  // The three dots on a card, which open the menu just below themselves.
+  function openMenuFromButton(more) {
+    const card = more.closest('.key-slot').querySelector('.key');
+    const box = more.getBoundingClientRect();
+    showCardMenu(card, box.left + 8, box.bottom - 4, more);
+  }
+
+  // ---------- The hint for the options button ----------
+
+  // A speech bubble pointing at one card's three dots, shown until the menu is first opened.
+  // It sits on the first favorite, then follows whichever sound was pressed last.
+  const HINT_KEY = 'simple-soundboard:options-hint-seen';
+  let hintEl = buildHint(); // null once it's been seen
+  let hintFollowsPresses = false;
+
+  function buildHint() {
+    try {
+      if (window.localStorage.getItem(HINT_KEY)) return null;
+    } catch (error) {
+      // Without storage the hint just comes back each visit until the dots are pressed.
+    }
+    const hint = el('div', 'key-hint');
+    hint.setAttribute('role', 'note');
+    hint.append(
+      el('strong', '', 'Press the three dots for options like changing speed and looping.'),
+      el('small', '', 'This tip goes away once you press them.'),
+    );
+    return hint;
+  }
+
+  function pointHintAt(slot) {
+    if (!hintEl || hintEl.parentNode === slot) return;
+    if (hintEl.parentNode) hintEl.parentNode.classList.remove('has-hint');
+    hintEl.remove();
+    if (!slot) return;
+    slot.classList.add('has-hint');
+    slot.appendChild(hintEl);
+  }
+
+  // Strings have a different menu, with no speed or looping in it, so the hint skips them.
+  function moveHintToPressed(button) {
+    if (!hintEl || stringKeys.has(button.dataset.id)) return;
+    hintFollowsPresses = true;
+    pointHintAt(button.closest('.key-slot'));
+  }
+
+  function dismissHint() {
+    if (!hintEl) return;
+    pointHintAt(null);
+    hintEl = null;
+    try {
+      window.localStorage.setItem(HINT_KEY, '1');
+    } catch (error) {
+      // Still gone for this visit.
+    }
   }
 
   banksEl.addEventListener('contextmenu', (event) => {
@@ -1509,6 +1579,7 @@
     const button = event.target.closest('.key[data-id]');
     if (button && event.pointerType === 'mouse' && event.button === 0) {
       press(soundById.get(button.dataset.id), button);
+      moveHintToPressed(button);
     }
   });
 
@@ -1520,6 +1591,11 @@
     const heart = event.target.closest('.key__heart');
     if (heart) {
       onHeartClick(heart);
+      return;
+    }
+    const more = event.target.closest('.key__more');
+    if (more) {
+      openMenuFromButton(more);
       return;
     }
     const startAll = event.target.closest('.bank__all');
@@ -1535,6 +1611,7 @@
     if (!button) return;
     if (event.detail !== 0 && lastPointerType === 'mouse') return;
     press(soundById.get(button.dataset.id), button);
+    moveHintToPressed(button);
   });
 
   // Holding Enter or Space shouldn't machine-gun the sound.
