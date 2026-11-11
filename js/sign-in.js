@@ -14,6 +14,7 @@
     inappropriate_username: 'Your username isn’t allowed and needs to be changed.',
     inappropriate_content: 'Some of what you’ve posted on retrac.space needs to be removed.',
     account_suspended: 'Your account is temporarily unavailable.',
+    auth_unlink_google: 'Sign in with Google is no longer available for your account. Set a new password to avoid being locked out.',
   };
 
   const screens = {
