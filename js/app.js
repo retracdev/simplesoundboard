@@ -496,6 +496,7 @@
         chipCountEl: buildChip(category.id, category.label, category),
       });
     });
+    banks.set('new', { chipCountEl: buildChip('new', 'NEW') });
   }
 
   function paintKey(sound, buffer) {
@@ -574,7 +575,8 @@
           ? 'Getting your strings…' : 'We can’t show your strings just now.');
       } else setEmptyState('icon-string', 'No strings yet.', 'Right-click or long-press any sound and choose “Create string with this sound”.');
     } else if (filter.category !== 'favorites') {
-      const where = filter.category === 'all' ? '' : ' in ' + categoryById.get(filter.category).label;
+      const where = filter.category === 'all' ? '' : filter.category === 'new'
+        ? ' among new sounds' : ' in ' + categoryById.get(filter.category).label;
       setEmptyState('icon-note-eighth', 'Total silence.',
         query ? 'Nothing' + where + ' matches “' + query + '”.' : 'Nothing' + where + ' yet.');
     } else if (query) {
@@ -593,6 +595,7 @@
     const inQuery = (sound) => terms.every((term) => searchText.get(sound.id).includes(term));
     const onlyFavorites = filter.category === 'favorites';
     const onlyStrings = filter.category === 'strings';
+    const onlyNew = filter.category === 'new';
 
     renderStringKeys();
     let stringMatches = 0;
@@ -611,6 +614,7 @@
     let visible = 0;
     let matches = 0;
     let favoriteMatches = 0;
+    let newMatches = 0;
     const perCategory = new Map(categories.map((category) => [category.id, 0]));
     const shownPerCategory = new Map(categories.map((category) => [category.id, 0]));
 
@@ -618,11 +622,12 @@
       const matchesQuery = inQuery(sound);
       const favorite = favorites.isFavorite(sound.id);
       const show = matchesQuery && (onlyFavorites ? favorite :
-        filter.category === 'all' || filter.category === sound.category);
+        onlyNew ? sound.isNew : filter.category === 'all' || filter.category === sound.category);
       keys.get(sound.id).view.slotEl.hidden = !show;
       if (matchesQuery) {
         matches++;
         if (favorite) favoriteMatches++;
+        if (sound.isNew) newMatches++;
         perCategory.set(sound.category, perCategory.get(sound.category) + 1);
       }
       if (show) {
@@ -632,12 +637,13 @@
     });
 
     banks.get('all').chipCountEl.textContent = matches;
+    banks.get('new').chipCountEl.textContent = newMatches;
     renderFavoritesCount(favoriteMatches);
     renderFavoritesRow();
     categories.forEach((category) => {
       const bank = banks.get(category.id);
-      const count = onlyFavorites ? shownPerCategory.get(category.id) : perCategory.get(category.id);
-      const shown = onlyFavorites || filter.category === 'all' || filter.category === category.id;
+      const count = onlyFavorites || onlyNew ? shownPerCategory.get(category.id) : perCategory.get(category.id);
+      const shown = onlyFavorites || onlyNew || filter.category === 'all' || filter.category === category.id;
       bank.chipCountEl.textContent = perCategory.get(category.id);
       bank.countEl.textContent = plural(count);
       bank.el.hidden = !shown || count === 0;
