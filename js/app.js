@@ -178,6 +178,35 @@
     return { badge, text };
   }
 
+  // ---------- Fitting long names ----------
+
+  // A name too long for its key pushes the footer off the face. Those step their text down a
+  // little at a time until everything fits, and stop at a size that's still easy to read.
+  const NAME_FIT_STEPS = [1, 0.92, 0.85, 0.78, 0.72];
+
+  function nameOverflows(face, name) {
+    return face.scrollHeight > face.clientHeight + 1 || name.scrollHeight > name.clientHeight + 1;
+  }
+
+  function fitName(face) {
+    const name = face.querySelector('.key__name');
+    if (!name || !face.clientHeight) return; // Hidden keys get fitted when they show again.
+    for (const step of NAME_FIT_STEPS) {
+      if (step === 1) name.style.removeProperty('--name-fit');
+      else name.style.setProperty('--name-fit', step);
+      if (!nameOverflows(face, name)) return;
+    }
+  }
+
+  // Faces only change size with the window or when shown again, and changing the name's size
+  // doesn't resize the face, so this can't feed back into itself.
+  const nameFitter = 'ResizeObserver' in window
+    ? new ResizeObserver((entries) => entries.forEach((entry) => fitName(entry.target)))
+    : null;
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(() => banksEl.querySelectorAll('.key__face').forEach(fitName));
+  }
+
   function buildKeyView(sound) {
     const isString = Boolean(sound.clips);
     const button = el('button', 'key');
@@ -217,6 +246,7 @@
     face.append(foot);
     tilt.append(el('span', 'key__well'), el('span', 'key__side'), face);
     button.appendChild(tilt);
+    if (nameFitter) nameFitter.observe(face);
 
     // The key is already a button and buttons can't nest, so the heart and the options button
     // sit beside it in their own layer. That layer sinks and tilts along with the key's face.
@@ -937,6 +967,8 @@
     view.slotEl.dataset.badges = Number(looping) + Number(showSpeed) + Number(showPitch);
     if (showSpeed) view.speedEl.textContent = 'Speed: ' + tuneCore.formatSpeed(tune.speed);
     if (showPitch) view.pitchEl.textContent = 'Pitch: ' + tuneCore.formatPitch(tune.pitch);
+    // Cards in the footer take room from the name.
+    fitName(view.el.querySelector('.key__face'));
     view.el.setAttribute('aria-label', 'Start ' + sound.name + (looping ? ', looping' : '')
       + (showSpeed ? ', speed ' + tuneCore.formatSpeed(tune.speed) : '')
       + (showPitch ? ', pitch ' + tuneCore.formatPitch(tune.pitch) : ''));
