@@ -256,7 +256,9 @@
       foot.append(badges.speed.badge, badges.pitch.badge);
     }
     foot.append(wave, time);
-    face.append(el('span', 'key__name', sound.name));
+    const name = el('span', 'key__name', sound.name);
+    if (sound.isNew) name.append(' ', el('span', 'key__new', 'NEW'));
+    face.append(name);
     if (sound.summary) face.append(el('span', 'key__summary', sound.summary));
     face.append(foot);
     tilt.append(el('span', 'key__well'), el('span', 'key__side'), face);

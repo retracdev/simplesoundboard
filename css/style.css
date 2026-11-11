@@ -628,6 +628,19 @@ kbd { font: inherit; }
   overflow-wrap: anywhere;
 }
 
+.key__new {
+  display: inline-block;
+  padding: .2em .45em;
+  border-radius: .35em;
+  vertical-align: middle;
+  color: var(--fg);
+  background: var(--ink);
+  font-size: .55em;
+  line-height: 1.2;
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
+
 /* Reserve the footer's full height; long titles are fitted by the script instead. */
 .key__foot { display: flex; flex: none; align-items: center; gap: 8px; }
 .key__wave { position: relative; display: block; flex: 1; min-width: 0; height: 24px; }
