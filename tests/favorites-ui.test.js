@@ -11,7 +11,7 @@ const { JSDOM } = require('jsdom');
 
 const ROOT = path.join(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(ROOT, file), 'utf8');
-const SCRIPTS = ['js/sounds.js', 'js/tune-core.js', 'js/account.js', 'js/strings-core.js', 'js/favorites.js', 'js/sign-in.js', 'js/rearrange.js', 'js/beta.js', 'js/strings-access.js', 'js/string-editor.js', 'js/tune-editor.js', 'js/app.js', 'js/account-welcome.js'];
+const SCRIPTS = ['js/sounds.js', 'js/tune-core.js', 'js/account.js', 'js/strings-core.js', 'js/favorites.js', 'js/sign-in.js', 'js/rearrange.js', 'js/strings-access.js', 'js/string-editor.js', 'js/tune-editor.js', 'js/app.js', 'js/account-welcome.js'];
 const SAVE_URL = 'https://space-api.retrac-space.workers.dev/v1/games/soundboard/saves/0';
 const DEBOUNCE = 800;
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -25,7 +25,7 @@ const respond = (status, body) => ({
   json: async () => body,
 });
 
-function openPage({ session = null, save, saveStatus, beta = 'strings: []\n' } = {}) {
+function openPage({ session = null, save, saveStatus } = {}) {
   const html = read('index.html').replace(/<script[^>]*><\/script>/g, '').replace(/<link[^>]*>/g, '');
   const dom = new JSDOM(html, { url: 'https://soundboard.retrac.space/', runScripts: 'outside-only', pretendToBeVisual: true });
   const { window } = dom;
@@ -46,10 +46,6 @@ function openPage({ session = null, save, saveStatus, beta = 'strings: []\n' } =
 
   window.fetch = async (url, init = {}) => {
     const method = init.method || 'GET';
-    if (url === 'beta.yml') {
-      if (world.betaFails) return { ok: false, status: 500 };
-      return { ok: true, status: 200, text: async () => beta };
-    }
     if (url === 'https://accounts.retrac.space/api/auth/get-session') {
       world.sessionCalls++;
       assert.equal(init.credentials, 'include');
@@ -1289,7 +1285,6 @@ test('nothing sensitive reaches browser storage', async () => {
 
 // ---------- Strings ----------
 
-const BETA_ALICE = 'strings: [Alice, someone_else]\n';
 const STRING = {
   id: 'one',
   name: 'My string',
@@ -1298,7 +1293,6 @@ const STRING = {
     { sound: 'windows-xp-error', at: 0.25, from: 0, length: 0.5, lane: 1 },
   ],
 };
-const noAccess = (page) => page.document.querySelector('dialog.strings-access');
 const editor = (page) => page.document.querySelector('dialog.string-editor');
 const editorButton = (page, label) => [...editor(page).querySelectorAll('button')].find((b) => b.textContent === label);
 const stringKeys = (page) => [...page.document.querySelectorAll('.bank--strings .key')];
@@ -1348,7 +1342,7 @@ test('the Favorites tab asks guests for an account, and its button opens the fav
 });
 
 test('creating a string asks guests to sign in, then carries on into the editor', async () => {
-  const page = openPage({ beta: BETA_ALICE });
+  const page = openPage();
   await wait(30);
   await createFromMenu(page, 'bruh');
   assert.equal(page.dialogTitle(), 'Make your own strings');
@@ -1360,36 +1354,19 @@ test('creating a string asks guests to sign in, then carries on into the editor'
   page.close();
 });
 
-test('signed-in visitors outside the beta are told they have no access', async () => {
-  const page = openPage({ session: bob, beta: BETA_ALICE });
+test('every signed-in account can open the Strings tab and create a string', async () => {
+  const page = openPage({ session: bob });
   await wait(30);
   page.click(page.chip('strings'));
   await wait(20);
-  assert.equal(noAccess(page).open, true);
-  assert.equal(noAccess(page).querySelector('h2').textContent, 'You don’t have access yet.');
-  assert.equal(noAccess(page).querySelector('p').textContent, 'We’re rolling out strings to everyone soon. You may not have access yet.');
-  assert.equal(page.chip('strings').getAttribute('aria-pressed'), 'false');
-  page.click(noAccess(page).querySelector('button'));
-  assert.equal(noAccess(page).open, false);
-
+  assert.equal(page.chip('strings').getAttribute('aria-pressed'), 'true');
   await createFromMenu(page, 'bruh');
-  assert.equal(noAccess(page).open, true, 'creating one too');
-  assert.equal(editor(page).open, false);
+  assert.equal(editor(page).open, true);
   page.close();
 });
 
-test('an unreadable beta list gives nobody access', async () => {
-  const page = openPage({ session: alice, beta: BETA_ALICE });
-  page.betaFails = true;
-  await wait(30);
-  page.click(page.chip('strings'));
-  await wait(20);
-  assert.equal(noAccess(page).open, true);
-  page.close();
-});
-
-test('a beta account can name and save a string, which lands in its tab and the cloud save', async () => {
-  const page = openPage({ session: alice, beta: BETA_ALICE, save: { version: 1, favorites: ['bruh'], other: 'kept' } });
+test('a signed-in account can name and save a string, which lands in its tab and the cloud save', async () => {
+  const page = openPage({ session: alice, save: { version: 1, favorites: ['bruh'], other: 'kept' } });
   await wait(30);
   await createFromMenu(page, 'bruh');
   assert.equal(editor(page).open, true);
@@ -1416,7 +1393,7 @@ test('a beta account can name and save a string, which lands in its tab and the 
 });
 
 test('saved strings only show under their tab, painted with the colors of their sounds', async () => {
-  const page = openPage({ session: alice, beta: BETA_ALICE, save: { version: 1, favorites: [], strings: [STRING] } });
+  const page = openPage({ session: alice, save: { version: 1, favorites: [], strings: [STRING] } });
   await wait(40);
   assert.equal(page.document.querySelector('.bank--strings').hidden, true, 'not on All');
   assert.equal(page.chip('strings').querySelector('.chip__count').textContent, '1');
@@ -1442,7 +1419,7 @@ test('saved strings only show under their tab, painted with the colors of their 
 });
 
 test('right-clicking a string edits it, and deleting it takes two clicks', async () => {
-  const page = openPage({ session: alice, beta: BETA_ALICE, save: { version: 1, favorites: [], strings: [STRING] } });
+  const page = openPage({ session: alice, save: { version: 1, favorites: [], strings: [STRING] } });
   await wait(40);
   page.click(page.chip('strings'));
   await wait(20);
@@ -1465,7 +1442,7 @@ test('right-clicking a string edits it, and deleting it takes two clicks', async
 });
 
 test('closing the editor with changes asks first, and without them just closes', async () => {
-  const page = openPage({ session: alice, beta: BETA_ALICE });
+  const page = openPage({ session: alice });
   await wait(30);
   await createFromMenu(page, 'bruh');
   page.click(editorButton(page, 'Cancel'));
@@ -1484,7 +1461,7 @@ test('closing the editor with changes asks first, and without them just closes',
 });
 
 test('editor tools split, duplicate, remove and undo clips', async () => {
-  const page = openPage({ session: alice, beta: BETA_ALICE });
+  const page = openPage({ session: alice });
   await wait(30);
   await createFromMenu(page, 'bruh');
   const clips = () => editor(page).querySelectorAll('.string-clip').length;
@@ -1528,7 +1505,7 @@ const SPEED_125 = 58;
 const PITCH_150 = 79;
 
 test('editing speed and pitch asks guests to sign in with its own wording, then opens', async () => {
-  const page = openPage({ beta: BETA_ALICE });
+  const page = openPage();
   await wait(30);
   await openTuneMenu(page, 'bruh');
   assert.equal(page.dialogTitle(), 'Edit speed and pitch');
@@ -1541,18 +1518,16 @@ test('editing speed and pitch asks guests to sign in with its own wording, then 
   page.close();
 });
 
-test('editing speed and pitch is beta only, using the same list as Strings', async () => {
-  const page = openPage({ session: bob, beta: BETA_ALICE });
+test('every signed-in account can edit speed and pitch', async () => {
+  const page = openPage({ session: bob });
   await wait(30);
   await openTuneMenu(page, 'bruh');
-  assert.equal(tuneDialog(page).open, false);
-  assert.equal(noAccess(page).open, true);
-  assert.match(noAccess(page).querySelector('p').textContent, /speed and pitch editing/);
+  assert.equal(tuneDialog(page).open, true);
   page.close();
 });
 
 test('by default the speed slider saves and shows one card, with no separate pitch', async () => {
-  const page = openPage({ session: alice, beta: BETA_ALICE, save: { version: 1, favorites: [] } });
+  const page = openPage({ session: alice, save: { version: 1, favorites: [] } });
   await wait(30);
   await openTuneMenu(page, 'bruh');
   assert.equal(tunePart(page, 'separate').checked, false);
@@ -1575,7 +1550,7 @@ test('by default the speed slider saves and shows one card, with no separate pit
 });
 
 test('a separate pitch gets its own slider and card, and three cards can share a key', async () => {
-  const page = openPage({ session: alice, beta: BETA_ALICE, save: { version: 1, favorites: [] } });
+  const page = openPage({ session: alice, save: { version: 1, favorites: [] } });
   await wait(30);
   await openTuneMenu(page, 'bruh');
   setSlider(page, tunePart(page, 'speed'), SPEED_125);
@@ -1599,7 +1574,7 @@ test('a separate pitch gets its own slider and card, and three cards can share a
 });
 
 test('pressing a changed sound plays it that way, and its time follows the speed', async () => {
-  const page = openPage({ session: alice, beta: BETA_ALICE, save: { version: 1, favorites: [], tunes: { bruh: { speed: 2 } } } });
+  const page = openPage({ session: alice, save: { version: 1, favorites: [], tunes: { bruh: { speed: 2 } } } });
   await wait(60);
   assert.equal(slotOf(page, 'bruh').querySelector('.key__speed').textContent, 'Speed: 2x', 'from another device');
   assert.equal(slotOf(page, 'bruh').querySelector('.key__time').textContent, '0.5s');
@@ -1610,7 +1585,7 @@ test('pressing a changed sound plays it that way, and its time follows the speed
 });
 
 test('a sound with no changes plays normally and keeps its waveform', async () => {
-  const page = openPage({ session: alice, beta: BETA_ALICE, save: { version: 1, favorites: [] } });
+  const page = openPage({ session: alice, save: { version: 1, favorites: [] } });
   await wait(60);
   assert.equal(slotOf(page, 'bruh').dataset.badges || '0', '0');
   page.click(page.key('bruh'));
@@ -1620,7 +1595,7 @@ test('a sound with no changes plays normally and keeps its waveform', async () =
 });
 
 test('Reset to normal removes the cards and the saved settings', async () => {
-  const page = openPage({ session: alice, beta: BETA_ALICE, save: { version: 1, favorites: [], tunes: { bruh: { speed: 2, pitch: 0.5 } } } });
+  const page = openPage({ session: alice, save: { version: 1, favorites: [], tunes: { bruh: { speed: 2, pitch: 0.5 } } } });
   await wait(60);
   await openTuneMenu(page, 'bruh');
   assert.equal(tunePart(page, 'speed-value').textContent, '2x');
@@ -1639,7 +1614,7 @@ test('Reset to normal removes the cards and the saved settings', async () => {
 });
 
 test('Preview plays what the sliders say, on its own voice, without saving', async () => {
-  const page = openPage({ session: alice, beta: BETA_ALICE, save: { version: 1, favorites: [] } });
+  const page = openPage({ session: alice, save: { version: 1, favorites: [] } });
   await wait(30);
   await openTuneMenu(page, 'bruh');
   const speed = tunePart(page, 'speed');
@@ -1653,19 +1628,19 @@ test('Preview plays what the sliders say, on its own voice, without saving', asy
   page.close();
 });
 
-test('settings stop applying for someone who has left the beta', async () => {
-  const page = openPage({ session: bob, beta: BETA_ALICE, save: { version: 1, favorites: [], tunes: { bruh: { speed: 2 } } } });
+test('saved speed settings apply for every signed-in account', async () => {
+  const page = openPage({ session: bob, save: { version: 1, favorites: [], tunes: { bruh: { speed: 2 } } } });
   await wait(60);
-  assert.equal(slotOf(page, 'bruh').dataset.badges || '0', '0');
+  assert.equal(slotOf(page, 'bruh').dataset.badges, '1');
   page.click(page.key('bruh'));
   await wait(10);
-  assert.equal(page.startOptions.tune, null);
+  assert.equal(page.startOptions.tune.speed, 2);
   page.close();
 });
 
 test('strings do not get a speed and pitch option', async () => {
   const string = { id: 's1', name: 'Mix', clips: [{ sound: 'bruh', at: 0, from: 0, length: 1, lane: 0 }] };
-  const page = openPage({ session: alice, beta: BETA_ALICE, save: { version: 1, favorites: [], strings: [string] } });
+  const page = openPage({ session: alice, save: { version: 1, favorites: [], strings: [string] } });
   await wait(30);
   page.click(page.chip('strings'));
   await wait(20);

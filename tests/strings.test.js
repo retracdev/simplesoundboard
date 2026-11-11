@@ -1,4 +1,4 @@
-/* The timeline rules and the beta list, with no page or audio involved. */
+/* The timeline rules, with no page or audio involved. */
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -12,24 +12,8 @@ const load = (file, extra = {}, globals = {}) => {
   return window;
 };
 const core = load('js/strings-core.js').StringsCore;
-const beta = load('js/beta.js').SoundBeta;
 const plain = (value) => JSON.parse(JSON.stringify(value));
 const clip = (at, length, lane = 0, extra = {}) => ({ sound: 'a', at, from: 0, length, lane, ...extra });
-
-test('beta.yml in the repo parses', () => {
-  const features = beta.parse(fs.readFileSync(path.join(__dirname, '..', 'beta.yml'), 'utf8'));
-  assert.equal(features.has('strings'), true);
-});
-
-test('the beta list ignores comments, spaces, quotes and capitals', () => {
-  const features = beta.parse('# strings: [nope]\nstrings: [ Alice, "Bob" ,\'carol\', ] # hi\nother: [x]\n');
-  assert.deepEqual([...features.get('strings')], ['alice', 'bob', 'carol']);
-  assert.deepEqual([...features.get('other')], ['x']);
-});
-
-test('the beta list can run over several lines', () => {
-  assert.deepEqual([...beta.parse('strings: [\n  alice,\n  bob\n]\n').get('strings')], ['alice', 'bob']);
-});
 
 test('freeStart keeps a spot that is free, and slides to the closest gap if not', () => {
   const clips = [clip(1, 1), clip(4, 1)];
