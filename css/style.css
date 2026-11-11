@@ -695,11 +695,13 @@ kbd { font: inherit; }
 
 @media (hover: hover) {
   .key-slot:hover .key__face,
-  .key-slot:hover .key__heart { translate: 0 -2px; }
+  .key-slot:hover .key__heart,
+  .key-slot:hover .key__more { translate: 0 -2px; }
 }
 @media (hover: none) {
   .key:active .key__face,
-  .key:active ~ .key__heart-layer .key__heart { translate: 0 3px; }
+  .key:active ~ .key__heart-layer .key__heart,
+  .key:active ~ .key__heart-layer .key__more { translate: 0 3px; }
 }
 
 /* ---------- The favorite heart ----------
@@ -769,9 +771,89 @@ kbd { font: inherit; }
   .key__heart { top: 0; right: 0; width: 44px; height: 44px; }
 }
 
+/* ---------- The options button ----------
+ * Three dots in the bottom corner, beside the time, that open the right-click menu. It's always
+ * showing, on every kind of device: a button that only appears on hover is one a phone never
+ * shows and a trackpad user never finds. It lives in the heart's layer, so it moves with the face.
+ */
+.key__more {
+  position: absolute;
+  right: 5px;
+  bottom: calc(var(--travel) + 4px);
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  border-radius: 14px;
+  color: var(--ink);
+  background: none;
+  pointer-events: auto;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transform: translateY(calc(var(--depth) * (var(--travel) - 3px)));
+  transition: translate .13s var(--ease);
+}
+.key__more svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  opacity: .62;
+  transition: transform .15s var(--ease), opacity .12s;
+}
+.key__more:hover svg { opacity: 1; transform: scale(1.14); }
+.key__more:active svg { transform: scale(.88); }
+.key__more:focus-visible { outline: 3px solid var(--ink); outline-offset: -5px; }
+/* The footer keeps the dots' corner clear. */
+.key[data-id] .key__foot { padding-right: 26px; }
+@media (pointer: coarse) {
+  .key__more { right: 2px; bottom: calc(var(--travel) + 1px); width: 44px; height: 44px; }
+}
+
+/* ---------- The hint for the options button ----------
+ * A speech bubble hanging below one card, with its tail under that card's three dots.
+ */
+.key-slot.has-hint { z-index: 5; }
+.key-hint {
+  position: absolute;
+  top: calc(100% - var(--travel) - 4px);
+  right: -6px;
+  left: -6px;
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  color: var(--ink);
+  background: var(--fg);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, .6);
+  font-size: .8125rem;
+  line-height: 1.3;
+  transform: translateY(calc(var(--depth) * (var(--travel) - 3px)));
+  animation: key-hint-in .25s var(--ease);
+}
+/* The tail. The dots' center is 24px in from the card's edge, and the bubble overhangs by 6px. */
+.key-hint::before {
+  content: "";
+  position: absolute;
+  top: -6px;
+  right: 23px;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px 0 0;
+  background: inherit;
+  rotate: 45deg;
+}
+.key-hint strong { position: relative; font-weight: 700; }
+.key-hint small { font-size: .6875rem; font-weight: 600; opacity: .68; }
+@keyframes key-hint-in { from { opacity: 0; translate: 0 6px; } }
+
 /* A little spring when the key gets all the way back up. */
 .key-slot.is-pop .key__face,
-.key-slot.is-pop .key__heart { animation: pop .3s var(--ease); }
+.key-slot.is-pop .key__heart,
+.key-slot.is-pop .key__more { animation: pop .3s var(--ease); }
 @keyframes pop {
   40% { translate: 0 -6px; }
   75% { translate: 0 1px; }
@@ -859,8 +941,10 @@ kbd { font: inherit; }
   .ribbon__track { width: 100%; }
   .key__tilt, .key__heart-layer { transition: none; }
   .key-slot.is-pop .key__face,
-  .key-slot.is-pop .key__heart { animation: none; }
-  .key__heart svg { transition: none; }
+  .key-slot.is-pop .key__heart,
+  .key-slot.is-pop .key__more,
+  .key-hint { animation: none; }
+  .key__heart svg, .key__more svg { transition: none; }
   .chip > svg.chip__spinner, .bank__spinner { animation: none; }
   .key__see-all-arrow { transition: none; }
   .card-menu, .rearrange[open] .rearrange__panel { animation: none; }
