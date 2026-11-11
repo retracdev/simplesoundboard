@@ -180,12 +180,27 @@
 
   // ---------- Fitting long names ----------
 
-  // A name too long for its key pushes the footer off the face. Those step their text down a
-  // little at a time until everything fits, and stop at a size that's still easy to read.
+  // A name too long for its key pushes the footer off the face, and a word too wide for its line
+  // gets split in two ("Jet2Holid / ay"). Those step their text down a little at a time until
+  // everything fits, and stop at a size that's still easy to read.
   const NAME_FIT_STEPS = [1, 0.92, 0.85, 0.78, 0.72];
+  const wordRange = document.createRange();
+
+  // A word drawn across two lines comes back as more than one box.
+  function splitsAWord(name) {
+    const text = Array.from(name.childNodes).find((node) => node.nodeType === Node.TEXT_NODE);
+    if (!text) return false;
+    for (const match of text.data.matchAll(/\S+/g)) {
+      wordRange.setStart(text, match.index);
+      wordRange.setEnd(text, match.index + match[0].length);
+      if (wordRange.getClientRects().length > 1) return true;
+    }
+    return false;
+  }
 
   function nameOverflows(face, name) {
-    return face.scrollHeight > face.clientHeight + 1 || name.scrollHeight > name.clientHeight + 1;
+    return face.scrollHeight > face.clientHeight + 1 || name.scrollHeight > name.clientHeight + 1
+      || splitsAWord(name);
   }
 
   function fitName(face) {
