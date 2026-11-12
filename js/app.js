@@ -1052,44 +1052,12 @@
     keys.get(sound.id).views.forEach((view) => paintBadges(view, sound));
   }
 
-  // Every time a loop comes back around counts as another play on the leaderboard. A very
-  // short sound counts at most once a second, so a looping click can't flood the counter.
-  const LOOP_COUNT_EVERY_SECONDS = 1;
-  const LOOP_COUNT_CHECK_MS = 1000;
-  const loopCounts = new Map(); // sound id -> { timer, voice, counted }
-
-  function untrackLoop(id) {
-    const tracked = loopCounts.get(id);
-    if (tracked) clearInterval(tracked.timer);
-    loopCounts.delete(id);
-  }
-
-  // Works from the audio clock rather than counting timer ticks, so a background tab, whose
-  // timers slow down, still counts every repeat it played. countFirst is for a loop being
-  // started, not one restarting because its speed changed.
-  function trackLoop(id, voice, countFirst) {
-    untrackLoop(id);
-    const tracked = { voice, counted: 1, timer: null };
-    if (countFirst) counter.hit(id);
-    tracked.timer = setInterval(() => {
-      if (!loops.has(id)) {
-        untrackLoop(id);
-        return;
-      }
-      const each = Math.max(voice.duration, LOOP_COUNT_EVERY_SECONDS);
-      const played = Math.floor(voice.elapsed() / each) + 1;
-      while (tracked.counted < played) {
-        counter.hit(id);
-        tracked.counted++;
-      }
-    }, LOOP_COUNT_CHECK_MS);
-    loopCounts.set(id, tracked);
-  }
-
-  function playLoop(sound, countFirst) {
-    engine.start(sound, { id: loopVoice(sound.id), loop: true, tune: tuneFor(sound.id) }).then((voice) => {
+  function playLoop(sound) {
+    engine.start(sound, {
+      id: loopVoice(sound.id), loop: true, tune: tuneFor(sound.id),
+      onComplete: (id) => counter.hit(id),
+    }).then(() => {
       if (!loops.has(sound.id)) engine.stop(loopVoice(sound.id)); // Stopped while still loading.
-      else trackLoop(sound.id, voice, countFirst);
     }).catch((error) => {
       console.warn('Could not loop "' + sound.name + '"', error);
       if (loops.has(sound.id)) removeLoop(sound.id);
@@ -1108,7 +1076,7 @@
     loops.add(sound.id);
     paintLoops(sound);
     setArmed(true);
-    playLoop(sound, true);
+    playLoop(sound);
   }
 
   function loopSound(id, trigger) {
@@ -1119,7 +1087,6 @@
 
   function removeLoop(id) {
     loops.delete(id);
-    untrackLoop(id);
     paintLoops(soundById.get(id));
     setArmed(isSounding());
   }
@@ -1624,15 +1591,15 @@
     if (!quiet) celebrate(pressedEl || key.view.el, sound);
 
     const starting = sound.clips
-      ? engine.startClips(sound.id, sound.clips, (id) => soundById.get(id))
-      : engine.start(sound, { tune: tuneFor(sound.id) });
+      ? engine.startClips(sound.id, sound.clips, (id) => soundById.get(id), {
+        onComplete: (id) => counter.hit(id),
+      })
+      : engine.start(sound, { tune: tuneFor(sound.id), onComplete: (id) => counter.hit(id) });
     starting.then((voice) => {
       const current = live.get(sound.id);
       if (current === run && run.releasedAt === null) {
         run.voice = voice;
         if (key.duration === null) key.duration = voice.duration * tuneSpeed(sound.id);
-        // A string is a play of every sound in it, for the leaderboard.
-        counter.hit(sound.clips ? sound.clips.map((clip) => clip.sound) : sound.id);
       } else if (!current || current.releasedAt !== null) {
         engine.stop(sound.id); // Stop all was hit while this sound was still loading.
       }
