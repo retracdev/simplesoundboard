@@ -424,8 +424,7 @@
       return () => listeners.delete(fn);
     },
 
-    // Counts one play of each sound. Duplicates in one call count once, since one play of
-    // a string uses each of its sounds once however many times it repeats them.
+    // Counts completed plays. Duplicates in a single call count once.
     hit(ids) {
       const unique = Array.from(new Set(Array.isArray(ids) ? ids : [ids]))
         .filter((id) => typeof id === 'string' && id.length > 0);

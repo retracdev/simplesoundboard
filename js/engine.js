@@ -98,6 +98,8 @@
   function stop(id) {
     const voice = voices.get(id);
     if (!voice) return;
+    if (voice.finish) voice.finish();
+    voice.stopped = true;
     voices.delete(id);
     // A very short fade avoids an audible click from cutting the waveform mid-cycle.
     const now = context.currentTime;
@@ -110,6 +112,7 @@
   // options.loop repeats it until stopped. options.id runs it as its own voice, so it doesn't
   // replace a press of the same sound, and stop(options.id) is what stops it. options.tune plays
   // it at that speed and pitch, and the duration is how long it takes at that speed.
+  // options.onComplete(soundId) runs only after a full play, including completed loop repeats.
   async function start(sound, options) {
     const id = (options && options.id) || sound.id;
     const { buffer, rate } = await tuned(sound, options && options.tune);
@@ -126,13 +129,37 @@
 
     const startedAt = ctx.currentTime;
     const voice = { sources: [source], gain };
+    const duration = buffer.duration / rate;
+    let counted = 0;
+    let completionTimer = null;
+    function countCompleted(naturalEnd) {
+      if (voice.stopped || !options || !options.onComplete) return;
+      // Keep short loops from flooding counting; use the audio clock even in background tabs.
+      const elapsed = ctx.currentTime - startedAt;
+      const completed = source.loop
+        ? (elapsed < duration ? 0 : 1 + Math.floor((elapsed - duration) / Math.max(duration, 1)))
+        : Number(naturalEnd || ctx.currentTime - startedAt >= duration);
+      while (counted < completed) {
+        counted++;
+        options.onComplete(sound.id);
+      }
+    }
+    voice.finish = () => {
+      countCompleted(false);
+      if (completionTimer !== null) clearInterval(completionTimer);
+    };
     source.onended = () => {
+      countCompleted(true);
+      if (completionTimer !== null) clearInterval(completionTimer);
       if (voices.get(id) === voice) voices.delete(id);
     };
     voices.set(id, voice);
     source.start();
+    if (source.loop && options && options.onComplete) {
+      completionTimer = setInterval(() => countCompleted(false), 1000);
+    }
 
-    return { duration: buffer.duration / rate, elapsed: () => ctx.currentTime - startedAt };
+    return { duration, elapsed: () => ctx.currentTime - startedAt };
   }
 
   // Starts a whole timeline of clips as one voice, so stopping `id` stops all of it. Starting
@@ -149,6 +176,8 @@
     gain.connect(master);
     const startsAt = ctx.currentTime + CLIPS_LEAD_SECONDS;
     const voice = { sources: [], gain };
+    const completions = [];
+    voice.finish = () => completions.forEach((complete) => complete(false));
     let last = offset;
 
     playable.forEach((clip, i) => {
@@ -176,7 +205,19 @@
       clipGain.gain.linearRampToValueAtTime(0, when + played);
       source.connect(clipGain);
       clipGain.connect(gain);
+      let counted = false;
+      // A trimmed clip or a playback started partway through never plays the full sound.
+      const fullSound = from === 0 && skipped === 0
+        && Math.abs(played * speed - buffer.duration) <= 1 / buffer.sampleRate;
+      const complete = (naturalEnd) => {
+        if (counted || voice.stopped || !fullSound || !options || !options.onComplete) return;
+        if (!naturalEnd && ctx.currentTime < when + played) return;
+        counted = true;
+        options.onComplete(clip.sound);
+      };
+      completions.push(complete);
       source.onended = () => {
+        complete(true);
         voice.sources = voice.sources.filter((other) => other !== source);
         if (!voice.sources.length && voices.get(id) === voice) voices.delete(id);
       };
