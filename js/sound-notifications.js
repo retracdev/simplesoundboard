@@ -4,7 +4,7 @@
 
   const account = window.RetracAccount;
   const saves = window.SoundFavorites;
-  const API = 'https://api.retrac.space/v1';
+  const API = 'https://space-api.retrac-space.workers.dev/v1';
   const dialog = document.getElementById('soundUpdatesDialog');
   const trigger = document.getElementById('soundUpdatesOpen');
   const closeButton = document.getElementById('soundUpdatesClose');
