@@ -73,6 +73,10 @@
         body: JSON.stringify(username ? { visitorId, username } : { visitorId }),
       });
       if (!heartbeat.ok) throw new Error('Presence heartbeat failed');
+      const identity = await heartbeat.json();
+      // The heartbeat identifies this session's anonymous animal as well as
+      // named visitors. Match with the same normalization used for grouping.
+      const ownName = (username || (identity && identity.displayName) || '').trim().toLowerCase();
       if (request !== controller) return;
       const response = await fetch(API + '/online/' + SITE, options);
       if (!response.ok) throw new Error('Presence read failed');
@@ -88,6 +92,7 @@
         // just because the API assigned them the same anonymous animal name.
         const usernames = new Set();
         const names = [];
+        let markedSelf = false;
         body.users.forEach((user) => {
           const name = user.displayName.trim();
           if (!name.startsWith('Anonymous ')) {
@@ -95,7 +100,11 @@
             if (usernames.has(key)) return;
             usernames.add(key);
           }
-          names.push(name);
+          // Decorate only after grouping so several computers using our account
+          // still produce one name, one marker, and one entry in the count.
+          const isSelf = !markedSelf && name.toLowerCase() === ownName;
+          if (isSelf) markedSelf = true;
+          names.push(name + (isSelf ? ' (you)' : ''));
         });
         // Names are user-controlled: render them only as text, never as HTML.
         show('online', names.length
