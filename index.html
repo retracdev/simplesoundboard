@@ -89,6 +89,7 @@
       <div class="sound-request-prompt">
         <span>Missing your favorite sound?</span>
         <button class="signin-button signin-button--quiet" id="requestSound" type="button" aria-haspopup="dialog">Request a Sound Effect</button>
+        <button class="signin-button signin-button--quiet" id="soundUpdatesOpen" type="button" aria-haspopup="dialog" hidden>Sound request updates</button>
       </div>
     </section>
 
@@ -146,6 +147,26 @@
         <button class="sound-request__close" id="soundInfoClose" type="button" aria-label="Close sound effect information">&times;</button>
       </header>
       <div class="sound-info__body" id="soundInfoBody"></div>
+    </div>
+  </dialog>
+
+  <dialog class="changelog sound-updates" id="soundUpdatesDialog" aria-labelledby="soundUpdatesTitle">
+    <div class="changelog__panel">
+      <header class="changelog__header">
+        <div>
+          <p class="changelog__version">Sound request updates</p>
+          <h2 id="soundUpdatesTitle">We have updates on your requested sound effects!</h2>
+        </div>
+        <button class="sound-request__close" id="soundUpdatesClose" type="button" aria-label="Close sound request updates">&times;</button>
+      </header>
+      <div class="sound-updates__body">
+        <ul class="sound-updates__list" id="soundUpdatesList"></ul>
+        <p class="sound-updates__status" id="soundUpdatesStatus" role="status"></p>
+        <button class="signin-button signin-button--quiet" id="soundUpdatesRetry" type="button" hidden>Retry saving dismissals</button>
+        <div class="changelog__actions">
+          <button class="signin-button" id="soundUpdatesDone" type="button">Done</button>
+        </div>
+      </div>
     </div>
   </dialog>
 
@@ -218,5 +239,6 @@
   <script src="js/account-welcome.js"></script>
   <script src="js/sound-request.js"></script>
   <script src="js/changelog.js"></script>
+  <script src="js/sound-notifications.js"></script>
 </body>
 </html>
