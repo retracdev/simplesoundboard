@@ -16,9 +16,11 @@ If you are looking to get to the Simple Soundboard, press [here](https://soundbo
 Press a key and it sinks, then slowly rises back up over the exact length of the sound.
 
 ## Online visitors
-The home page shows a live online count below the changelog button, using `https://space-api.retrac-space.workers.dev/v1/presence` with the site name `soundboard`. Each tab gets an anonymous visitor ID stored in session storage (or kept in memory when storage is disabled). Visible tabs send a heartbeat and refresh the count every 30 seconds; hidden or closed tabs stop sending and expire from the API's count within 90 seconds of their last heartbeat. This counts tabs, so multiple tabs may count separately. No account details are sent.
+The home page lists online visitors by name below the changelog button, using `https://space-api.retrac-space.workers.dev/v1/presence` with the site name `soundboard`. Signed-in visitors send their retrac.space username as a display name; guests get an anonymous animal name from the API. Display names are unverified by the presence API, and no account tokens are sent. Names wrap on narrow screens and are rendered as plain text.
 
-If the presence service is unavailable, the indicator shows "Online count unavailable" and retries on the next interval or when the connection returns.
+A temporary session cookie shares one visitor ID across soundboard tabs, so extra tabs do not inflate the list. The cookie has no expiry date or Max-Age and uses SameSite=Lax and Secure on HTTPS. If cookies are blocked, presence falls back to an in-memory ID per page. Visible tabs send a heartbeat and refresh the list every 30 seconds; a visitor expires within 90 seconds after their last visible tab stops heartbeats. Signing out or switching accounts creates a fresh visitor ID because the API retains the previous display name; that old entry expires within 90 seconds.
+
+If the presence service is unavailable, the indicator shows "Online visitors unavailable" and retries on the next interval or when the connection returns.
 
 ## Sound Leaderboard
 The **Leaderboard** tab at the top ranks every sound by how many times it has been played, by everyone. The top three get a podium and trophies, and every sound after that is listed below. A sound joins the board on its second play.

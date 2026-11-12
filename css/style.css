@@ -140,6 +140,11 @@ kbd { font: inherit; }
   border-radius: 50%;
   background: currentColor;
 }
+#presenceLabel {
+  max-width: 560px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .presence[data-state="online"] .presence__dot {
   background: #9de5bc;
   box-shadow: 0 0 8px rgba(157, 229, 188, .3);
