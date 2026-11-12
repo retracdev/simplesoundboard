@@ -83,9 +83,23 @@
         throw new Error('Invalid presence visitors');
       }
       if (request === controller) {
+        // Rebuild from all live sessions each time: a name stays online while
+        // any of its computers is still sending heartbeats. Never merge guests
+        // just because the API assigned them the same anonymous animal name.
+        const usernames = new Set();
+        const names = [];
+        body.users.forEach((user) => {
+          const name = user.displayName.trim();
+          if (!name.startsWith('Anonymous ')) {
+            const key = name.toLowerCase();
+            if (usernames.has(key)) return;
+            usernames.add(key);
+          }
+          names.push(name);
+        });
         // Names are user-controlled: render them only as text, never as HTML.
-        show('online', body.users.length
-          ? 'Online now: ' + body.users.map((user) => user.displayName).join(', ')
+        show('online', names.length
+          ? 'Online now (' + names.length.toLocaleString() + '): ' + names.join(', ')
           : 'No one online right now');
       }
     } catch (error) {
