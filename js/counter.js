@@ -1,9 +1,9 @@
 /*
- * Play counts for the Sound Leaderboard, stored with Abacus (https://abacus.jasoncameron.dev).
+ * Play counts for the Sound Leaderboard, stored with the retrac.space counters API.
  *
- * Abacus allows 30 requests per 10 seconds per IP and has no bulk read, so every request
- * goes through one paced queue. Plays go first and reads use what's left over, which lets
- * someone hit Play Everything without losing a single count to the leaderboard loading.
+ * There's no bulk read, so each sound is its own counter. Requests go through one queue
+ * that keeps a handful in flight at once. Plays go first and reads use what's left over, so
+ * Play Everything never waits behind the leaderboard loading.
  *
  * Plays that haven't been sent yet are saved, so closing the tab right after Play Everything
  * doesn't throw them away: the next visit sends them. Each tab keeps its own save with a
@@ -12,25 +12,25 @@
  * Counts that have been read are cached, so the leaderboard draws instantly on a return
  * visit and only refreshes what's gone stale.
  *
- * Counting is a bonus: nothing here can delay or block a sound. If Abacus can't be reached,
+ * Counting is a bonus: nothing here can delay or block a sound. If the API can't be reached,
  * the leaderboard says so and the board keeps working.
  */
 (function () {
   'use strict';
 
-  const API = 'https://abacus.jasoncameron.dev';
-  // A fresh namespace, so the leaderboard starts from zero rather than the old key counters.
-  const NAMESPACE = 'soundboard.retrac.space';
-  const KEY_PREFIX = 'plays.'; // Counter key = this + the sound's id.
+  const API = 'https://space-api.retrac-space.workers.dev/v1/counters';
+  // Counter names are shared across every retrac.space site, so these carry the site's prefix.
+  // Names allow letters, numbers, hyphens and underscores, which sound ids already stick to.
+  const NAME_PREFIX = 'simple-soundboard-plays-';
 
-  const WINDOW_MS = 10000;
-  const MAX_REQUESTS = 25; // Stays under the limit of 30, leaving room for a second tab.
+  const MAX_IN_FLIGHT = 12; // Enough to fill the whole board in a moment without a flood.
   const PUMP_MS = 250;
   const RATE_LIMITED_PAUSE_MS = 4000;
   const FAILURE_PAUSE_MS = 15000;
-  const STALE_MS = 2 * 60 * 1000; // A cached count older than this is read again.
+  const STALE_MS = 30 * 1000; // A cached count older than this is read again.
 
-  const CACHE_KEY = 'simple-soundboard:play-counts';
+  // A new cache name, so counts saved from the old Abacus counters never show.
+  const CACHE_KEY = 'simple-soundboard:play-counts-v2';
   const PENDING_PREFIX = 'simple-soundboard:unsent-plays:';
   const HEARTBEAT_MS = 4000;
   const ORPHAN_AFTER_MS = 15000; // A save this quiet belongs to a closed tab.
@@ -38,17 +38,17 @@
   const tabId = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   const pendingKey = PENDING_PREFIX + tabId;
 
-  const known = new Map(); // sound id -> { value, at } from Abacus or the cache
-  const unsent = new Map(); // sound id -> plays from this tab not yet confirmed by Abacus
+  const known = new Map(); // sound id -> { value, at } from the API or the cache
+  const unsent = new Map(); // sound id -> plays from this tab not yet confirmed by the API
   const hitQueue = []; // one sound id per play still to send
   const readQueue = [];
   const reading = new Set(); // ids queued or in flight for a read
-  const sentAt = [];
   const listeners = new Set();
 
   let pausedUntil = 0;
   let timer = null;
-  let failures = 0; // reads in a row that couldn't reach Abacus
+  let inFlight = 0;
+  let failures = 0; // reads in a row that couldn't reach the API
   let lastError = false;
 
   // ---------- Storage ----------
@@ -144,13 +144,25 @@
 
   // ---------- Requests ----------
 
-  function url(action, id) {
-    return API + '/' + action + '/' + NAMESPACE + '/' + KEY_PREFIX + id;
+  function counterName(id) {
+    return NAME_PREFIX + id;
   }
 
-  // Every request needs a real answer, because /hit is a GET that a cache would swallow.
+  // GET /get/<name> reads a counter, creating it at 0 if it's new. POST /increment/<name> adds
+  // one. Both answer { name, count }. Every request needs a real answer, never a cached one.
   function send(action, id) {
-    return fetch(url(action, id), { cache: 'no-store', credentials: 'omit', keepalive: action === 'hit' });
+    const isHit = action === 'hit';
+    return fetch(API + '/' + (isHit ? 'increment' : 'get') + '/' + encodeURIComponent(counterName(id)), {
+      method: isHit ? 'POST' : 'GET',
+      cache: 'no-store',
+      credentials: 'omit',
+      keepalive: isHit, // A play sent as the tab closes still gets there.
+    });
+  }
+
+  async function countFrom(response) {
+    const body = await response.json();
+    return body && Number.isFinite(body.count) ? body.count : null;
   }
 
   function emit(ids) {
@@ -196,8 +208,8 @@
     if (response.ok) {
       try {
         // The answer includes this play. Plays of ours still on the way get added on top.
-        const { value } = await response.json();
-        if (Number.isFinite(value)) record(id, value);
+        const value = await countFrom(response);
+        if (value !== null) record(id, value);
       } catch (error) {
         // The play counted, the number just didn't come back.
       }
@@ -232,8 +244,8 @@
     try {
       if (response.status === 404) record(id, 0); // Nobody has played this one yet.
       else if (response.ok) {
-        const { value } = await response.json();
-        if (Number.isFinite(value)) record(id, value);
+        const value = await countFrom(response);
+        if (value !== null) record(id, value);
       }
     } catch (error) {
       // Leave it as it was.
@@ -241,19 +253,21 @@
     emit([id]);
   }
 
+  // Keeps up to MAX_IN_FLIGHT requests going, and starts the next as soon as one finishes.
+  function launch(request, id) {
+    inFlight++;
+    request(id).finally(() => {
+      inFlight--;
+      start();
+    });
+  }
+
   function pump() {
     timer = null;
-    const now = performance.now();
-    while (sentAt.length && now - sentAt[0] >= WINDOW_MS) sentAt.shift();
-
-    if (now >= pausedUntil) {
-      while (hitQueue.length && sentAt.length < MAX_REQUESTS) {
-        sentAt.push(now);
-        sendHit(hitQueue.shift());
-      }
-      while (readQueue.length && !hitQueue.length && sentAt.length < MAX_REQUESTS) {
-        sentAt.push(now);
-        sendRead(readQueue.shift());
+    if (performance.now() >= pausedUntil) {
+      while (hitQueue.length && inFlight < MAX_IN_FLIGHT) launch(sendHit, hitQueue.shift());
+      while (readQueue.length && !hitQueue.length && inFlight < MAX_IN_FLIGHT) {
+        launch(sendRead, readQueue.shift());
       }
     }
     schedule();
@@ -357,7 +371,7 @@
       return reading.has(id);
     },
 
-    // How many reads are still waiting, and whether Abacus seems to be down.
+    // How many reads are still waiting, and whether the API seems to be down.
     status() {
       return { reading: reading.size, unsent: hitQueue.length, offline: lastError };
     },
