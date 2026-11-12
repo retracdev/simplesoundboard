@@ -15,6 +15,11 @@ If you are looking to get to the Simple Soundboard, press [here](https://soundbo
 
 Press a key and it sinks, then slowly rises back up over the exact length of the sound.
 
+## Sound Leaderboard
+The **Leaderboard** tab at the top ranks every sound by how many times it has been played, by everyone. The top three get a podium and trophies, and every sound after that is listed below. A sound joins the board on its second play.
+
+Every play counts, including sounds inside a string, Play All, Play Everything, and starting a loop. Counts are stored with the free [Abacus](https://abacus.jasoncameron.dev) counting API, which is rate limited, so plays are sent through a paced queue and saved in the browser until they're sent.
+
 ## "What's the catch? Is there a subscription or ads?"
 Nope! None of that. I build Simple Soundboard as an easy and fun way to play sound effects.
 The site is completely free with no advertisements or intrusive popups.

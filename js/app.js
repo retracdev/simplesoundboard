@@ -18,6 +18,7 @@
   const stringEditor = window.StringEditor;
   const tuneCore = window.TuneCore;
   const tuneEditor = window.TuneEditor;
+  const counter = window.SoundCounter;
 
   const PRESS_MS = 70; // How fast a key sinks when hit.
   const MIN_RISE_SECONDS = 0.22; // Very short sounds still get a visible pop back up.
@@ -77,6 +78,11 @@
   const loops = new Set(); // ids of the sounds looping right now
   let tunesAllowed = false; // Whether an account is signed in, so its speed and pitch apply.
   const filter = { category: 'all', query: '' };
+  const playbackListeners = new Set(); // fn(id, playing) for anything showing what's playing
+
+  function notifyPlayback(id, playing) {
+    playbackListeners.forEach((fn) => fn(id, playing));
+  }
 
   // ---------- DOM helpers ----------
 
@@ -1046,9 +1052,11 @@
     keys.get(sound.id).views.forEach((view) => paintBadges(view, sound));
   }
 
-  function playLoop(sound) {
+  // countPlay is for a loop being started, not one restarting because its speed changed.
+  function playLoop(sound, countPlay) {
     engine.start(sound, { id: loopVoice(sound.id), loop: true, tune: tuneFor(sound.id) }).then(() => {
       if (!loops.has(sound.id)) engine.stop(loopVoice(sound.id)); // Stopped while still loading.
+      else if (countPlay) counter.hit(sound.id);
     }).catch((error) => {
       console.warn('Could not loop "' + sound.name + '"', error);
       if (loops.has(sound.id)) removeLoop(sound.id);
@@ -1067,7 +1075,7 @@
     loops.add(sound.id);
     paintLoops(sound);
     setArmed(true);
-    playLoop(sound);
+    playLoop(sound, true);
   }
 
   function loopSound(id, trigger) {
@@ -1501,6 +1509,7 @@
   function settle(id, run, spring) {
     const key = run.key;
     live.delete(id);
+    notifyPlayback(id, false);
     setKeyMotion(key, 0, 0);
     key.lastLabel = '';
     setKeyTime(key, restingTime(id, key));
@@ -1571,6 +1580,7 @@
       releaseFrom: 0,
     };
     live.set(sound.id, run);
+    notifyPlayback(sound.id, true);
     key.views.forEach((view) => {
       view.slotEl.classList.remove('is-pop');
       view.el.classList.remove('is-broken');
@@ -1587,6 +1597,8 @@
       if (current === run && run.releasedAt === null) {
         run.voice = voice;
         if (key.duration === null) key.duration = voice.duration * tuneSpeed(sound.id);
+        // A string is a play of every sound in it, for the leaderboard.
+        counter.hit(sound.clips ? sound.clips.map((clip) => clip.sound) : sound.id);
       } else if (!current || current.releasedAt !== null) {
         engine.stop(sound.id); // Stop all was hit while this sound was still loading.
       }
@@ -1830,6 +1842,8 @@
     const typing = event.target === searchEl;
     if (event.key === '/' && !typing && !event.ctrlKey && !event.metaKey && !event.altKey) {
       event.preventDefault();
+      // The search lives on the board, so it's there to go back to from the leaderboard.
+      if (window.SoundViews && window.SoundViews.current() !== 'home') window.SoundViews.show('home');
       searchEl.focus();
     } else if (event.key === 'Escape') {
       if (typing && searchEl.value) {
@@ -1876,6 +1890,31 @@
       // The slider still works for this visit without storage.
     }
   });
+
+  // ---------- For the leaderboard ----------
+
+  // Lets other views play catalog sounds through the same keys, so they count, light up
+  // and stop with everything else.
+  window.SoundBoard = {
+    play(id, pressedEl) {
+      const sound = soundById.get(id);
+      if (sound && !sound.clips) press(sound, pressedEl);
+    },
+    stop(id) {
+      const run = live.get(id);
+      if (!run) return;
+      engine.stop(id);
+      if (run.releasedAt === null) {
+        run.releasedAt = performance.now();
+        run.releaseFrom = run.depth;
+        requestFrame();
+      }
+    },
+    isPlaying: (id) => live.has(id),
+    onPlayback(fn) {
+      playbackListeners.add(fn);
+    },
+  };
 
   // ---------- Start up ----------
 
