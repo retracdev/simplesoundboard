@@ -192,6 +192,8 @@
       src: 'sounds/lebron-scream.mp3' },
     { id: 'lebron-james-kid', name: 'Lebron James Kid', category: 'sports', tags: 'lebron james basketball nba vine meme',
       src: 'sounds/lebron-james-kid.mp3' },
+    { id: 'ronaldo-suuuuu', name: 'Ronaldo Suuuuu', category: 'sports', tags: 'cristiano ronaldo suuuuu siu sui soccer football celebration meme',
+      src: 'sounds/ronaldo-suuuuu.mp3', requestedBy: '93fH6HGyFnR60NjpZLgf03SFQrtUDu30', isNew: true, dateAdded: 'November 10, 2026' },
     { id: 'bone-crack', name: 'Bone Crack', category: 'hits', tags: 'break snap ouch hurt',
       src: 'sounds/bone-crack.mp3' },
     { id: 'metal-pipe-clang', name: 'Metal Pipe Clang', category: 'hits', tags: 'meme falling steel',
