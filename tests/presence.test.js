@@ -48,7 +48,7 @@ async function open(t, { storedId, blockedCookies = false, fetch, account, previ
 test('registers an anonymous visitor before reading and reuses the shared cookie identity', async (t) => {
   const page = await open(t, { storedId: 'existing-tab' });
   assert.equal(page.window.document.getElementById('presence').hidden, false);
-  assert.equal(page.label(), 'Online now: retrac, Anonymous Bear, Anonymous Fox');
+  assert.equal(page.label(), 'Online now (3): retrac, Anonymous Bear, Anonymous Fox');
   assert.equal(page.state(), 'online');
   assert.deepEqual(page.calls.map((call) => call.url), [
     'https://space-api.retrac-space.workers.dev/v1/presence/heartbeat/soundboard',
@@ -94,7 +94,7 @@ test('works without cookies and replaces stale names on offline, recovering on r
   assert.equal(page.calls.length, 2);
   page.network(true);
   await settle();
-  assert.equal(page.label(), 'Online now: retrac, Anonymous Bear, Anonymous Fox');
+  assert.equal(page.label(), 'Online now (3): retrac, Anonymous Bear, Anonymous Fox');
 });
 
 test('failed or malformed responses show unavailable and the next interval retries', async (t) => {
@@ -124,7 +124,7 @@ test('times out stalled requests without overlapping polls and retries', async (
   stalled = false;
   page.tick();
   await settle();
-  assert.equal(page.label(), 'Online now: retrac');
+  assert.equal(page.label(), 'Online now (1): retrac');
 });
 
 test('ignores late responses from a tab that became hidden', async (t) => {
@@ -140,7 +140,7 @@ test('ignores late responses from a tab that became hidden', async (t) => {
 test('shows every display name as text, including anonymous guests and HTML-like usernames', async (t) => {
   const name = '<img src=x onerror=alert(1)>';
   const page = await open(t, { fetch: () => response(2, [{ displayName: name }, { displayName: 'Anonymous Bear' }]) });
-  assert.equal(page.label(), 'Online now: ' + name + ', Anonymous Bear');
+  assert.equal(page.label(), 'Online now (2): ' + name + ', Anonymous Bear');
   assert.equal(page.window.document.querySelector('#presenceLabel img'), null);
 });
 
