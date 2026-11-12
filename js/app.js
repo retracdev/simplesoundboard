@@ -821,7 +821,7 @@
   const infoCloseEl = $('soundInfoClose');
   let infoTrigger = null;
 
-  async function loadRequester(userId, paragraph) {
+  async function loadRequester(userId, target) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
     try {
@@ -834,9 +834,9 @@
       if (typeof data?.username !== 'string' || !data.username.trim()) {
         throw new Error('Lookup returned no username');
       }
-      paragraph.textContent = 'Requested By: ' + data.username;
+      target.textContent = data.username;
     } catch {
-      paragraph.textContent = 'Requested By: Unavailable. Reopen info to try again.';
+      target.textContent = 'Unavailable. Reopen info to try again.';
     } finally {
       clearTimeout(timeout);
     }
@@ -853,14 +853,22 @@
       infoBodyEl.appendChild(el('p', text ? '' : 'sound-info__empty',
         text || 'There is no information available for this sound effect.'));
     }
-    let requester;
-    if (sound.requestedBy) {
-      requester = el('p', '', 'Requested By: ');
+    const requesterIds = Array.isArray(sound.requestedBy)
+      ? sound.requestedBy : (sound.requestedBy ? [sound.requestedBy] : []);
+    const requesterTargets = [];
+    if (requesterIds.length) {
+      const requester = el('p', '', 'Requested By: ');
       requester.setAttribute('role', 'status');
-      const spinner = icon('icon-loader');
-      spinner.classList.add('sound-info__spinner');
-      spinner.setAttribute('aria-hidden', 'true');
-      requester.append(spinner, el('span', 'sr-only', 'Loading requester'));
+      requesterIds.forEach((userId, index) => {
+        if (index) requester.appendChild(document.createTextNode(' and '));
+        const target = el('span');
+        const spinner = icon('icon-loader');
+        spinner.classList.add('sound-info__spinner');
+        spinner.setAttribute('aria-hidden', 'true');
+        target.append(spinner, el('span', 'sr-only', 'Loading requester'));
+        requester.appendChild(target);
+        requesterTargets.push({ userId, target });
+      });
       infoBodyEl.appendChild(requester);
     }
     if (sound.dateAdded) {
@@ -868,7 +876,7 @@
     }
     infoDialog.showModal();
     infoCloseEl.focus({ preventScroll: true });
-    if (requester) loadRequester(sound.requestedBy, requester);
+    requesterTargets.forEach(({ userId, target }) => loadRequester(userId, target));
   }
 
   infoCloseEl.addEventListener('click', () => infoDialog.close());
