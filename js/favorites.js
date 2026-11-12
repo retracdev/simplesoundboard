@@ -605,12 +605,14 @@
     hasUnsavedTunes: () => pendingTunes.size > 0,
     hasUnsavedNotifications: () => pendingDismissedNotifications.size > 0,
     isNotificationDismissed: (id) => cloudDismissedNotifications.includes(id) || pendingDismissedNotifications.has(id),
-    dismissNotification(id) {
-      if (!accountId || !Number.isSafeInteger(id) || id <= 0) return false;
-      if (cloudDismissedNotifications.includes(id) || pendingDismissedNotifications.has(id)) return true;
-      pendingDismissedNotifications.add(id);
+    dismissNotifications(ids) {
+      if (!accountId || !validNotificationIds(ids)) return false;
+      const added = [...new Set(ids)].filter((id) => !cloudDismissedNotifications.includes(id)
+        && !pendingDismissedNotifications.has(id));
+      if (!added.length) return true;
+      added.forEach((id) => pendingDismissedNotifications.add(id));
       if (!fits(pendingStrings, pendingTunes)) {
-        pendingDismissedNotifications.delete(id);
+        added.forEach((id) => pendingDismissedNotifications.delete(id));
         return false;
       }
       afterChange();

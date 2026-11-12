@@ -1465,7 +1465,6 @@ kbd { font: inherit; }
 .sound-updates__details h3 { color: var(--fg); font-size: 1.15rem; }
 .sound-updates__label { margin-top: 4px; font-weight: 700; }
 .sound-updates__reason { margin-top: 10px; color: #e5d8df; white-space: pre-wrap; }
-.sound-updates__details button { margin-top: 14px; }
 .sound-updates__status { margin-top: 16px; color: var(--muted); }
 .sound-updates__status:empty { display: none; }
 @media (max-width: 640px) {

@@ -20,6 +20,7 @@
   let ready = false;
   let sizeError = false;
   let rendered = '';
+  let displayedIds = [];
 
   function open() {
     if (!username || !saves.isLoaded() || dialog.open || document.querySelector('dialog[open]')) return;
@@ -33,28 +34,36 @@
     if (ready && autoOpen && !trigger.hidden) open();
   }
 
+  function dismissAndClose() {
+    if (!dialog.open) return;
+    autoOpen = false;
+    sizeError = !saves.dismissNotifications(displayedIds);
+    render();
+    if (!sizeError) dialog.close();
+  }
+
   function render() {
     if (!username || !saves.isLoaded()) {
+      displayedIds = [];
       trigger.hidden = true;
       if (dialog.open) dialog.close();
       return;
     }
     const rows = [...notifications.values()].filter((row) => !saves.isNotificationDismissed(row.id));
+    displayedIds = rows.map((row) => row.id);
     if (!rows.length) autoOpen = false;
     const unsaved = saves.hasUnsavedNotifications();
     const saveStatus = saves.getStatus();
     trigger.hidden = !rows.length && !unsaved;
     trigger.textContent = rows.length ? `Sound request updates (${rows.length})` : 'Sound request updates';
-    const message = sizeError ? 'Your cloud save is full. This update is still available. Free up space and try dismissing it again.'
+    const message = sizeError ? 'Your cloud save is full. These updates are still available. Free up space and try closing again.'
       : unsaved ? (saveStatus === 'ok' ? 'Saving your dismissals to your account…'
         : 'Your dismissals have not synced yet. They are kept on this device while saving retries. Retry saving, or sign in again if your session ended.')
-        : rows.length ? 'Dismiss each update when you’re finished. Closing this window keeps the remaining updates available.'
+        : rows.length ? 'Closing this window dismisses all of these updates.'
           : 'You’re all caught up!';
     const signature = JSON.stringify([rows, message, unsaved, saveStatus]);
     if (signature !== rendered) {
       rendered = signature;
-      const focused = list.contains(document.activeElement);
-      const focusedId = document.activeElement && document.activeElement.dataset.notificationId;
       list.replaceChildren();
       rows.forEach((row) => {
         const card = document.createElement('li');
@@ -70,25 +79,10 @@
           reason.textContent = row.reason;
           details.append(reason);
         }
-        const dismiss = document.createElement('button');
-        dismiss.type = 'button';
-        dismiss.className = 'signin-button signin-button--quiet';
-        dismiss.textContent = 'Dismiss';
-        dismiss.dataset.notificationId = String(row.id);
-        dismiss.setAttribute('aria-label', `Dismiss update for ${row.sound_name}`);
-        dismiss.addEventListener('click', () => {
-          sizeError = !saves.dismissNotification(row.id);
-          render();
-        });
-        details.append(dismiss);
         list.append(card);
       });
       status.textContent = message;
       retry.hidden = !unsaved || saveStatus === 'ok';
-      if (focused && dialog.open) {
-        const buttons = [...list.querySelectorAll('button')];
-        (buttons.find((button) => button.dataset.notificationId === focusedId) || buttons[0] || closeButton).focus({ preventScroll: true });
-      }
     }
     showPending();
   }
@@ -171,14 +165,18 @@
   }
 
   trigger.addEventListener('click', open);
-  closeButton.addEventListener('click', () => dialog.close());
-  document.getElementById('soundUpdatesDone').addEventListener('click', () => dialog.close());
+  closeButton.addEventListener('click', dismissAndClose);
+  document.getElementById('soundUpdatesDone').addEventListener('click', dismissAndClose);
   retry.addEventListener('click', () => { saves.resume(); render(); });
-  dialog.addEventListener('click', (event) => { if (event.target === dialog) dialog.close(); });
+  dialog.addEventListener('click', (event) => { if (event.target === dialog) dismissAndClose(); });
+  dialog.addEventListener('cancel', (event) => {
+    event.preventDefault();
+    dismissAndClose();
+  });
   dialog.addEventListener('keydown', (event) => event.stopPropagation());
   dialog.addEventListener('close', () => {
     autoOpen = false;
-    if (!trigger.hidden) trigger.focus({ preventScroll: true });
+    (trigger.hidden ? document.getElementById('requestSound') : trigger).focus({ preventScroll: true });
   });
   // Wait behind any existing modal, including the page-load changelog.
   document.addEventListener('close', () => setTimeout(showPending, 0), true);
