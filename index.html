@@ -74,6 +74,10 @@
       <span class="changelog-pill__badge">NEW</span>
       View v1.1 changelog
     </button>
+    <p class="presence" id="presence" role="status" aria-atomic="true" title="Visible tabs count as online. Tabs drop off within 90 seconds after their last heartbeat." hidden>
+      <span class="presence__dot" aria-hidden="true"></span>
+      <span id="presenceLabel">Checking who's online…</span>
+    </p>
     <div class="ribbon" aria-hidden="true">
       <div class="ribbon__track" id="ribbonTrack"></div>
     </div>
@@ -285,6 +289,7 @@
 
   <script src="js/sounds.js"></script>
   <script src="js/counter.js"></script>
+  <script src="js/presence.js"></script>
   <script src="js/tune-core.js"></script>
   <script src="js/engine.js"></script>
   <script src="js/account.js"></script>

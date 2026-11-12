@@ -121,6 +121,30 @@ kbd { font: inherit; }
   font-size: clamp(1rem, 2vw, 1.25rem);
 }
 
+.presence {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 7px;
+  margin: 12px var(--gutter) 0;
+  color: #b9b4cc;
+  font-size: .8125rem;
+  font-variant-numeric: tabular-nums;
+}
+.presence__dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: currentColor;
+}
+.presence[data-state="online"] .presence__dot {
+  background: #9de5bc;
+  box-shadow: 0 0 8px rgba(157, 229, 188, .3);
+}
+
 .hero__notes { position: absolute; inset: 0; pointer-events: none; }
 .hero-note {
   position: absolute;

@@ -15,6 +15,11 @@ If you are looking to get to the Simple Soundboard, press [here](https://soundbo
 
 Press a key and it sinks, then slowly rises back up over the exact length of the sound.
 
+## Online visitors
+The home page shows a live online count below the changelog button, using `https://space-api.retrac-space.workers.dev/v1/presence` with the site name `soundboard`. Each tab gets an anonymous visitor ID stored in session storage (or kept in memory when storage is disabled). Visible tabs send a heartbeat and refresh the count every 30 seconds; hidden or closed tabs stop sending and expire from the API's count within 90 seconds of their last heartbeat. This counts tabs, so multiple tabs may count separately. No account details are sent.
+
+If the presence service is unavailable, the indicator shows "Online count unavailable" and retries on the next interval or when the connection returns.
+
 ## Sound Leaderboard
 The **Leaderboard** tab at the top ranks every sound by how many times it has been played, by everyone. The top three get a podium and trophies, and every sound after that is listed below. A sound joins the board on its second play.
 
