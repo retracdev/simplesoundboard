@@ -18,7 +18,7 @@ Press a key and it sinks, then slowly rises back up over the exact length of the
 ## Sound Leaderboard
 The **Leaderboard** tab at the top ranks every sound by how many times it has been played, by everyone. The top three get a podium and trophies, and every sound after that is listed below. A sound joins the board on its second play.
 
-Every play counts, including sounds inside a string, Play All, Play Everything, and starting a loop. Counts are stored with the retrac.space counters API (`https://space-api.retrac-space.workers.dev/v1/counters`), one counter per sound named `simple-soundboard-plays-<sound id>`. Plays are saved in the browser until they're sent, so none are lost if the tab closes.
+Every play counts, including sounds inside a string, Play All, Play Everything, and every repeat of a looping sound. Counts are stored with the retrac.space counters API (`https://space-api.retrac-space.workers.dev/v1/counters`), one counter per sound named `simple-soundboard-plays-<sound id>`. Plays are saved in the browser until they're sent, so none are lost if the tab closes.
 
 ## "What's the catch? Is there a subscription or ads?"
 Nope! None of that. I build Simple Soundboard as an easy and fun way to play sound effects.
