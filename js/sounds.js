@@ -9,7 +9,7 @@
  *   tags      extra words for search
  *   src       the file, relative to index.html
  *   info      optional: a few words about the sound, shown under "Sound Effect Information"
- *   requestedBy optional: retrac.space user ID, looked up when sound information opens
+ *   requestedBy optional: retrac.space user ID or array of IDs, looked up when sound information opens
  *   dateAdded optional: permanent date shown in sound information, independent of the NEW label
  *   isNew     optional: show a NEW label beside the name until manually removed
  *
@@ -114,6 +114,32 @@
       src: 'sounds/netflix-and-tiki-takis.mp3', requestedBy: 'WHwsJZpf4joElKVtsaAOEfTQ2zHHQFJD', isNew: true, dateAdded: 'November 10, 2026' },
     { id: 'micheal-jackson-he-he', name: 'Micheal Jackson He He', category: 'internet', tags: 'michael micheal jackson he he hee hee singer music meme',
       src: 'sounds/micheal-jackson-he-he.mp3', requestedBy: 'WHwsJZpf4joElKVtsaAOEfTQ2zHHQFJD', isNew: true, dateAdded: 'November 10, 2026' },
+    { id: 'awkward-ok', name: 'Awkward Ok', category: 'internet', tags: 'awkward okay ok reaction meme',
+      src: 'sounds/awkward-ok.mp3', requestedBy: ['93fH6HGyFnR60NjpZLgf03SFQrtUDu30', 'WHwsJZpf4joE1KVtsaAOEfTQ2zHHQFJD'], isNew: true, dateAdded: 'November 10, 2026' },
+    { id: 'oh-my-pc', name: 'Oh My PC!', category: 'internet', tags: 'computer pc reaction meme',
+      src: 'sounds/oh-my-pc.mp3', requestedBy: 'f6zHbQSsHYmjZORQYT4fCP64iCbDkxz0', isNew: true, dateAdded: 'November 10, 2026' },
+    { id: 'nope', name: 'Nope!', category: 'internet', tags: 'no nope reaction meme',
+      src: 'sounds/nope.mp3', requestedBy: ['WHwsJZpf4joE1KVtsaAOEfTQ2zHHQFJD', 'NpBqDiOhzHLChgcOrOyY1VINrxeEqxPK'], isNew: true, dateAdded: 'November 10, 2026' },
+    { id: 'what-bottom-text', name: 'What Bottom Text', category: 'internet', tags: 'what bottom text sanctuary guardian earthbound music meme',
+      src: 'sounds/what-bottom-text.mp3', requestedBy: 'WHwsJZpf4joE1KVtsaAOEfTQ2zHHQFJD', isNew: true, dateAdded: 'November 10, 2026' },
+    { id: 'i-have-no-enemies', name: 'I have no enemies', category: 'internet', tags: 'i have no enemies song music meme instrumental',
+      src: 'sounds/i-have-no-enemies.mp3', requestedBy: 'WHwsJZpf4joE1KVtsaAOEfTQ2zHHQFJD', isNew: true, dateAdded: 'November 10, 2026' },
+    { id: 'thank-you-for-shopping-at-walmart', name: 'Thank you for shopping at Walmart', category: 'internet', tags: 'thank you shopping walmart store meme',
+      src: 'sounds/thank-you-for-shopping-at-walmart.mp3', requestedBy: '93fH6HGyFnR60NjpZLgf03SFQrtUDu30', isNew: true, dateAdded: 'November 10, 2026' },
+    { id: 'mr-beast-give-me-some-money', name: 'Mr. Beast Give Me Some Money Song', category: 'internet', tags: 'mrbeast mr beast give me some sum money song music meme',
+      src: 'sounds/mr-beast-give-me-some-money.mp3', requestedBy: '93fH6HGyFnR60NjpZLgf03SFQrtUDu30', isNew: true, dateAdded: 'November 10, 2026' },
+    { id: 'please-speed-i-need-this', name: 'Please Speed I Need This', category: 'internet', tags: 'please speed ishowspeed i need this streamer meme',
+      src: 'sounds/please-speed-i-need-this.mp3', requestedBy: 'WHwsJZpf4joE1KVtsaAOEfTQ2zHHQFJD', isNew: true, dateAdded: 'November 10, 2026' },
+    { id: 'ishowspeed-bark', name: 'IShowSpeed Bark', category: 'internet', tags: 'ishowspeed speed bark barking dog streamer meme',
+      src: 'sounds/ishowspeed-bark.mp3', requestedBy: '93fH6HGyFnR60NjpZLgf03SFQrtUDu30', isNew: true, dateAdded: 'November 10, 2026' },
+    { id: 'bethany-i-made-biscuits', name: 'BETHANY I MADE BISCUITS', category: 'internet', tags: 'bethany i made biscuits food meme',
+      src: 'sounds/bethany-i-made-biscuits.mp3', requestedBy: '93fH6HGyFnR60NjpZLgf03SFQrtUDu30', isNew: true, dateAdded: 'November 10, 2026' },
+    { id: 'what-the-dog-doing', name: "What the dog dooin'?", category: 'internet', tags: 'what the dog doing dooin animal meme',
+      src: 'sounds/what-the-dog-doing.mp3', requestedBy: '93fH6HGyFnR60NjpZLgf03SFQrtUDu30', isNew: true, dateAdded: 'November 10, 2026' },
+    { id: 'no-no-wait-wait', name: 'No No Wait Wait!', category: 'internet', tags: 'no no wait wait reaction meme',
+      src: 'sounds/no-no-wait-wait.mp3', requestedBy: '93fH6HGyFnR60NjpZLgf03SFQrtUDu30', isNew: true, dateAdded: 'November 10, 2026' },
+    { id: 'rehehehe', name: 'REHEHEHE', category: 'internet', tags: 'rehehehe laugh laughing meme',
+      src: 'sounds/rehehehe.mp3', requestedBy: 'f6zHbQSsHYmjZORQYT4fCP64iCbDkxz0', isNew: true, dateAdded: 'November 10, 2026' },
     { id: 'get-out', name: 'Get Out!', category: 'tv-movies', tags: 'tuco breaking bad yell quote',
       src: 'sounds/tuco-get-out.mp3' },
     { id: 'spongebob-failure', name: 'SpongeBob Failure', category: 'tv-movies', tags: 'fail cartoon sad lose',
@@ -122,6 +148,14 @@
       src: 'sounds/a-few-moments-later.mp3' },
     { id: 'shut-up-mom', name: 'Shut Up Mom!', category: 'tv-movies', tags: 'key peele sketch comedy brother',
       src: 'sounds/shut-up-mom.mp3' },
+    { id: 'chance-dumb-dumber', name: 'Chance (from Dumb and Dumber)', category: 'tv-movies', tags: 'chance dumb dumber movie quote meme',
+      src: 'sounds/chance-dumb-dumber.mp3', requestedBy: ['WHwsJZpf4joE1KVtsaAOEfTQ2zHHQFJD', '93fH6HGyFnR60NjpZLgf03SFQrtUDu30'], isNew: true, dateAdded: 'November 10, 2026' },
+    { id: 'our-pets-heads-are-falling-off', name: "Our Pet's Heads are Falling Off! (from Dumb and Dumber)", category: 'tv-movies', tags: 'our pets heads falling off dumb dumber movie quote meme',
+      src: 'sounds/our-pets-heads-are-falling-off.mp3', requestedBy: ['WHwsJZpf4joE1KVtsaAOEfTQ2zHHQFJD', '93fH6HGyFnR60NjpZLgf03SFQrtUDu30'], isNew: true, dateAdded: 'November 10, 2026' },
+    { id: 'lay-off-me-im-starving', name: "Lay Off Me I'm Starving (from SNL)", category: 'tv-movies', tags: 'snl saturday night live chris farley food hungry starving quote meme',
+      src: 'sounds/lay-off-me-im-starving.mp3', requestedBy: 'WHwsJZpf4joE1KVtsaAOEfTQ2zHHQFJD', isNew: true, dateAdded: 'November 10, 2026' },
+    { id: 'spare-change', name: 'Spare Change (from SpongeBob Squarepants)', category: 'tv-movies', tags: 'spongebob squarepants spare change money cartoon quote meme',
+      src: 'sounds/spare-change.mp3', requestedBy: '93fH6HGyFnR60NjpZLgf03SFQrtUDu30', isNew: true, dateAdded: 'November 10, 2026' },
     { id: 'among-us-role-reveal', name: 'Among Us Role Reveal', category: 'games', tags: 'impostor imposter crewmate sus',
       src: 'sounds/among-us-role-reveal.mp3' },
     { id: 'knocked', name: 'Knocked (from Fortnite)', category: 'games', tags: 'battle royale down eliminated death',
@@ -146,6 +180,12 @@
       src: 'sounds/duolingo-wrong.mp3', requestedBy: 'f6zHbQSsHYmjZORQYT4fCP64iCbDkxz0', isNew: true, dateAdded: 'November 10, 2026' },
     { id: 'fnaf-2-jumpscare', name: 'FNAF 2 Jumpscare', category: 'games', tags: 'five nights at freddys fnaf2 jumpscare scary horror',
       src: 'sounds/fnaf-2-jumpscare.mp3', requestedBy: 'f6zHbQSsHYmjZORQYT4fCP64iCbDkxz0', isNew: true, dateAdded: 'November 10, 2026' },
+    { id: 'talking-ben-no', name: 'Talking Ben No', category: 'games', tags: 'talking ben no dog reaction meme',
+      src: 'sounds/talking-ben-no.mp3', requestedBy: 'WHwsJZpf4joE1KVtsaAOEfTQ2zHHQFJD', isNew: true, dateAdded: 'November 10, 2026' },
+    { id: 'talking-ben-yes', name: 'Talking Ben Yes', category: 'games', tags: 'talking ben yes dog reaction meme',
+      src: 'sounds/talking-ben-yes.mp3', requestedBy: 'WHwsJZpf4joE1KVtsaAOEfTQ2zHHQFJD', isNew: true, dateAdded: 'November 10, 2026' },
+    { id: 'om-nom-nom-roblox', name: 'Om Nom Nom (from Roblox)', category: 'games', tags: 'roblox eating food om nom nom chew meme',
+      src: 'sounds/om-nom-nom-roblox.mp3', requestedBy: 'WHwsJZpf4joE1KVtsaAOEfTQ2zHHQFJD', isNew: true, dateAdded: 'November 10, 2026' },
     { id: 'blocked-by-james', name: 'Blocked by James', category: 'sports', tags: 'lebron james basketball nba block commentary meme',
       src: 'sounds/blocked-by-james.mp3' },
     { id: 'lebron-scream', name: 'Lebron Scream', category: 'sports', tags: 'lebron james basketball nba yell meme',
@@ -200,6 +240,10 @@
       src: 'sounds/windows-xp-shutdown.mp3' },
     { id: 'windows-xp-error', name: 'Windows XP Error', category: 'tech', tags: 'computer microsoft alert',
       src: 'sounds/windows-xp-error.mp3' },
+    { id: 'correct-sound-effect', name: 'Correct Sound Effect', category: 'tech', tags: 'correct right answer buzzer success quiz',
+      src: 'sounds/correct-sound-effect.mp3', requestedBy: 'NpBqDiOhzHLChgcOrOyY1VINrxeEqxPK', isNew: true, dateAdded: 'November 10, 2026' },
+    { id: 'incorrect-sound-effect', name: 'Incorrect Sound Effect', category: 'tech', tags: 'incorrect wrong answer buzzer failure quiz',
+      src: 'sounds/incorrect-sound-effect.mp3', requestedBy: 'NpBqDiOhzHLChgcOrOyY1VINrxeEqxPK', isNew: true, dateAdded: 'November 10, 2026' },
   ];
 
   window.SOUND_CATALOG = { categories, sounds };
