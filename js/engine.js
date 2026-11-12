@@ -112,7 +112,7 @@
   // options.loop repeats it until stopped. options.id runs it as its own voice, so it doesn't
   // replace a press of the same sound, and stop(options.id) is what stops it. options.tune plays
   // it at that speed and pitch, and the duration is how long it takes at that speed.
-  // options.onComplete(soundId) runs only after a full play, including completed loop repeats.
+  // options.onComplete(soundId, completedAt) includes the completion time on performance.now's clock.
   async function start(sound, options) {
     const id = (options && options.id) || sound.id;
     const { buffer, rate } = await tuned(sound, options && options.tune);
@@ -134,14 +134,15 @@
     let completionTimer = null;
     function countCompleted(naturalEnd) {
       if (voice.stopped || !options || !options.onComplete) return;
-      // Keep short loops from flooding counting; use the audio clock even in background tabs.
+      // Keep short loops from flooding counting. Preserve actual completion times when timers lag.
       const elapsed = ctx.currentTime - startedAt;
       const completed = source.loop
         ? (elapsed < duration ? 0 : 1 + Math.floor((elapsed - duration) / Math.max(duration, 1)))
         : Number(naturalEnd || ctx.currentTime - startedAt >= duration);
       while (counted < completed) {
         counted++;
-        options.onComplete(sound.id);
+        const end = source.loop ? duration + (counted - 1) * Math.max(duration, 1) : duration;
+        options.onComplete(sound.id, performance.now() - Math.max(0, elapsed - end) * 1000);
       }
     }
     voice.finish = () => {
@@ -213,7 +214,7 @@
         if (counted || voice.stopped || !fullSound || !options || !options.onComplete) return;
         if (!naturalEnd && ctx.currentTime < when + played) return;
         counted = true;
-        options.onComplete(clip.sound);
+        options.onComplete(clip.sound, performance.now() - Math.max(0, ctx.currentTime - when - played) * 1000);
       };
       completions.push(complete);
       source.onended = () => {

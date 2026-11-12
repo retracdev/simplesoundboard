@@ -40,6 +40,29 @@
   const SOUND_COOLDOWN_MS = 3000;
   const HEARTBEAT_MS = 4000;
   const ORPHAN_AFTER_MS = 15000; // A save this quiet belongs to a closed tab.
+  const MOUSE_ACTIVE_MS = 60000;
+
+  // Activity belongs to this tab only. Returning to it requires fresh mouse movement.
+  let lastMouseMove = -Infinity;
+  let activeSince = Infinity;
+  function canCount(completedAt = performance.now()) {
+    const now = performance.now();
+    return document.visibilityState === 'visible' && document.hasFocus()
+      && now - lastMouseMove < MOUSE_ACTIVE_MS && completedAt >= activeSince
+      && completedAt <= lastMouseMove + MOUSE_ACTIVE_MS;
+  }
+  window.addEventListener('mousemove', (event) => {
+    if (!event.isTrusted || document.visibilityState !== 'visible' || !document.hasFocus()) return;
+    const now = performance.now();
+    if (!canCount(now)) activeSince = now;
+    lastMouseMove = now;
+  }, { passive: true });
+  function resetActivity() {
+    lastMouseMove = -Infinity;
+    activeSince = Infinity;
+  }
+  window.addEventListener('blur', resetActivity);
+  document.addEventListener('visibilitychange', resetActivity);
 
   const tabId = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   const pendingKey = PENDING_PREFIX + tabId;
@@ -112,7 +135,8 @@
     update();
   }
 
-  function countPlays(ids) {
+  function countPlays(ids, completedAt) {
+    if (!canCount(completedAt)) return;
     const now = Date.now();
     const limit = readLimit();
     limit.plays = limit.plays.filter((play) => play.at > now - COUNT_WINDOW_MS);
@@ -425,17 +449,19 @@
     },
 
     // Counts completed plays. Duplicates in a single call count once.
-    hit(ids) {
+    hit(ids, completedAt = performance.now()) {
+      // Reject silently before queueing; skipped plays are never saved or replayed.
+      if (!canCount(completedAt)) return;
       const unique = Array.from(new Set(Array.isArray(ids) ? ids : [ids]))
         .filter((id) => typeof id === 'string' && id.length > 0);
       if (!unique.length) return;
       // Serialize admission across tabs where Web Locks are available.
       if (navigator.locks && navigator.locks.request) {
-        navigator.locks.request(LIMIT_KEY, () => countPlays(unique)).catch(() => {
+        navigator.locks.request(LIMIT_KEY, () => countPlays(unique, completedAt)).catch(() => {
           // Counting is optional; a lock failure must never interrupt playback.
         });
       } else {
-        countPlays(unique);
+        countPlays(unique, completedAt);
       }
     },
 

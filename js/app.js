@@ -1055,7 +1055,7 @@
   function playLoop(sound) {
     engine.start(sound, {
       id: loopVoice(sound.id), loop: true, tune: tuneFor(sound.id),
-      onComplete: (id) => counter.hit(id),
+      onComplete: (id, completedAt) => counter.hit(id, completedAt),
     }).then(() => {
       if (!loops.has(sound.id)) engine.stop(loopVoice(sound.id)); // Stopped while still loading.
     }).catch((error) => {
@@ -1592,9 +1592,11 @@
 
     const starting = sound.clips
       ? engine.startClips(sound.id, sound.clips, (id) => soundById.get(id), {
-        onComplete: (id) => counter.hit(id),
+        onComplete: (id, completedAt) => counter.hit(id, completedAt),
       })
-      : engine.start(sound, { tune: tuneFor(sound.id), onComplete: (id) => counter.hit(id) });
+      : engine.start(sound, {
+        tune: tuneFor(sound.id), onComplete: (id, completedAt) => counter.hit(id, completedAt),
+      });
     starting.then((voice) => {
       const current = live.get(sound.id);
       if (current === run && run.releasedAt === null) {
