@@ -31,7 +31,13 @@
 
   // A new cache name, so counts saved from the old Abacus counters never show.
   const CACHE_KEY = 'simple-soundboard:play-counts-v2';
-  const PENDING_PREFIX = 'simple-soundboard:unsent-plays:';
+  // Do not replay unlimited backlogs created before counting limits existed.
+  const PENDING_PREFIX = 'simple-soundboard:unsent-plays-v2:';
+  const LIMIT_KEY = 'simple-soundboard:counting-limit-v1';
+  const MAX_COUNTED_PLAYS = 30;
+  const COUNT_WINDOW_MS = 60000;
+  const COOLDOWN_MS = 60000;
+  const SOUND_COOLDOWN_MS = 3000;
   const HEARTBEAT_MS = 4000;
   const ORPHAN_AFTER_MS = 15000; // A save this quiet belongs to a closed tab.
 
@@ -59,6 +65,87 @@
     } catch (error) {
       return null;
     }
+  }
+
+  // Shared across reloads and tabs; memory also covers unavailable browser storage.
+  let countingLimit = { plays: [], until: 0 };
+  let noticeUntil = 0;
+  let noticeTimer = null;
+
+  function readLimit() {
+    try {
+      const saved = JSON.parse(storage()?.getItem(LIMIT_KEY));
+      if (saved && Array.isArray(saved.plays) && Number.isFinite(saved.until)) {
+        countingLimit = {
+          plays: saved.plays.filter((play) => play && typeof play.id === 'string'
+            && Number.isFinite(play.at)),
+          until: saved.until,
+        };
+      }
+    } catch (error) {
+      // Keep the in-memory limit if storage is unavailable or unreadable.
+    }
+    return countingLimit;
+  }
+
+  function showCooldown(until, fullLimit) {
+    const notice = document.getElementById('countingCooldown');
+    if (!notice) return;
+    noticeUntil = Math.max(noticeUntil, until);
+    document.getElementById('countingCooldownMessage').textContent = fullLimit
+      ? 'You reached 30 counted plays in a minute. Sounds still play; leaderboard counting is paused.'
+      : 'This sound counts once every 3 seconds. Keep playing; extra repeats do not count.';
+    notice.hidden = false;
+    if (noticeTimer !== null) clearInterval(noticeTimer);
+    function update() {
+      const seconds = Math.ceil((noticeUntil - Date.now()) / 1000);
+      if (seconds <= 0) {
+        notice.hidden = true;
+        clearInterval(noticeTimer);
+        noticeTimer = null;
+        noticeUntil = 0;
+        return;
+      }
+      document.getElementById('countingCooldownTime').textContent = 'Counting resumes in ' + seconds + 's';
+    }
+    noticeTimer = setInterval(update, 250);
+    update();
+  }
+
+  function countPlays(ids) {
+    const now = Date.now();
+    const limit = readLimit();
+    limit.plays = limit.plays.filter((play) => play.at > now - COUNT_WINDOW_MS);
+    if (limit.until > now) {
+      showCooldown(limit.until, true);
+      return;
+    }
+    const accepted = [];
+    let soundUntil = 0;
+    for (const id of ids) {
+      if (limit.plays.length >= MAX_COUNTED_PLAYS) break;
+      const previous = limit.plays.find((play) => play.id === id && play.at > now - SOUND_COOLDOWN_MS);
+      if (previous) {
+        soundUntil = Math.max(soundUntil, previous.at + SOUND_COOLDOWN_MS);
+        continue;
+      }
+      limit.plays.push({ id, at: now });
+      accepted.push(id);
+    }
+    if (limit.plays.length >= MAX_COUNTED_PLAYS) limit.until = now + COOLDOWN_MS;
+    try {
+      storage()?.setItem(LIMIT_KEY, JSON.stringify(limit));
+    } catch (error) {
+      // The in-memory limit still applies for this visit.
+    }
+    if (limit.until > now) showCooldown(limit.until, true);
+    else if (soundUntil) showCooldown(soundUntil, false);
+    // Rejected plays never enter the retry queue or the optimistic counts.
+    if (!accepted.length) return;
+    accepted.forEach(queueHit);
+    savePending();
+    emit(accepted);
+    start();
   }
 
   function loadCache() {
@@ -133,7 +220,8 @@
         if (!quiet) return; // That tab is still open and sending its own.
         store.removeItem(key);
         if (saved && Array.isArray(saved.hits)) {
-          saved.hits.filter((id) => typeof id === 'string').forEach(queueHit);
+          saved.hits.filter((id) => typeof id === 'string')
+            .slice(0, Math.max(0, MAX_COUNTED_PLAYS - hitQueue.length)).forEach(queueHit);
         }
       } catch (error) {
         // Skip anything unreadable.
@@ -295,6 +383,8 @@
   loadCache();
   adoptOrphans();
   if (hitQueue.length) start();
+  const initialLimit = readLimit();
+  if (initialLimit.until > Date.now()) showCooldown(initialLimit.until, true);
 
   // The heartbeat that tells other tabs this one is still sending its own plays.
   setInterval(() => {
@@ -304,6 +394,11 @@
 
   // Another tab read some counts, so this one can use them too.
   window.addEventListener('storage', (event) => {
+    if (event.key === LIMIT_KEY) {
+      const limit = readLimit();
+      if (limit.until > Date.now()) showCooldown(limit.until, true);
+      return;
+    }
     if (event.key !== CACHE_KEY || !event.newValue) return;
     try {
       const saved = JSON.parse(event.newValue);
@@ -332,11 +427,17 @@
     // Counts one play of each sound. Duplicates in one call count once, since one play of
     // a string uses each of its sounds once however many times it repeats them.
     hit(ids) {
-      const unique = Array.from(new Set(Array.isArray(ids) ? ids : [ids]));
-      unique.forEach(queueHit);
-      savePending();
-      emit(unique);
-      start();
+      const unique = Array.from(new Set(Array.isArray(ids) ? ids : [ids]))
+        .filter((id) => typeof id === 'string' && id.length > 0);
+      if (!unique.length) return;
+      // Serialize admission across tabs where Web Locks are available.
+      if (navigator.locks && navigator.locks.request) {
+        navigator.locks.request(LIMIT_KEY, () => countPlays(unique)).catch(() => {
+          // Counting is optional; a lock failure must never interrupt playback.
+        });
+      } else {
+        countPlays(unique);
+      }
     },
 
     // Reads the counts of these sounds, skipping any read recently. Unknown ones go first,
