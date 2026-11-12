@@ -62,6 +62,23 @@ kbd { font: inherit; }
 
 :focus-visible { outline: 3px solid var(--fg); outline-offset: 3px; }
 
+.counting-cooldown {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(24px, env(safe-area-inset-bottom));
+  z-index: 100;
+  width: min(340px, calc(100vw - 32px));
+  padding: 18px 20px;
+  border: 1px solid #ab8fff;
+  border-radius: 18px;
+  background: var(--panel);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, .4);
+  pointer-events: none;
+}
+.counting-cooldown strong { display: block; color: #d5c5ff; }
+.counting-cooldown p { margin: 8px 0; font-size: .875rem; }
+.counting-cooldown span { font-size: .8125rem; color: #d5c5ff; }
+
 /* ---------- Top bar ---------- */
 .topbar {
   display: flex;
