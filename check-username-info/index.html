@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Check Username Info · Simple Soundboard</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/check-username-info.css">
+  <script src="../js/sounds.js" defer></script>
+  <script src="../js/check-username-info.js" defer></script>
+</head>
+<body>
+  <main class="username-check">
+    <a href="../">← Back to Simple Soundboard</a>
+    <h1>Check username info</h1>
+    <p>Every sound with a requester ID, alongside the current username lookup result. Sounds with multiple requesters have one row per requester.</p>
+    <div class="username-check__controls">
+      <button id="refreshLookups" type="button">Refresh lookups</button>
+      <p id="lookupStatus" role="status" aria-live="polite">Loading catalog…</p>
+    </div>
+    <noscript>Enable JavaScript to load the sound catalog and username results.</noscript>
+    <div class="username-check__table" role="region" aria-label="Requester lookup results" tabindex="0">
+      <table>
+        <caption class="sr-only">Sound cards, requester IDs, usernames, and API responses</caption>
+        <thead>
+          <tr>
+            <th scope="col">Sound / category</th>
+            <th scope="col">Requester ID</th>
+            <th scope="col">Username</th>
+            <th scope="col">Lookup result</th>
+          </tr>
+        </thead>
+        <tbody id="lookupRows"></tbody>
+      </table>
+    </div>
+  </main>
+</body>
+</html>
