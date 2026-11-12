@@ -21,7 +21,8 @@
   const API = 'https://space-api.retrac-space.workers.dev/v1/counters';
   // Counter names are shared across every retrac.space site, so these carry the site's prefix.
   // Names allow letters, numbers, hyphens and underscores, which sound ids already stick to.
-  const NAME_PREFIX = 'simple-soundboard-plays-';
+  // Start fresh rankings; tabs running older code keep writing to the previous counters.
+  const NAME_PREFIX = 'simple-soundboard-plays-v2-';
 
   const MAX_IN_FLIGHT = 12; // Enough to fill the whole board in a moment without a flood.
   const PUMP_MS = 250;
@@ -29,10 +30,9 @@
   const FAILURE_PAUSE_MS = 15000;
   const STALE_MS = 30 * 1000; // A cached count older than this is read again.
 
-  // A new cache name, so counts saved from the old Abacus counters never show.
-  const CACHE_KEY = 'simple-soundboard:play-counts-v2';
-  // Do not replay unlimited backlogs created before counting limits existed.
-  const PENDING_PREFIX = 'simple-soundboard:unsent-plays-v2:';
+  // Keep cached counts and pending plays from previous rankings out of the fresh counters.
+  const CACHE_KEY = 'simple-soundboard:play-counts-v3';
+  const PENDING_PREFIX = 'simple-soundboard:unsent-plays-v3:';
   const LIMIT_KEY = 'simple-soundboard:counting-limit-v1';
   const MAX_COUNTED_PLAYS = 30;
   const COUNT_WINDOW_MS = 60000;

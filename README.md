@@ -31,7 +31,7 @@ The **Leaderboard** tab at the top ranks every sound by how many times it has be
 
 Plays from buttons, strings, Play All, Play Everything, and loops share a browser-side counting limit: each sound counts at most once every 3 seconds, with up to 30 counted plays per minute. Reaching 30 starts a 60-second counting cooldown. Sounds keep playing, while a notification at the bottom right shows the remaining cooldown. Rejected plays are discarded rather than queued for later. Limits persist across reloads and share state across tabs; browsers supporting Web Locks also serialize counting across tabs.
 
-Counts are stored with the retrac.space counters API (`https://space-api.retrac-space.workers.dev/v1/counters`), one counter per sound named `simple-soundboard-plays-<sound id>`. Accepted plays are saved in the browser until sent. Unlimited pending backlogs from before these limits are not replayed. These frontend limits curb ordinary spamming; enforcing limits against direct API calls requires changes to the separately hosted counters service.
+Counts are stored with the retrac.space counters API (`https://space-api.retrac-space.workers.dev/v1/counters`), one counter per sound named `simple-soundboard-plays-v2-<sound id>`. The v2 rankings start fresh; older tabs keep using the previous counters, and previous cached counts and pending plays are not carried over. Accepted plays are saved in the browser until sent. These frontend limits curb ordinary spamming; enforcing limits against direct API calls requires changes to the separately hosted counters service.
 
 ## "What's the catch? Is there a subscription or ads?"
 Nope! None of that. I build Simple Soundboard as an easy and fun way to play sound effects.
