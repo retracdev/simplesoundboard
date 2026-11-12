@@ -4,7 +4,8 @@
  * optional `top` is the arrangement someone chose for the top of their board, and the
  * optional `strings` holds the strings they made (see strings-core.js), and the optional
  * `tunes` holds each changed sound's speed and pitch (see tune-core.js), and the optional
- * `earlyAccessSeen` is true once the Early Access popup has been dismissed. Everything shares
+ * `earlyAccessSeen` is true once the Early Access popup has been dismissed, and the optional
+ * `dismissedSoundRequestIds` records dismissed request updates. Everything shares
  * one save, and so one save cycle, because the API replaces a save whole: two separate cycles
  * could overwrite each other's changes.
  *
@@ -76,6 +77,8 @@
   const pendingTunes = new Map(); // sound id -> the new speed and pitch, or null to go back to normal
   let cloudEarlyAccessSeen = false; // Whether the last save read says the popup was dismissed.
   let pendingEarlyAccessSeen = false; // Dismissed here, and not yet saved.
+  let cloudDismissedNotifications = [];
+  const pendingDismissedNotifications = new Set();
   let status = 'ok';
   let lastReadAt = 0;
   let lastAttemptAt = 0;
@@ -98,7 +101,7 @@
 
   function hasChanges() {
     return pending.size > 0 || pendingTop !== null || pendingStrings.size > 0 || pendingTunes.size > 0
-      || pendingEarlyAccessSeen;
+      || pendingEarlyAccessSeen || pendingDismissedNotifications.size > 0;
   }
 
   // ---------- Local storage of unsaved changes ----------
@@ -117,6 +120,7 @@
           ...(pendingStrings.size ? { strings: Array.from(pendingStrings) } : {}),
           ...(pendingTunes.size ? { tunes: Array.from(pendingTunes) } : {}),
           ...(pendingEarlyAccessSeen ? { earlyAccessSeen: true } : {}),
+          dismissedSoundRequestIds: [...pendingDismissedNotifications],
         }));
       } else {
         window.localStorage.removeItem(storageKey(accountId));
@@ -132,9 +136,13 @@
     pendingTunes.clear();
     pendingTop = null;
     pendingEarlyAccessSeen = false;
+    pendingDismissedNotifications.clear();
     try {
       const saved = JSON.parse(window.localStorage.getItem(storageKey(id)));
       if (saved && saved.earlyAccessSeen === true) pendingEarlyAccessSeen = true;
+      if (saved && validNotificationIds(saved.dismissedSoundRequestIds)) {
+        saved.dismissedSoundRequestIds.forEach((id) => pendingDismissedNotifications.add(id));
+      }
       if (saved && validIds(saved.top)) pendingTop = saved.top;
       if (saved && Array.isArray(saved.ops)) {
         saved.ops.forEach((entry) => {
@@ -212,6 +220,10 @@
       && Object.values(tunes).every(window.TuneCore.isValid);
   }
 
+  function validNotificationIds(ids) {
+    return Array.isArray(ids) && ids.every((id) => Number.isSafeInteger(id) && id > 0);
+  }
+
   // Throws for anything other than a save this version fully understands.
   function parseSave(save) {
     const valid = save && typeof save === 'object' && !Array.isArray(save) && save.version === 1 &&
@@ -219,13 +231,17 @@
       (save.strings === undefined || (Array.isArray(save.strings) && save.strings.every(window.StringsCore.isValid))) &&
       (save.tunes === undefined || validTunes(save.tunes));
     if (!valid) throw new SaveError(-1, 'unsupported_save');
-    const { version, favorites, top, strings, tunes, earlyAccessSeen, ...rest } = save;
+    const { version, favorites, top, strings, tunes, earlyAccessSeen, dismissedSoundRequestIds, ...rest } = save;
+    if (dismissedSoundRequestIds !== undefined && !validNotificationIds(dismissedSoundRequestIds)) {
+      throw new SaveError(-1, 'unsupported_save');
+    }
     return {
       favorites: Array.from(new Set(favorites)),
       top: Array.from(new Set(top || [])),
       strings: strings || [],
       tunes: new Map(Object.entries(tunes || {})),
       earlyAccessSeen: earlyAccessSeen === true,
+      dismissedSoundRequestIds: [...new Set(dismissedSoundRequestIds || [])],
       extras: rest,
     };
   }
@@ -236,7 +252,7 @@
       return parseSave(body && body.data && body.data.data);
     } catch (error) {
       // Only this exact answer means "no save yet". Any other failure means we don't know.
-      if (error.status === 404 && error.code === 'save_not_found') return { favorites: [], top: [], strings: [], tunes: new Map(), earlyAccessSeen: false, extras: {} };
+      if (error.status === 404 && error.code === 'save_not_found') return { favorites: [], top: [], strings: [], tunes: new Map(), earlyAccessSeen: false, dismissedSoundRequestIds: [], extras: {} };
       throw error;
     }
   }
@@ -270,7 +286,8 @@
 
   const sameList = (a, b) => a.length === b.length && a.every((id, i) => id === b[i]);
 
-  function savePayload(favorites, top, strings, tunes, earlyAccessSeen) {
+  function savePayload(favorites, top, strings, tunes, earlyAccessSeen,
+    dismissedSoundRequestIds = [...new Set([...cloudDismissedNotifications, ...pendingDismissedNotifications])]) {
     return JSON.stringify({
       data: {
         ...extras,
@@ -280,6 +297,7 @@
         ...(strings.length ? { strings } : {}),
         ...(tunes.size ? { tunes: Object.fromEntries(tunes) } : {}),
         ...(earlyAccessSeen ? { earlyAccessSeen: true } : {}),
+        ...(dismissedSoundRequestIds.length ? { dismissedSoundRequestIds } : {}),
       },
     });
   }
@@ -323,6 +341,7 @@
     cloudStrings = save.strings;
     cloudTunes = save.tunes;
     cloudEarlyAccessSeen = save.earlyAccessSeen;
+    cloudDismissedNotifications = save.dismissedSoundRequestIds;
     extras = save.extras;
     lastReadAt = Date.now();
     emit();
@@ -343,11 +362,13 @@
     const nextTunes = applyTuneChanges(cloudTunes, writingTunes);
     const writingSeen = pendingEarlyAccessSeen;
     const nextSeen = cloudEarlyAccessSeen || writingSeen;
+    const writingDismissed = [...pendingDismissedNotifications];
+    const nextDismissed = [...new Set([...cloudDismissedNotifications, ...writingDismissed])];
     if (!sameList(next, cloud) || !sameList(nextTop, cloudTop)
       || JSON.stringify(nextStrings) !== JSON.stringify(cloudStrings)
       || JSON.stringify([...nextTunes]) !== JSON.stringify([...cloudTunes])
-      || nextSeen !== cloudEarlyAccessSeen) {
-      const payload = savePayload(next, nextTop, nextStrings, nextTunes, nextSeen);
+      || nextSeen !== cloudEarlyAccessSeen || !sameList(nextDismissed, cloudDismissedNotifications)) {
+      const payload = savePayload(next, nextTop, nextStrings, nextTunes, nextSeen, nextDismissed);
       if (payloadTooLarge(payload)) {
         throw new SaveError(413, 'save_too_large');
       }
@@ -359,6 +380,7 @@
       cloudStrings = nextStrings;
       cloudTunes = nextTunes;
       cloudEarlyAccessSeen = nextSeen;
+      cloudDismissedNotifications = nextDismissed;
     }
 
     // Forget only what was written. A newer click on the same sound stays pending.
@@ -373,6 +395,7 @@
       if (pendingTunes.get(id) === tune) pendingTunes.delete(id);
     });
     if (writingSeen) pendingEarlyAccessSeen = false;
+    writingDismissed.forEach((id) => pendingDismissedNotifications.delete(id));
     persist();
     succeed();
     if (hasChanges()) queueSave();
@@ -497,6 +520,8 @@
     cloudStrings = [];
     cloudTunes = new Map();
     cloudEarlyAccessSeen = false;
+    cloudDismissedNotifications = [];
+    pendingDismissedNotifications.clear();
     pendingEarlyAccessSeen = false;
     pendingStrings.clear();
     pendingTunes.clear();
@@ -578,6 +603,19 @@
     hasUnsaved: hasChanges,
     hasUnsavedStrings: () => pendingStrings.size > 0,
     hasUnsavedTunes: () => pendingTunes.size > 0,
+    hasUnsavedNotifications: () => pendingDismissedNotifications.size > 0,
+    isNotificationDismissed: (id) => cloudDismissedNotifications.includes(id) || pendingDismissedNotifications.has(id),
+    dismissNotification(id) {
+      if (!accountId || !Number.isSafeInteger(id) || id <= 0) return false;
+      if (cloudDismissedNotifications.includes(id) || pendingDismissedNotifications.has(id)) return true;
+      pendingDismissedNotifications.add(id);
+      if (!fits(pendingStrings, pendingTunes)) {
+        pendingDismissedNotifications.delete(id);
+        return false;
+      }
+      afterChange();
+      return true;
+    },
 
     // A sound's speed and pitch, or null if it plays normally.
     tune(id) {

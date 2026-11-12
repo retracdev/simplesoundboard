@@ -1447,7 +1447,30 @@ kbd { font: inherit; }
 .changelog__body hr { margin: 28px 0 20px; border: 0; border-top: 1px solid var(--line); }
 .changelog__signoff { color: #cbb5ff; font-family: var(--display); font-size: 1.4rem; }
 .changelog__actions { display: flex; justify-content: center; margin-top: 24px; }
+.sound-updates__body { padding: 20px 24px 24px; }
+.sound-updates__list { display: grid; gap: 14px; margin: 0; padding: 0; list-style: none; }
+.sound-updates__card {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid rgba(131, 232, 179, .4);
+  border-radius: 18px;
+  background: rgba(131, 232, 179, .09);
+  color: #a4efc5;
+}
+.sound-updates__card--denied { border-color: rgba(255, 153, 167, .4); background: rgba(255, 153, 167, .09); color: #ffb1bb; }
+.sound-updates__icon { flex-shrink: 0; width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.sound-updates__details { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.sound-updates__details h3 { color: var(--fg); font-size: 1.15rem; }
+.sound-updates__label { margin-top: 4px; font-weight: 700; }
+.sound-updates__reason { margin-top: 10px; color: #e5d8df; white-space: pre-wrap; }
+.sound-updates__details button { margin-top: 14px; }
+.sound-updates__status { margin-top: 16px; color: var(--muted); }
+.sound-updates__status:empty { display: none; }
 @media (max-width: 640px) {
+  .sound-updates__body { padding: 16px; }
+  .sound-updates__card { padding: 16px; gap: 10px; }
   .changelog__header { gap: 10px; padding: 18px 16px 14px; }
   .changelog__body { padding: 16px 16px 20px; }
 }
