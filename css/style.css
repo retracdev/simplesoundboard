@@ -622,12 +622,15 @@ kbd { font: inherit; }
 /* --name-fit is set from the script, only on names too long to fit their key at full size. */
 .key__name {
   flex-shrink: 0;
-  font-size: calc(1.0625rem * var(--name-fit, 1));
+  font-size: calc(1.0625rem * var(--name-scale, 1) * var(--name-fit, 1));
   font-weight: 700;
   line-height: 1.16;
   letter-spacing: -.01em;
   overflow-wrap: anywhere;
 }
+
+/* Give this long label more room while retaining responsive overflow fitting. */
+.key[data-id="mr-beast-give-me-some-money"] { --name-scale: .85; }
 
 .key__new {
   display: inline-block;
@@ -991,7 +994,7 @@ kbd { font: inherit; }
   /* Tall enough for a long name to wrap around the heart without squeezing the footer. */
   .key { height: 134px; }
   .key__face { padding: 11px 12px 10px; }
-  .key__name { font-size: calc(.9375rem * var(--name-fit, 1)); line-height: 1.12; }
+  .key__name { font-size: calc(.9375rem * var(--name-scale, 1) * var(--name-fit, 1)); line-height: 1.12; }
 }
 
 /* ---------- Reduced motion ----------
