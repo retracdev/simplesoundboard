@@ -22,6 +22,8 @@ The displayed list and count group matching usernames across computers (ignoring
 
 A temporary session cookie shares one visitor ID across soundboard tabs, so extra tabs do not inflate the list. The cookie has no expiry date or Max-Age and uses SameSite=Lax and Secure on HTTPS. If cookies are blocked, presence falls back to an in-memory ID per page. Visible tabs send a heartbeat and refresh the list every 30 seconds; a visitor expires within 90 seconds after their last visible tab stops heartbeats. Signing out or switching accounts creates a fresh visitor ID because the API retains the previous display name; that old entry expires within 90 seconds.
 
+Your name gets a single `(you)` marker after username grouping, so using the same account on several computers still produces one marked name and one count. Guests are matched to the animal name returned by their heartbeat; if that animal name appears more than once, only one matching entry is marked because the API's list does not expose visitor IDs.
+
 If the presence service is unavailable, the indicator shows "Online visitors unavailable" and retries on the next interval or when the connection returns.
 
 ## Sound Leaderboard
