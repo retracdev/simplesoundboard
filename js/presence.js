@@ -1,4 +1,4 @@
-/* Anonymous presence: one visitor per tab, refreshed only while visible.
+/* Presence: one visitor per browser session, refreshed only while visible.
  * The API expires visitors 90 seconds after their last heartbeat.
  */
 (() => {
@@ -10,19 +10,35 @@
 
   const API = 'https://space-api.retrac-space.workers.dev/v1/presence';
   const SITE = 'soundboard';
-  const VISITOR_KEY = 'simple-soundboard-presence-visitor';
-  let visitorId;
-  try {
-    visitorId = sessionStorage.getItem(VISITOR_KEY);
-  } catch (error) {
-    // Storage can be disabled. An in-memory ID still lasts for this page.
-  }
-  if (!visitorId) {
-    visitorId = crypto.randomUUID();
+  const COOKIE_KEY = 'soundboard-presence';
+  let visitorId = crypto.randomUUID();
+  let username = null;
+  let accountReady = !window.RetracAccount;
+
+  function readIdentity() {
     try {
-      sessionStorage.setItem(VISITOR_KEY, visitorId);
+      const cookie = document.cookie.split('; ').find((entry) => entry.startsWith(COOKIE_KEY + '='));
+      const identity = cookie && JSON.parse(decodeURIComponent(cookie.slice(COOKIE_KEY.length + 1)));
+      return identity && typeof identity.visitorId === 'string' && identity.visitorId
+        && (identity.username === null || typeof identity.username === 'string') ? identity : null;
     } catch (error) {
-      // Presence doesn't require persistent storage.
+      return null;
+    }
+  }
+
+  // Read again before every heartbeat so newly opened tabs and account changes
+  // share one identity. No Expires or Max-Age: this is a session cookie.
+  function syncIdentity() {
+    const shared = readIdentity();
+    if (shared) {
+      visitorId = shared.username && shared.username !== username ? crypto.randomUUID() : shared.visitorId;
+    }
+    try {
+      const value = encodeURIComponent(JSON.stringify({ visitorId, username }));
+      document.cookie = COOKIE_KEY + '=' + value + '; Path=/; SameSite=Lax'
+        + (location.protocol === 'https:' ? '; Secure' : '');
+    } catch (error) {
+      // Blocked cookies fall back to this page's in-memory visitor ID.
     }
   }
 
@@ -36,35 +52,44 @@
   }
 
   async function refresh() {
-    if (suspended || document.visibilityState !== 'visible' || request) return;
+    if (!accountReady || suspended || document.visibilityState !== 'visible' || request) return;
     if (!navigator.onLine) {
-      show('unavailable', 'Online count unavailable');
+      show('unavailable', 'Online visitors unavailable');
       return;
     }
 
+    syncIdentity();
     const controller = new AbortController();
     request = controller;
     const timeout = setTimeout(() => controller.abort(), 10000);
     const options = { cache: 'no-store', credentials: 'omit', signal: controller.signal };
     try {
-      // Register this tab before reading, so the first count includes it.
+      // Register this browser session before reading, so the first list includes it.
       const heartbeat = await fetch(API + '/heartbeat/' + SITE, {
         ...options,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ visitorId }),
+        // Display names are unverified by the presence API. Never send account tokens.
+        body: JSON.stringify(username ? { visitorId, username } : { visitorId }),
       });
       if (!heartbeat.ok) throw new Error('Presence heartbeat failed');
       if (request !== controller) return;
       const response = await fetch(API + '/online/' + SITE, options);
       if (!response.ok) throw new Error('Presence read failed');
       const body = await response.json();
-      if (!body || !Number.isSafeInteger(body.count) || body.count < 0) {
-        throw new Error('Invalid presence count');
+      if (!body || !Number.isSafeInteger(body.count) || body.count < 0
+        || !Array.isArray(body.users) || body.users.length !== body.count
+        || body.users.some((user) => !user || typeof user.displayName !== 'string' || !user.displayName.trim())) {
+        throw new Error('Invalid presence visitors');
       }
-      if (request === controller) show('online', body.count.toLocaleString() + ' online');
+      if (request === controller) {
+        // Names are user-controlled: render them only as text, never as HTML.
+        show('online', body.users.length
+          ? 'Online now: ' + body.users.map((user) => user.displayName).join(', ')
+          : 'No one online right now');
+      }
     } catch (error) {
-      if (request === controller) show('unavailable', 'Online count unavailable');
+      if (request === controller) show('unavailable', 'Online visitors unavailable');
     } finally {
       clearTimeout(timeout);
       if (request === controller) request = null;
@@ -89,7 +114,7 @@
   });
   window.addEventListener('offline', () => {
     pause();
-    show('unavailable', 'Online count unavailable');
+    show('unavailable', 'Online visitors unavailable');
   });
   window.addEventListener('online', refresh);
   window.addEventListener('pagehide', () => {
@@ -100,5 +125,22 @@
     suspended = false;
     resume();
   });
-  refresh();
+  function accountChanged(state) {
+    if (state.status === 'unknown') return;
+    const next = state.status === 'authenticated' ? state.username : null;
+    // Omitting username doesn't clear it on the server. Give a signed-out tab a
+    // fresh anonymous identity; the old name expires after the API's 90 seconds.
+    if (username && username !== next && !readIdentity()) visitorId = crypto.randomUUID();
+    username = next;
+    accountReady = true;
+    pause();
+    resume();
+  }
+
+  if (window.RetracAccount) {
+    window.RetracAccount.subscribe(accountChanged);
+    accountChanged(window.RetracAccount.getState());
+  } else {
+    refresh();
+  }
 })();
