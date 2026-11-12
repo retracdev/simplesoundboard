@@ -127,15 +127,22 @@ kbd { font: inherit; }
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 7px;
-  margin: 12px var(--gutter) 0;
-  color: #b9b4cc;
-  font-size: .8125rem;
+  gap: 10px;
+  width: fit-content;
+  max-width: calc(100% - var(--gutter) - var(--gutter));
+  margin: 12px auto 0;
+  padding: 10px 16px;
+  border: 1px solid rgba(203, 181, 255, .28);
+  border-radius: 20px;
+  color: #e4dbff;
+  background: rgba(171, 143, 255, .12);
+  font-size: .875rem;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
 .presence__dot {
-  width: 7px;
-  height: 7px;
+  width: 9px;
+  height: 9px;
   flex: none;
   border-radius: 50%;
   background: currentColor;
