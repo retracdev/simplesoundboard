@@ -1,0 +1,20 @@
+.username-check { max-width: 1400px; margin: 0 auto; padding: 32px var(--gutter) 64px; }
+.username-check > a { color: #cbb5ff; }
+.username-check h1 { margin: 24px 0 12px; font-size: clamp(1.8rem, 5vw, 3rem); }
+.username-check > p { max-width: 70ch; color: #c4bfd5; }
+.username-check__controls { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin: 24px 0; }
+.username-check button { padding: 10px 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+.username-check button:disabled { opacity: .6; cursor: wait; }
+.username-check__table { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-deep); }
+.username-check table { width: 100%; border-collapse: collapse; text-align: left; }
+.username-check th, .username-check td { padding: 16px; vertical-align: top; border-bottom: 1px solid var(--line); }
+.username-check th { background: var(--panel); }
+.username-check td { min-width: 150px; overflow-wrap: anywhere; }
+.username-check td:nth-child(2) { min-width: 230px; }
+.username-check small { display: block; margin-top: 4px; color: #c4bfd5; }
+.username-check code { font-size: .875rem; }
+.username-check [data-state="success"] { color: #93e571; }
+.username-check [data-state="error"] { color: #ffad99; }
+.username-check details { margin-top: 8px; }
+.username-check summary { cursor: pointer; }
+.username-check pre { max-width: 480px; max-height: 280px; margin-top: 8px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: .8125rem; }
