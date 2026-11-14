@@ -61,7 +61,8 @@
   font-weight: 600;
 }
 .stage__eyebrow { max-width: 100%; overflow-wrap: anywhere; }
-.stage__sharer { margin-right: .25em; color: #fff; font-weight: 700; }
+/* Same color as the rest of the line, just much heavier. */
+.stage__sharer { color: inherit; font-weight: 700; -webkit-text-stroke: .045em currentColor; paint-order: stroke fill; }
 .stage__eyebrow.is-named { animation: sharer-in .35s var(--ease); }
 @keyframes sharer-in { from { opacity: .4; transform: translateY(-4px); } }
 .stage__title {

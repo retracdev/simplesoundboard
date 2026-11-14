@@ -907,8 +907,6 @@
   const shareCopyEl = $('shareCopy');
   const shareStatusEl = $('shareStatus');
   const shareImageEl = $('sharePreviewImage');
-  const shareCreditRowEl = $('shareCreditRow');
-  const shareCreditEl = $('shareCredit');
   let shareTrigger = null;
   let shareStatusTimer = null;
   let shareBaseUrl = '';
@@ -933,8 +931,7 @@
   }
 
   function paintShareUrl() {
-    const tagged = shareSharerId && shareCreditEl.checked;
-    shareUrlEl.value = tagged ? shareBaseUrl + '?from=' + encodeURIComponent(shareSharerId) : shareBaseUrl;
+    shareUrlEl.value = shareSharerId ? shareBaseUrl + '?from=' + encodeURIComponent(shareSharerId) : shareBaseUrl;
   }
 
   shareImageEl.addEventListener('error', () => {
@@ -955,19 +952,16 @@
     shareImageEl.src = 'assets/social/sounds/' + encodeURIComponent(sound.id) + '.jpg';
     shareBaseUrl = url;
     shareSharerId = null;
-    shareCreditRowEl.hidden = true;
     paintShareUrl();
     const state = account.getState();
     if (state.status === 'authenticated') {
       const username = state.username;
-      $('shareCreditName').textContent = username;
       sharerId(username).then((id) => {
         // Only if the dialog is still showing this sound for this account.
         if (!id || shareBaseUrl !== url || !shareDialog.open) return;
         const now = account.getState();
         if (now.status !== 'authenticated' || now.username !== username) return;
         shareSharerId = id;
-        shareCreditRowEl.hidden = false;
         paintShareUrl();
       });
     }
@@ -1002,11 +996,6 @@
   }
 
   shareCopyEl.addEventListener('click', copyShareLink);
-  shareCreditEl.addEventListener('change', () => {
-    paintShareUrl();
-    shareStatusEl.textContent = '';
-    shareCopyEl.textContent = 'Copy link';
-  });
   shareUrlEl.addEventListener('focus', () => shareUrlEl.select());
   $('shareClose').addEventListener('click', () => shareDialog.close());
   shareDialog.addEventListener('click', (event) => {
