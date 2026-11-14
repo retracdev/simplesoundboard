@@ -33,6 +33,18 @@ Plays from buttons, strings, Play All, Play Everything, and loops share a browse
 
 Counts are stored with the retrac.space counters API (`https://space-api.retrac-space.workers.dev/v1/counters`), one counter per sound named `simple-soundboard-plays-v2-<sound id>`. The v2 rankings start fresh; older tabs keep using the previous counters, and previous cached counts and pending plays are not carried over. Accepted plays are saved in the browser until sent. These frontend limits curb ordinary spamming; enforcing limits against direct API calls requires changes to the separately hosted counters service.
 
+## Sharing a Sound
+Every sound has its own link, like [soundboard.retrac.space/sound/get-out](https://soundboard.retrac.space/sound/get-out). It opens a page with one big button that plays that sound (plays count toward the leaderboard), and below it a way into the rest of the board. Links using a sound's name, like `/sound/Get Out!`, also work and switch to the proper link. To get a link, open a sound's three-dot menu and choose **Share**, which previews the link's social card and has a button to copy the link.
+
+The home page, `/leaderboard` and every `/sound/<id>` have their own social cards (link previews). The sound pages and card images are generated from `js/sounds.js`:
+
+```
+npm install
+npm run build:social   # build:share (pages) + build:cards (images, needs Chrome or Edge)
+```
+
+Only cards whose sound or design changed are re-rendered; pass `--all` to `scripts/render-social-cards.cjs` to redo them all. A GitHub workflow runs the same build when sounds change on `main`, and commits the results.
+
 ## "What's the catch? Is there a subscription or ads?"
 Nope! None of that. I build Simple Soundboard as an easy and fun way to play sound effects.
 The site is completely free with no advertisements or intrusive popups.

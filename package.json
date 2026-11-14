@@ -3,9 +3,13 @@
   "private": true,
   "description": "Development tools for Simple Soundboard. The site itself has no dependencies or build step.",
   "scripts": {
-    "test": "node --test \"tests/*.test.js\""
+    "test": "node --test \"tests/*.test.js\"",
+    "build:share": "node scripts/build-share-pages.cjs",
+    "build:cards": "node scripts/render-social-cards.cjs",
+    "build:social": "npm run build:share && npm run build:cards"
   },
   "devDependencies": {
-    "jsdom": "^26.1.0"
+    "jsdom": "^26.1.0",
+    "playwright-core": "^1.49.1"
   }
 }
