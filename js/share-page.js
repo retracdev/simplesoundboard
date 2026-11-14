@@ -389,6 +389,42 @@
     hopIndex++;
   }
 
+  // ---------- Who shared it ----------
+
+  // A signed-in sharer's link carries ?from=<account id>. The id is looked up here, so the page
+  // shows that account's current username and nothing else can be written into the page through
+  // the link. Link previews use the page's fixed tags, so the name never appears there.
+  async function showSharer() {
+    let id = null;
+    try {
+      id = new URLSearchParams(window.location.search).get('from');
+    } catch (error) {
+      return;
+    }
+    if (!id || !/^[A-Za-z0-9_-]{1,128}$/.test(id)) return;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    try {
+      const response = await fetch(
+        'https://space-api.retrac-space.workers.dev/v1/players/id/' + encodeURIComponent(id),
+        { credentials: 'omit', signal: controller.signal }
+      );
+      if (!response.ok) return;
+      const body = await response.json();
+      const username = body && body.data && typeof body.data.username === 'string'
+        ? body.data.username.trim() : '';
+      if (!username || username.length > 64 || document.body.dataset.state !== 'ready') return;
+      const eyebrow = $('stageEyebrow');
+      eyebrow.replaceChildren(el('strong', 'stage__sharer', username),
+        document.createTextNode(' shared a sound with you'));
+      eyebrow.classList.add('is-named');
+    } catch (error) {
+      // Keep "Someone".
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
   function canonicalUrl(sound) {
     return window.location.origin + '/sound/' + encodeURIComponent(sound.id);
   }
@@ -464,6 +500,7 @@
       }
     }
     setupSound(sound);
+    showSharer();
   } else {
     showMissing(isSoundPath, raw);
   }

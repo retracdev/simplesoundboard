@@ -60,6 +60,10 @@
   font-size: .875rem;
   font-weight: 600;
 }
+.stage__eyebrow { max-width: 100%; overflow-wrap: anywhere; }
+.stage__sharer { margin-right: .25em; color: #fff; font-weight: 700; }
+.stage__eyebrow.is-named { animation: sharer-in .35s var(--ease); }
+@keyframes sharer-in { from { opacity: .4; transform: translateY(-4px); } }
 .stage__title {
   max-width: 18ch;
   margin-top: 16px;
@@ -539,7 +543,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .explore__track, .stage__scroll svg { animation: none; }
+  .explore__track, .stage__scroll svg, .stage__eyebrow.is-named { animation: none; }
   .mega-slot.is-pop .mega__face, .share-toast.is-showing { animation: none; }
   .mega__play { transition: none; }
 }

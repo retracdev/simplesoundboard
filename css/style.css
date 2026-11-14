@@ -2612,6 +2612,17 @@ kbd { font: inherit; }
 }
 .share-sheet__url:focus-visible { outline: 3px solid #ab8fff; outline-offset: 1px; }
 .share-sheet__copy { flex: none; min-width: 112px; }
+.share-sheet__credit {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 12px;
+  color: #d8d3ea;
+  font-size: .875rem;
+  cursor: pointer;
+}
+.share-sheet__credit input { width: 18px; height: 18px; flex: none; accent-color: #ab8fff; cursor: pointer; }
+.share-sheet__credit strong { color: var(--fg); overflow-wrap: anywhere; }
 .share-sheet__status { min-height: 1.4em; margin-top: 6px; color: #9de5bc; font-size: .875rem; }
 .share-sheet__open { color: var(--muted); font-size: .875rem; text-underline-offset: 3px; }
 .share-sheet__open:hover { color: var(--fg); }
