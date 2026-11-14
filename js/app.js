@@ -778,6 +778,7 @@
         ? { icon: 'icon-stop', label: 'Stop loop sound', onSelect: () => stopLoop(id) }
         : { icon: 'icon-loop', label: 'Loop sound', onSelect: () => loopSound(id, card) });
       items.push({ icon: 'icon-speed', label: 'Edit speed and pitch', onSelect: () => editTune(id, card) });
+      items.push({ icon: 'icon-share', label: 'Share', onSelect: () => showShare(id, card) });
       items.push({ icon: 'icon-info', label: 'Show sound information', onSelect: () => showSoundInfo(id, card) });
     }
     return items;
@@ -893,6 +894,80 @@
   infoDialog.addEventListener('close', () => {
     if (infoTrigger && infoTrigger.isConnected) infoTrigger.focus({ preventScroll: true });
     infoTrigger = null;
+  });
+
+  // ---------- Share ----------
+
+  // Every sound has its own page at /sound/<id>, with a social card made for it. This shows
+  // that card the way a link preview would, with the link to copy. Links always point at the
+  // live site, so one copied while testing locally still works for whoever gets it.
+  const SHARE_SITE = 'https://soundboard.retrac.space';
+  const shareDialog = $('shareDialog');
+  const shareUrlEl = $('shareUrl');
+  const shareCopyEl = $('shareCopy');
+  const shareStatusEl = $('shareStatus');
+  const shareImageEl = $('sharePreviewImage');
+  let shareTrigger = null;
+  let shareStatusTimer = null;
+
+  shareImageEl.addEventListener('error', () => {
+    // A sound added since the cards were last made falls back to the board's own card.
+    if (!shareImageEl.src.endsWith('/assets/social/home.jpg')) shareImageEl.src = 'assets/social/home.jpg';
+  });
+
+  function showShare(id, trigger) {
+    const sound = soundById.get(id);
+    if (!sound || shareDialog.open) return;
+    shareTrigger = trigger || null;
+    const url = SHARE_SITE + '/sound/' + encodeURIComponent(sound.id);
+    $('shareName').textContent = sound.name;
+    $('sharePreviewTitle').textContent = '▶ ' + sound.name;
+    $('sharePreviewText').textContent = 'Tap to play “' + sound.name + '” on Simple Soundboard, then explore '
+      + (sounds.length - 1) + ' more sound effects. Free, no ads.';
+    shareImageEl.alt = 'Social card for “' + sound.name + '”';
+    shareImageEl.src = 'assets/social/sounds/' + encodeURIComponent(sound.id) + '.jpg';
+    shareUrlEl.value = url;
+    $('shareOpen').href = 'sound/' + encodeURIComponent(sound.id);
+    shareStatusEl.textContent = '';
+    shareCopyEl.textContent = 'Copy link';
+    shareDialog.showModal();
+    shareCopyEl.focus({ preventScroll: true });
+  }
+
+  async function copyShareLink() {
+    const url = shareUrlEl.value;
+    let copied = false;
+    try {
+      await navigator.clipboard.writeText(url);
+      copied = true;
+    } catch (error) {
+      // Older browsers and some embedded views: select it and fall back to the old command.
+      shareUrlEl.select();
+      try {
+        copied = document.execCommand('copy');
+      } catch (fallbackError) {
+        copied = false;
+      }
+    }
+    shareStatusEl.textContent = copied ? 'Link copied. Paste it anywhere.' : 'Couldn’t copy automatically. Select the link and copy it.';
+    shareCopyEl.textContent = copied ? 'Copied!' : 'Copy link';
+    clearTimeout(shareStatusTimer);
+    shareStatusTimer = setTimeout(() => {
+      shareCopyEl.textContent = 'Copy link';
+    }, 2000);
+  }
+
+  shareCopyEl.addEventListener('click', copyShareLink);
+  shareUrlEl.addEventListener('focus', () => shareUrlEl.select());
+  $('shareClose').addEventListener('click', () => shareDialog.close());
+  shareDialog.addEventListener('click', (event) => {
+    if (event.target === shareDialog) shareDialog.close();
+  });
+  shareDialog.addEventListener('keydown', (event) => event.stopPropagation());
+  shareDialog.addEventListener('close', () => {
+    clearTimeout(shareStatusTimer);
+    if (shareTrigger && shareTrigger.isConnected) shareTrigger.focus({ preventScroll: true });
+    shareTrigger = null;
   });
 
   // ---------- The hint for the options button ----------

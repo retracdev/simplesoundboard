@@ -1,0 +1,42 @@
+# Keeps /sound/<id> pages and social cards in step with js/sounds.js. When a sound is added,
+# renamed or removed on main, this regenerates them and commits the result.
+name: Share pages and social cards
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - js/sounds.js
+      - sounds/**
+      - scripts/**
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: share-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build:social
+      - name: Commit changes
+        run: |
+          git add -A sound 404.html leaderboard.html assets/social
+          if git diff --cached --quiet; then
+            echo "Share pages and cards are up to date."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Regenerate share pages and social cards"
+          git push
