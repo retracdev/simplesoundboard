@@ -415,8 +415,9 @@
         ? body.data.username.trim() : '';
       if (!username || username.length > 64 || document.body.dataset.state !== 'ready') return;
       const eyebrow = $('stageEyebrow');
-      eyebrow.replaceChildren(el('strong', 'stage__sharer', username),
-        document.createTextNode(' shared a sound with you'));
+      const line = el('span');
+      line.append(el('strong', 'stage__sharer', username), ' shared a sound with you');
+      eyebrow.replaceChildren(line);
       eyebrow.classList.add('is-named');
     } catch (error) {
       // Keep "Someone".
