@@ -907,8 +907,35 @@
   const shareCopyEl = $('shareCopy');
   const shareStatusEl = $('shareStatus');
   const shareImageEl = $('sharePreviewImage');
+  const shareCreditRowEl = $('shareCreditRow');
+  const shareCreditEl = $('shareCredit');
   let shareTrigger = null;
   let shareStatusTimer = null;
+  let shareBaseUrl = '';
+  let shareSharerId = null; // The signed-in account's id, for the "from" tag on the link.
+  let sharerFor = null; // { username, id: Promise<string|null> }, so the id is fetched once.
+
+  // A signed-in sharer's links carry ?from=<their account id>. The share page looks the id up
+  // and shows that account's current username. The id, not the name, so the tag can't be edited
+  // to show any text, and a renamed account still shows its new name. Link previews come from
+  // the page's fixed tags, so the name never appears in them.
+  function sharerId(username) {
+    if (!sharerFor || sharerFor.username !== username) {
+      const id = account.fetchToken()
+        .then(({ userId }) => (typeof userId === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(userId) ? userId : null))
+        .catch(() => null);
+      sharerFor = { username, id };
+      id.then((value) => {
+        if (value === null && sharerFor && sharerFor.id === id) sharerFor = null; // Try again next time.
+      });
+    }
+    return sharerFor.id;
+  }
+
+  function paintShareUrl() {
+    const tagged = shareSharerId && shareCreditEl.checked;
+    shareUrlEl.value = tagged ? shareBaseUrl + '?from=' + encodeURIComponent(shareSharerId) : shareBaseUrl;
+  }
 
   shareImageEl.addEventListener('error', () => {
     // A sound added since the cards were last made falls back to the board's own card.
@@ -926,7 +953,24 @@
       + (sounds.length - 1) + ' more sound effects. Free, no ads.';
     shareImageEl.alt = 'Social card for “' + sound.name + '”';
     shareImageEl.src = 'assets/social/sounds/' + encodeURIComponent(sound.id) + '.jpg';
-    shareUrlEl.value = url;
+    shareBaseUrl = url;
+    shareSharerId = null;
+    shareCreditRowEl.hidden = true;
+    paintShareUrl();
+    const state = account.getState();
+    if (state.status === 'authenticated') {
+      const username = state.username;
+      $('shareCreditName').textContent = username;
+      sharerId(username).then((id) => {
+        // Only if the dialog is still showing this sound for this account.
+        if (!id || shareBaseUrl !== url || !shareDialog.open) return;
+        const now = account.getState();
+        if (now.status !== 'authenticated' || now.username !== username) return;
+        shareSharerId = id;
+        shareCreditRowEl.hidden = false;
+        paintShareUrl();
+      });
+    }
     $('shareOpen').href = 'sound/' + encodeURIComponent(sound.id);
     shareStatusEl.textContent = '';
     shareCopyEl.textContent = 'Copy link';
@@ -958,6 +1002,11 @@
   }
 
   shareCopyEl.addEventListener('click', copyShareLink);
+  shareCreditEl.addEventListener('change', () => {
+    paintShareUrl();
+    shareStatusEl.textContent = '';
+    shareCopyEl.textContent = 'Copy link';
+  });
   shareUrlEl.addEventListener('focus', () => shareUrlEl.select());
   $('shareClose').addEventListener('click', () => shareDialog.close());
   shareDialog.addEventListener('click', (event) => {
