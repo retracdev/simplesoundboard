@@ -45,6 +45,12 @@
     }
   }
 
+  function activelyEngaged() {
+    if (document.visibilityState !== 'visible') return false;
+    const form = document.querySelector('.human-check[open][data-presence-idle-at]');
+    return !form || Date.now() < Number(form.dataset.presenceIdleAt);
+  }
+
   // Each tab owns its own lease, so simultaneous updates cannot erase peers.
   // Expiry handles crashed tabs; pagehide removes a departing tab immediately.
   function publishTab() {
@@ -59,13 +65,13 @@
       }
       if (suspended) localStorage.removeItem(tabKey);
       else localStorage.setItem(tabKey, JSON.stringify({
-        visible: document.visibilityState === 'visible', updated: Date.now(),
+        visible: activelyEngaged(), updated: Date.now(),
       }));
     } catch (error) { /* Storage may be blocked; use this tab's visibility. */ }
   }
 
   function presenceStatus() {
-    if (document.visibilityState === 'visible') return 'online';
+    if (activelyEngaged()) return 'online';
     try {
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
@@ -202,11 +208,13 @@
   }
 
   setInterval(refresh, 30000);
-  document.addEventListener('visibilitychange', () => {
+  function engagementChanged() {
     publishTab();
     if (request) refreshAgain = true;
     else refresh();
-  });
+  }
+  document.addEventListener('visibilitychange', engagementChanged);
+  window.addEventListener('soundboard:human-check-change', engagementChanged);
   window.addEventListener('offline', () => {
     pause();
     show('unavailable', 'Online visitors unavailable');

@@ -11,6 +11,7 @@
 
   const FORM_ID = '8NLKPA';
   const SUCCESS_DELAY_MS = 450;
+  const FORM_IDLE_MS = 150000;
 
   const dialog = document.createElement('dialog');
   dialog.className = 'sound-request human-check';
@@ -26,6 +27,19 @@
   const body = dialog.querySelector('.sound-request__body');
   let frame = null;
   let finishing = false;
+  let idleTimer = null;
+
+  function presenceChanged() {
+    window.dispatchEvent(new Event('soundboard:human-check-change'));
+  }
+
+  function clearIdleDeadline() {
+    if (!dialog.dataset.presenceIdleAt) return;
+    clearTimeout(idleTimer);
+    idleTimer = null;
+    delete dialog.dataset.presenceIdleAt;
+    presenceChanged();
+  }
 
   function showForm() {
     const url = new URL('https://tally.so/embed/' + FORM_ID);
@@ -42,12 +56,19 @@
     if (!dialog.isConnected) document.body.append(dialog);
     if (!frame) showForm();
     if (!dialog.open) dialog.showModal();
+    // Repeated focus/visibility events must not restart the form's grace period.
+    if (!dialog.dataset.presenceIdleAt) {
+      dialog.dataset.presenceIdleAt = String(Date.now() + FORM_IDLE_MS);
+      idleTimer = setTimeout(presenceChanged, FORM_IDLE_MS);
+      presenceChanged();
+    }
   }
 
   function finish() {
     finishing = true;
     frame = null;
     verification.complete();
+    clearIdleDeadline();
     body.innerHTML = `<section class="sound-request__success">
       <svg class="sound-request__check" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="29"/><path d="m19 32 9 9 18-18"/></svg>
       <h3 tabindex="-1">Thanks for verifying you're a human!</h3>
@@ -64,6 +85,7 @@
   dialog.addEventListener('cancel', (event) => event.preventDefault());
   dialog.addEventListener('close', () => {
     if (!finishing && verification.required()) open();
+    else clearIdleDeadline();
   });
   dialog.addEventListener('keydown', (event) => event.stopPropagation());
 
