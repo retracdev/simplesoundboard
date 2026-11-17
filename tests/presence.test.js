@@ -9,7 +9,7 @@ const source = fs.readFileSync(path.join(root, 'js/presence.js'), 'utf8');
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 const response = (count, users = Array.from({ length: Number.isSafeInteger(count) && count >= 0 ? count : 0 }, (_, i) => ({ displayName: ['retrac', 'Anonymous Bear', 'Anonymous Fox'][i] || 'Guest' }))) => ({ ok: true, json: async () => ({ count, users }) });
 
-async function open(t, { storedId, blockedCookies = false, fetch, account, previousUsername } = {}) {
+async function open(t, { storedId, blockedCookies = false, fetch, account, previousUsername, storage, locks, initiallyVisible = true } = {}) {
   const dom = new JSDOM(fs.readFileSync(path.join(root, 'index.html'), 'utf8'), {
     url: 'https://soundboard.retrac.space/', runScripts: 'outside-only', pretendToBeVisual: true,
   });
@@ -18,7 +18,15 @@ async function open(t, { storedId, blockedCookies = false, fetch, account, previ
   const { window } = dom;
   const calls = [];
   const timers = new Map();
-  let visible = true;
+  let visible = initiallyVisible;
+  if (storage) Object.defineProperty(window, 'localStorage', { value: {
+    get length() { return storage.size; },
+    key: (i) => [...storage.keys()][i],
+    getItem: (key) => storage.get(key) ?? null,
+    setItem: (key, value) => storage.set(key, value),
+    removeItem: (key) => storage.delete(key),
+  } });
+  if (locks) Object.defineProperty(window.navigator, 'locks', { value: locks });
   let online = true;
   let tick;
   Object.defineProperty(window.document, 'visibilityState', { get: () => visible ? 'visible' : 'hidden' });
@@ -59,29 +67,32 @@ test('registers an anonymous visitor before reading and reuses the shared cookie
   assert.equal(options.credentials, 'omit');
   assert.equal(options.cache, 'no-store');
   assert.equal(options.headers['Content-Type'], 'application/json');
-  assert.deepEqual(JSON.parse(options.body), { visitorId: 'existing-tab' });
+  assert.deepEqual(JSON.parse(options.body), { visitorId: 'existing-tab', status: 'online' });
   page.tick();
   await settle();
   assert.equal(page.calls.length, 4);
   assert.equal(page.calls[2].options.body, options.body);
 });
 
-test('hidden tabs and pages in the back/forward cache stop heartbeats, then resume immediately', async (t) => {
+test('background tabs send idle heartbeats; visibility and bfcache restore online immediately', async (t) => {
   const page = await open(t);
   const id = JSON.parse(page.calls[0].options.body).visitorId;
-  assert.equal(JSON.parse(decodeURIComponent(page.window.document.cookie.split('=')[1])).visitorId, id);
   page.visibility(false);
+  await settle();
+  assert.equal(JSON.parse(page.calls[2].options.body).status, 'idle');
   page.tick();
-  assert.equal(page.calls.length, 2);
+  await settle();
+  assert.equal(JSON.parse(page.calls[4].options.body).status, 'idle');
+  assert.equal(JSON.parse(page.calls[4].options.body).visitorId, id);
   page.visibility(true);
   await settle();
-  assert.equal(page.calls.length, 4);
+  assert.equal(JSON.parse(page.calls[6].options.body).status, 'online');
   page.window.dispatchEvent(new page.window.Event('pagehide'));
   page.tick();
-  assert.equal(page.calls.length, 4);
+  assert.equal(page.calls.length, 8);
   page.window.dispatchEvent(new page.window.Event('pageshow'));
   await settle();
-  assert.equal(page.calls.length, 6);
+  assert.equal(page.calls.length, 10);
 });
 
 test('works without cookies and replaces stale names on offline, recovering on reconnect', async (t) => {
@@ -127,10 +138,10 @@ test('times out stalled requests without overlapping polls and retries', async (
   assert.equal(page.label(), 'Online now (1): retrac');
 });
 
-test('ignores late responses from a tab that became hidden', async (t) => {
+test('ignores late responses from a suspended page', async (t) => {
   let finish;
   const page = await open(t, { fetch: () => new Promise((resolve) => { finish = resolve; }) });
-  page.visibility(false);
+  page.window.dispatchEvent(new page.window.Event('pagehide'));
   finish(response(99));
   await settle();
   assert.equal(page.calls.length, 1);
@@ -149,7 +160,7 @@ test('signed-in usernames follow account changes; sign-out gets a fresh anonymou
   assert.equal(page.calls.length, 0);
   page.accountChanged({ status: 'authenticated', username: 'retrac' });
   await settle();
-  assert.deepEqual(JSON.parse(page.calls[0].options.body), { visitorId: 'tab-id', username: 'retrac' });
+  assert.deepEqual(JSON.parse(page.calls[0].options.body), { visitorId: 'tab-id', username: 'retrac', status: 'online' });
   page.accountChanged({ status: 'authenticated', username: 'another-user' });
   await settle();
   const switched = JSON.parse(page.calls[2].options.body);
@@ -175,4 +186,88 @@ test('malformed user lists show unavailable rather than a misleading name list',
     const page = await open(t, { fetch: () => response(1, users) });
     assert.equal(page.label(), 'Online visitors unavailable');
   }
+});
+
+
+test('foreground tabs overrule background tabs sharing a session, until hidden or closed', async (t) => {
+  const storage = new Map();
+  const front = await open(t, { storage, storedId: 'shared' });
+  const back = await open(t, { storage, storedId: 'shared', initiallyVisible: false });
+  const lastStatus = (page) => JSON.parse(page.calls.filter((c) => c.options.method === 'POST').at(-1).options.body).status;
+  assert.equal(lastStatus(back), 'online');
+  front.visibility(false);
+  await settle();
+  assert.equal(lastStatus(front), 'idle');
+  back.tick();
+  await settle();
+  assert.equal(lastStatus(back), 'idle');
+  front.visibility(true);
+  await settle();
+  back.tick();
+  await settle();
+  assert.equal(lastStatus(back), 'online');
+  front.window.dispatchEvent(new front.window.Event('pagehide'));
+  back.tick();
+  await settle();
+  assert.equal(lastStatus(back), 'idle');
+});
+
+test('expired foreground leases cannot keep background visitors online', async (t) => {
+  const storage = new Map([['soundboard-presence-tab:crashed', JSON.stringify({ visible: true, updated: Date.now() - 90000 })]]);
+  const page = await open(t, { storage, initiallyVisible: false });
+  assert.equal(JSON.parse(page.calls[0].options.body).status, 'idle');
+  assert.equal(storage.has('soundboard-presence-tab:crashed'), false);
+});
+
+test('splits idle and online cards and groups accounts with online taking precedence', async (t) => {
+  const users = [
+    { displayName: 'retrac', status: 'idle' },
+    { displayName: 'RETRAC', status: 'online' },
+    { displayName: '<b>guest</b>', status: 'idle' },
+    { displayName: 'Anonymous Fox', status: 'idle' },
+    { displayName: 'Anonymous Fox', status: 'online' },
+  ];
+  const page = await open(t, { account: { status: 'authenticated', username: 'retrac' }, fetch: () => response(users.length, users) });
+  assert.equal(page.label(), 'Online now (2): retrac (you), Anonymous Fox');
+  const idle = page.window.document.getElementById('presenceIdle');
+  assert.equal(idle.hidden, false);
+  assert.equal(idle.textContent.trim(), 'Idle (2): <b>guest</b>, Anonymous Fox');
+  assert.equal(idle.querySelector('b'), null);
+  page.network(false);
+  assert.equal(idle.hidden, true);
+});
+
+test('a visibility change during a heartbeat queues the new status after it finishes', async (t) => {
+  let finish;
+  let first = true;
+  const page = await open(t, { fetch: () => {
+    if (first) { first = false; return new Promise((resolve) => { finish = resolve; }); }
+    return response(0);
+  } });
+  page.visibility(false);
+  assert.equal(page.calls.length, 1);
+  finish(response(0));
+  await settle();
+  assert.equal(JSON.parse(page.calls[2].options.body).status, 'idle');
+});
+
+
+test('queued cross-tab heartbeats compute status after acquiring the lock', async (t) => {
+  const queued = [];
+  const locks = { request: (name, options, send) => {
+    assert.equal(name, 'soundboard-presence-heartbeat');
+    return new Promise((resolve, reject) => queued.push(async () => {
+      try { resolve(await send()); } catch (error) { reject(error); }
+    }));
+  } };
+  const storage = new Map();
+  const back = await open(t, { storage, locks, storedId: 'shared', initiallyVisible: false });
+  const front = await open(t, { storage, locks, storedId: 'shared' });
+  assert.equal(back.calls.length, 0);
+  await queued.shift()();
+  await settle();
+  assert.equal(JSON.parse(back.calls[0].options.body).status, 'online');
+  await queued.shift()();
+  await settle();
+  assert.equal(JSON.parse(front.calls[0].options.body).status, 'online');
 });

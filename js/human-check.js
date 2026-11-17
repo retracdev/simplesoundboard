@@ -10,7 +10,7 @@
   if (!verification) return;
 
   const FORM_ID = '8NLKPA';
-  const COUNTDOWN_FROM = 3;
+  const SUCCESS_DELAY_MS = 450;
 
   const dialog = document.createElement('dialog');
   dialog.className = 'sound-request human-check';
@@ -26,7 +26,6 @@
   const body = dialog.querySelector('.sound-request__body');
   let frame = null;
   let finishing = false;
-  let countdownTimer = null;
 
   function showForm() {
     const url = new URL('https://tally.so/embed/' + FORM_ID);
@@ -52,24 +51,13 @@
     body.innerHTML = `<section class="sound-request__success">
       <svg class="sound-request__check" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="29"/><path d="m19 32 9 9 18-18"/></svg>
       <h3 tabindex="-1">Thanks for verifying you're a human!</h3>
-      <p>Back to the board in</p>
-      <p class="human-check__countdown" aria-live="polite">${COUNTDOWN_FROM}</p>
     </section>`;
     body.querySelector('h3').focus({ preventScroll: true });
-    const countdownEl = body.querySelector('.human-check__countdown');
-    let remaining = COUNTDOWN_FROM;
-    countdownTimer = setInterval(() => {
-      remaining--;
-      if (remaining > 0) {
-        countdownEl.textContent = String(remaining);
-        return;
-      }
-      clearInterval(countdownTimer);
-      countdownTimer = null;
+    setTimeout(() => {
       finishing = false;
       body.replaceChildren();
       dialog.close();
-    }, 1000);
+    }, SUCCESS_DELAY_MS);
   }
 
   // There's no way out but the form: Escape does nothing, and a forced close reopens it.
