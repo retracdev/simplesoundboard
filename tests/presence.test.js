@@ -9,7 +9,7 @@ const source = fs.readFileSync(path.join(root, 'js/presence.js'), 'utf8');
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 const response = (count, users = Array.from({ length: Number.isSafeInteger(count) && count >= 0 ? count : 0 }, (_, i) => ({ displayName: ['retrac', 'Anonymous Bear', 'Anonymous Fox'][i] || 'Guest' }))) => ({ ok: true, json: async () => ({ count, users }) });
 
-async function open(t, { storedId, blockedCookies = false, fetch, account, previousUsername, storage, locks, initiallyVisible = true } = {}) {
+async function open(t, { storedId, blockedCookies = false, fetch, account, previousUsername, storage, locks, toasts, initiallyVisible = true } = {}) {
   const dom = new JSDOM(fs.readFileSync(path.join(root, 'index.html'), 'utf8'), {
     url: 'https://soundboard.retrac.space/', runScripts: 'outside-only', pretendToBeVisual: true,
   });
@@ -41,6 +41,7 @@ async function open(t, { storedId, blockedCookies = false, fetch, account, previ
     return fetch ? fetch(url, options) : response(3);
   };
   let accountListener;
+  if (toasts) window.SoundboardToasts = { show: (toast) => toasts.push(toast) };
   if (account) window.RetracAccount = { getState: () => account, subscribe: (fn) => { accountListener = fn; } };
   window.eval(source);
   await settle();
@@ -270,4 +271,33 @@ test('queued cross-tab heartbeats compute status after acquiring the lock', asyn
   await queued.shift()();
   await settle();
   assert.equal(JSON.parse(front.calls[0].options.body).status, 'online');
+});
+
+test('announces visitors coming online, going idle and leaving, but not the first list or yourself', async (t) => {
+  const toasts = [];
+  const lists = [
+    [{ displayName: 'me', status: 'online' }, { displayName: 'Ada', status: 'online' }, { displayName: 'Bo', status: 'idle' }],
+    [{ displayName: 'me', status: 'idle' }, { displayName: 'Ada', status: 'idle' }, { displayName: 'Bo', status: 'online' }, { displayName: '<i>Cy</i>', status: 'online' }],
+    [{ displayName: 'me', status: 'online' }, { displayName: 'Bo', status: 'online' }],
+  ];
+  let list = lists[0];
+  const page = await open(t, { toasts, account: { status: 'authenticated', username: 'me' },
+    fetch: (url) => url.endsWith('/heartbeat/soundboard') ? { ok: true, json: async () => ({}) } : response(list.length, list) });
+  assert.deepEqual(toasts, []);
+  list = lists[1];
+  page.tick();
+  await settle();
+  assert.deepEqual(toasts.map(({ name, icon, text }) => [name, icon, text]), [
+    ['Ada', 'idle', ' has gone idle.'],
+    ['Bo', 'online', ' is now online!'],
+    ['<i>Cy</i>', 'online', ' is now online!'],
+  ]);
+  toasts.length = 0;
+  list = lists[2];
+  page.tick();
+  await settle();
+  assert.deepEqual(toasts.map(({ name, icon, text }) => [name, icon, text]), [
+    ['Ada', 'offline', ' is now offline.'],
+    ['<i>Cy</i>', 'offline', ' is now offline.'],
+  ]);
 });

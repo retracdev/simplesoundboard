@@ -150,7 +150,6 @@
   // Shared across reloads and tabs; memory also covers unavailable browser storage.
   let countingLimit = { plays: [], until: 0 };
   let noticeUntil = 0;
-  let noticeTimer = null;
 
   function readLimit() {
     try {
@@ -168,28 +167,13 @@
     return countingLimit;
   }
 
-  function showCooldown(until, fullLimit) {
-    const notice = document.getElementById('countingCooldown');
-    if (!notice) return;
-    noticeUntil = Math.max(noticeUntil, until);
-    document.getElementById('countingCooldownMessage').textContent = fullLimit
-      ? 'You reached 30 counted plays in a minute. Sounds still play; leaderboard counting is paused.'
-      : 'This sound counts once every 3 seconds. Keep playing; extra repeats do not count.';
-    notice.hidden = false;
-    if (noticeTimer !== null) clearInterval(noticeTimer);
-    function update() {
-      const seconds = Math.ceil((noticeUntil - Date.now()) / 1000);
-      if (seconds <= 0) {
-        notice.hidden = true;
-        clearInterval(noticeTimer);
-        noticeTimer = null;
-        noticeUntil = 0;
-        return;
-      }
-      document.getElementById('countingCooldownTime').textContent = 'Counting resumes in ' + seconds + 's';
-    }
-    noticeTimer = setInterval(update, 250);
-    update();
+  // One toast for the whole cooldown: later limits extend its countdown in place.
+  function showCooldown(until) {
+    if (!window.SoundboardToasts) return;
+    noticeUntil = noticeUntil > Date.now() ? Math.max(noticeUntil, until) : until;
+    window.SoundboardToasts.show({
+      key: 'leaderboard-cooldown', icon: 'warning', text: 'Leaderboard cooldown', until: noticeUntil,
+    });
   }
 
   function countPlays(ids, completedAt) {
@@ -198,7 +182,7 @@
     const limit = readLimit();
     limit.plays = limit.plays.filter((play) => play.at > now - COUNT_WINDOW_MS);
     if (limit.until > now) {
-      showCooldown(limit.until, true);
+      showCooldown(limit.until);
       return;
     }
     const accepted = [];
@@ -219,8 +203,8 @@
     } catch (error) {
       // The in-memory limit still applies for this visit.
     }
-    if (limit.until > now) showCooldown(limit.until, true);
-    else if (soundUntil) showCooldown(soundUntil, false);
+    if (limit.until > now) showCooldown(limit.until);
+    else if (soundUntil) showCooldown(soundUntil);
     // Rejected plays never enter the retry queue or the optimistic counts.
     if (!accepted.length) return;
     accepted.forEach(queueHit);
@@ -465,7 +449,7 @@
   adoptOrphans();
   if (hitQueue.length) start();
   const initialLimit = readLimit();
-  if (initialLimit.until > Date.now()) showCooldown(initialLimit.until, true);
+  if (initialLimit.until > Date.now()) showCooldown(initialLimit.until);
 
   // The heartbeat that tells other tabs this one is still sending its own plays.
   setInterval(() => {
@@ -477,7 +461,7 @@
   window.addEventListener('storage', (event) => {
     if (event.key === LIMIT_KEY) {
       const limit = readLimit();
-      if (limit.until > Date.now()) showCooldown(limit.until, true);
+      if (limit.until > Date.now()) showCooldown(limit.until);
       return;
     }
     if (event.key !== CACHE_KEY || !event.newValue) return;
