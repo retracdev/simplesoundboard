@@ -89,9 +89,13 @@
       <span class="changelog-pill__badge">NEW</span>
       View v1.1 changelog
     </button>
-    <p class="presence" id="presence" role="status" aria-atomic="true" title="Visitors with a visible tab count as online. Multiple tabs share one session. Visitors drop off within 90 seconds after their last heartbeat." hidden>
+    <p class="presence" id="presence" role="status" aria-atomic="true" title="Visitors with a visible tab count as online; background tabs stay connected as idle. Multiple tabs share one session. Visitors drop off within 90 seconds after their last heartbeat." hidden>
       <span class="presence__dot" aria-hidden="true"></span>
       <span id="presenceLabel">Checking who's online…</span>
+    </p>
+    <p class="presence" id="presenceIdle" data-state="idle" role="status" aria-atomic="true" hidden>
+      <span class="presence__dot" aria-hidden="true"></span>
+      <span id="presenceIdleLabel">No one idle right now</span>
     </p>
     <div class="ribbon" aria-hidden="true">
       <div class="ribbon__track" id="ribbonTrack"></div>

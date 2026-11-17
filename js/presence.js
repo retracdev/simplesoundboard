@@ -1,4 +1,4 @@
-/* Presence: one visitor per browser session, refreshed only while visible.
+/* Presence: one visitor per browser session, kept alive in background tabs too.
  * The API expires visitors 90 seconds after their last heartbeat.
  */
 (() => {
@@ -10,6 +10,9 @@
 
   const API = 'https://space-api.retrac-space.workers.dev/v1/presence';
   const SITE = 'soundboard';
+  const TAB_PREFIX = 'soundboard-presence-tab:';
+  const tabKey = TAB_PREFIX + crypto.randomUUID();
+  const TAB_TTL = 90000;
   const COOKIE_KEY = 'soundboard-presence';
   let visitorId = crypto.randomUUID();
   let username = null;
@@ -42,38 +45,84 @@
     }
   }
 
+  // Each tab owns its own lease, so simultaneous updates cannot erase peers.
+  // Expiry handles crashed tabs; pagehide removes a departing tab immediately.
+  function publishTab() {
+    try {
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i);
+        if (!key.startsWith(TAB_PREFIX)) continue;
+        try {
+          const tab = JSON.parse(localStorage.getItem(key));
+          if (!tab || !(tab.updated > Date.now() - TAB_TTL)) localStorage.removeItem(key);
+        } catch (error) { localStorage.removeItem(key); }
+      }
+      if (suspended) localStorage.removeItem(tabKey);
+      else localStorage.setItem(tabKey, JSON.stringify({
+        visible: document.visibilityState === 'visible', updated: Date.now(),
+      }));
+    } catch (error) { /* Storage may be blocked; use this tab's visibility. */ }
+  }
+
+  function presenceStatus() {
+    if (document.visibilityState === 'visible') return 'online';
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!key.startsWith(TAB_PREFIX)) continue;
+        const tab = JSON.parse(localStorage.getItem(key));
+        if (tab && tab.visible && tab.updated > Date.now() - TAB_TTL) return 'online';
+      }
+    } catch (error) { /* Fall through to idle if storage is unavailable. */ }
+    return 'idle';
+  }
+
+  const idleIndicator = document.getElementById('presenceIdle');
+  const idleLabel = document.getElementById('presenceIdleLabel');
   let request = null;
+  let refreshAgain = false;
   let suspended = false;
   indicator.hidden = false;
 
   function show(state, text) {
     indicator.dataset.state = state;
     label.textContent = text;
+    if (state !== 'online' && idleIndicator) idleIndicator.hidden = true;
   }
 
   async function refresh() {
-    if (!accountReady || suspended || document.visibilityState !== 'visible' || request) return;
+    publishTab();
+    if (!accountReady || suspended || request) return;
     if (!navigator.onLine) {
       show('unavailable', 'Online visitors unavailable');
       return;
     }
 
-    syncIdentity();
     const controller = new AbortController();
     request = controller;
     const timeout = setTimeout(() => controller.abort(), 10000);
     const options = { cache: 'no-store', credentials: 'omit', signal: controller.signal };
     try {
       // Register this browser session before reading, so the first list includes it.
-      const heartbeat = await fetch(API + '/heartbeat/' + SITE, {
-        ...options,
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        // Display names are unverified by the presence API. Never send account tokens.
-        body: JSON.stringify(username ? { visitorId, username } : { visitorId }),
-      });
-      if (!heartbeat.ok) throw new Error('Presence heartbeat failed');
-      const identity = await heartbeat.json();
+      const sendHeartbeat = async () => {
+        // Recheck inside the cross-tab lock: a visibility change while another
+        // request was in flight must not allow an older idle write to win.
+        if (controller.signal.aborted || suspended) throw new Error('Presence paused');
+        syncIdentity();
+        publishTab();
+        const heartbeat = await fetch(API + '/heartbeat/' + SITE, {
+          ...options,
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          // Display names are unverified. Never send account tokens.
+          body: JSON.stringify({ visitorId, ...(username ? { username } : {}), status: presenceStatus() }),
+        });
+        if (!heartbeat.ok) throw new Error('Presence heartbeat failed');
+        return heartbeat.json();
+      };
+      const identity = navigator.locks
+        ? await navigator.locks.request('soundboard-presence-heartbeat', { signal: controller.signal }, sendHeartbeat)
+        : await sendHeartbeat();
       // The heartbeat identifies this session's anonymous animal as well as
       // named visitors. Match with the same normalization used for grouping.
       const ownName = (username || (identity && identity.displayName) || '').trim().toLowerCase();
@@ -83,43 +132,65 @@
       const body = await response.json();
       if (!body || !Number.isSafeInteger(body.count) || body.count < 0
         || !Array.isArray(body.users) || body.users.length !== body.count
-        || body.users.some((user) => !user || typeof user.displayName !== 'string' || !user.displayName.trim())) {
+        || body.users.some((user) => !user || typeof user.displayName !== 'string' || !user.displayName.trim()
+          || (user.status !== undefined && user.status !== 'online' && user.status !== 'idle'))) {
         throw new Error('Invalid presence visitors');
       }
       if (request === controller) {
-        // Rebuild from all live sessions each time: a name stays online while
-        // any of its computers is still sending heartbeats. Never merge guests
+        // Rebuild from all live sessions: a name stays online while any of its
+        // computers is online, otherwise it is idle. Never merge guests
         // just because the API assigned them the same anonymous animal name.
-        const usernames = new Set();
-        const names = [];
-        let markedSelf = false;
+        const usernames = new Map();
+        const visitors = [];
         body.users.forEach((user) => {
           const name = user.displayName.trim();
+          const status = user.status || 'online';
           if (!name.startsWith('Anonymous ')) {
             const key = name.toLowerCase();
-            if (usernames.has(key)) return;
-            usernames.add(key);
-          }
-          // Decorate only after grouping so several computers using our account
-          // still produce one name, one marker, and one entry in the count.
+            const existing = usernames.get(key);
+            if (existing) {
+              if (status === 'online') existing.status = 'online';
+              return;
+            }
+            const visitor = { name, status };
+            usernames.set(key, visitor);
+            visitors.push(visitor);
+          } else visitors.push({ name, status });
+        });
+        let markedSelf = false;
+        const names = { online: [], idle: [] };
+        visitors.forEach(({ name, status }) => {
           const isSelf = !markedSelf && name.toLowerCase() === ownName;
           if (isSelf) markedSelf = true;
-          names.push(name + (isSelf ? ' (you)' : ''));
+          names[status].push(name + (isSelf ? ' (you)' : ''));
         });
-        // Names are user-controlled: render them only as text, never as HTML.
-        show('online', names.length
-          ? 'Online now (' + names.length.toLocaleString() + '): ' + names.join(', ')
+        // Names are user-controlled: render only as text, never as HTML.
+        show('online', names.online.length
+          ? 'Online now (' + names.online.length.toLocaleString() + '): ' + names.online.join(', ')
           : 'No one online right now');
+        if (idleIndicator && idleLabel) {
+          idleIndicator.hidden = false;
+          idleLabel.textContent = names.idle.length
+            ? 'Idle (' + names.idle.length.toLocaleString() + '): ' + names.idle.join(', ')
+            : 'No one idle right now';
+        }
       }
     } catch (error) {
       if (request === controller) show('unavailable', 'Online visitors unavailable');
     } finally {
       clearTimeout(timeout);
-      if (request === controller) request = null;
+      if (request === controller) {
+        request = null;
+        if (refreshAgain) {
+          refreshAgain = false;
+          refresh();
+        }
+      }
     }
   }
 
   function pause() {
+    refreshAgain = false;
     const previous = request;
     request = null;
     if (previous) previous.abort();
@@ -132,8 +203,9 @@
 
   setInterval(refresh, 30000);
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') resume();
-    else pause();
+    publishTab();
+    if (request) refreshAgain = true;
+    else refresh();
   });
   window.addEventListener('offline', () => {
     pause();
@@ -142,6 +214,7 @@
   window.addEventListener('online', refresh);
   window.addEventListener('pagehide', () => {
     suspended = true;
+    publishTab();
     pause();
   });
   window.addEventListener('pageshow', () => {
