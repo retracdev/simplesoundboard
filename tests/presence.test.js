@@ -10,7 +10,7 @@ const settle = () => new Promise((resolve) => setImmediate(resolve));
 const response = (count, users = Array.from({ length: Number.isSafeInteger(count) && count >= 0 ? count : 0 }, (_, i) => ({ displayName: ['retrac', 'Anonymous Bear', 'Anonymous Fox'][i] || 'Guest' }))) => ({ ok: true, json: async () => ({ count, users }) });
 
 async function open(t, { storedId, blockedCookies = false, fetch, account, previousUsername, storage, locks, toasts, initiallyVisible = true } = {}) {
-  const dom = new JSDOM(fs.readFileSync(path.join(root, 'index.html'), 'utf8'), {
+  const dom = new JSDOM(fs.readFileSync(path.join(root, 'index-data.html'), 'utf8'), {
     url: 'https://soundboard.retrac.space/', runScripts: 'outside-only', pretendToBeVisual: true,
   });
   t.after(() => dom.window.close());
