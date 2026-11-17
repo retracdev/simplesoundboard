@@ -1177,6 +1177,21 @@ html.is-revealing .deck, html.is-revealing .ranks { animation-delay: .24s; }
 }
 .footer img { display: block; width: 130px; height: auto; }
 .footer p a { color: var(--fg); text-underline-offset: 3px; }
+.footer__update { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 0; font-size: .875rem; font-weight: 700; }
+.footer__update[hidden] { display: none; }
+.footer__update:disabled { cursor: progress; opacity: .8; }
+.footer__update-spinner {
+  display: none;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-linecap: round;
+  animation: chip-spin .8s linear infinite;
+}
+.footer__update.is-checking .footer__update-spinner { display: block; }
 
 /* ---------- Small screens ---------- */
 @media (max-width: 640px) {
@@ -1208,7 +1223,7 @@ html.is-revealing .deck, html.is-revealing .ranks { animation-delay: .24s; }
   .key-hint { animation: none; }
   .key__heart svg, .key__info svg, .key__more svg { transition: none; }
   .sound-info[open] .sound-info__panel, .sound-info[open]::backdrop { animation: none; }
-  .chip > svg.chip__spinner, .bank__spinner { animation: none; }
+  .chip > svg.chip__spinner, .bank__spinner, .footer__update-spinner { animation: none; }
   .key__see-all-arrow { transition: none; }
   .card-menu, .rearrange[open] .rearrange__panel { animation: none; }
   .rearrange__tile .key__face { transition: none; }
