@@ -53,6 +53,9 @@
 
   function open() {
     if (finishing || !verification.required()) return;
+    // A check owed from before a reload waits for the loading screen to go.
+    const splash = window.SoundboardSplash;
+    if (splash && !splash.isDone()) return splash.whenDone(open);
     if (!dialog.isConnected) document.body.append(dialog);
     if (!frame) showForm();
     if (!dialog.open) dialog.showModal();

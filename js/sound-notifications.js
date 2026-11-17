@@ -180,7 +180,10 @@
   });
   // Wait behind any existing modal, including the page-load changelog.
   document.addEventListener('close', () => setTimeout(showPending, 0), true);
-  setTimeout(() => { ready = true; showPending(); }, 800);
+  const splash = window.SoundboardSplash;
+  (splash ? splash.whenDone : (fn) => fn())(() => {
+    setTimeout(() => { ready = true; showPending(); }, 800);
+  });
   saves.subscribe(render);
   account.subscribe(onAccount);
   onAccount(account.getState());
