@@ -45,14 +45,22 @@
   // Activity belongs to this tab only. Returning to it requires fresh mouse movement.
   let lastMouseMove = -Infinity;
   let activeSince = Infinity;
+  let attentiveSince = attentive() ? performance.now() : Infinity; // when the tab was last returned to
+  function attentive() {
+    return document.visibilityState === 'visible' && document.hasFocus();
+  }
   function canCount(completedAt = performance.now()) {
     const now = performance.now();
-    return document.visibilityState === 'visible' && document.hasFocus()
+    return attentive() && !verificationRequired()
       && now - lastMouseMove < MOUSE_ACTIVE_MS && completedAt >= activeSince
       && completedAt <= lastMouseMove + MOUSE_ACTIVE_MS;
   }
+  // Someone on the page who hasn't moved the mouse or touched the screen for a minute.
+  function idleTooLong() {
+    return attentive() && performance.now() - Math.max(lastMouseMove, attentiveSince) >= MOUSE_ACTIVE_MS;
+  }
   window.addEventListener('mousemove', (event) => {
-    if (!event.isTrusted || document.visibilityState !== 'visible' || !document.hasFocus()) return;
+    if (!event.isTrusted || !attentive()) return;
     const now = performance.now();
     if (!canCount(now)) activeSince = now;
     lastMouseMove = now;
@@ -60,9 +68,58 @@
   function resetActivity() {
     lastMouseMove = -Infinity;
     activeSince = Infinity;
+    attentiveSince = attentive() ? performance.now() : Infinity;
   }
   window.addEventListener('blur', resetActivity);
+  window.addEventListener('focus', resetActivity);
   document.addEventListener('visibilitychange', resetActivity);
+
+  // ---------- Human check ----------
+  // An idle play asks for the Tally human check instead of silently not counting. The cookie
+  // keeps the check up across reloads and tabs until the form is submitted.
+  const VERIFY_COOKIE = 'simple_soundboard_verify';
+  const verifyListeners = new Set();
+  let verifyInMemory = false; // Still holds when cookies are blocked.
+
+  function verificationRequired() {
+    if (verifyInMemory) return true;
+    try {
+      return document.cookie.split(';').some((part) => part.trim() === VERIFY_COOKIE + '=1');
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function setVerifyCookie(value, maxAge) {
+    try {
+      document.cookie = VERIFY_COOKIE + '=' + value + '; path=/; max-age=' + maxAge + '; SameSite=Lax'
+        + (location.protocol === 'https:' ? '; Secure' : '');
+    } catch (error) {
+      // The in-memory flag still applies for this visit.
+    }
+  }
+
+  function requireVerification() {
+    verifyInMemory = true;
+    setVerifyCookie('1', 60 * 60 * 24 * 365);
+    verifyListeners.forEach((fn) => {
+      try {
+        fn();
+      } catch (error) {
+        console.warn(error);
+      }
+    });
+  }
+
+  function completeVerification() {
+    verifyInMemory = false;
+    setVerifyCookie('', 0);
+    // Counting picks up straight away, as if the mouse had just moved.
+    const now = performance.now();
+    lastMouseMove = now;
+    activeSince = now;
+    attentiveSince = now;
+  }
 
   const tabId = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   const pendingKey = PENDING_PREFIX + tabId;
@@ -450,8 +507,11 @@
 
     // Counts completed plays. Duplicates in a single call count once.
     hit(ids, completedAt = performance.now()) {
-      // Reject silently before queueing; skipped plays are never saved or replayed.
-      if (!canCount(completedAt)) return;
+      // Skipped plays are never saved or replayed. An idle visitor is asked to prove they're human.
+      if (!canCount(completedAt)) {
+        if (verificationRequired() || idleTooLong()) requireVerification();
+        return;
+      }
       const unique = Array.from(new Set(Array.isArray(ids) ? ids : [ids]))
         .filter((id) => typeof id === 'string' && id.length > 0);
       if (!unique.length) return;
@@ -463,6 +523,16 @@
       } else {
         countPlays(unique, completedAt);
       }
+    },
+
+    // The human check that idle plays ask for. onRequired(fn) runs fn whenever it's needed.
+    verification: {
+      required: verificationRequired,
+      onRequired(fn) {
+        verifyListeners.add(fn);
+        return () => verifyListeners.delete(fn);
+      },
+      complete: completeVerification,
     },
 
     // Reads the counts of these sounds, skipping any read recently. Unknown ones go first,
