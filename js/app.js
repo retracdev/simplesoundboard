@@ -519,18 +519,30 @@
     if (!live.has(sound.id)) setKeyTime(key, restingTime(sound.id, key));
   }
 
-  // Fetches every sound, one at a time, so each key can show its waveform and length
-  // before it's pressed. A press on a sound still waiting jumps the queue.
+  // Fetches every sound, a few at a time and in board order, so each key can show its
+  // waveform and length before it's pressed. A press on a sound still waiting jumps the
+  // queue. The loading screen fills its first quarter as these come in.
+  const LOAD_AT_ONCE = 6;
   async function loadAll() {
+    const splash = window.SoundboardSplash;
     let failed = false;
-    for (const sound of sounds) {
-      try {
-        paintKey(sound, await engine.load(sound));
-      } catch (error) {
-        failed = true;
-        console.warn('Could not load "' + sound.name + '"', error);
+    let next = 0;
+    let settled = 0;
+    async function worker() {
+      while (next < sounds.length) {
+        const sound = sounds[next++];
+        try {
+          paintKey(sound, await engine.load(sound));
+        } catch (error) {
+          failed = true;
+          console.warn('Could not load "' + sound.name + '"', error);
+        }
+        settled++;
+        if (splash) splash.progress(settled, sounds.length);
       }
     }
+    await Promise.all(Array.from({ length: LOAD_AT_ONCE }, worker));
+    if (splash) splash.soundsLoaded();
     // Browsers block fetch on file:// pages, so point local previews at the fix.
     if (failed && window.location.protocol === 'file:') {
       statusEl.textContent = 'Sounds can’t load from a file:// page. Run “npx serve .” in this folder and open that address.';
@@ -2056,5 +2068,6 @@
     loadAll();
   } else {
     statusEl.textContent = 'This browser can’t make sounds, sorry.';
+    if (window.SoundboardSplash) window.SoundboardSplash.soundsLoaded();
   }
 })();

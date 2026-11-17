@@ -50,9 +50,10 @@
   openButton.addEventListener('click', open);
 
   if (dismissedVersion() !== CHANGELOG_VERSION) {
-    // Let the board paint first so the sheet slides in over it.
-    setTimeout(() => {
+    // Wait out the loading screen, then let the board rise in so the sheet slides over it.
+    const splash = window.SoundboardSplash;
+    (splash ? splash.whenDone : (fn) => fn())(() => setTimeout(() => {
       if (!document.querySelector('dialog[open]')) open();
-    }, 600);
+    }, 600));
   }
 })();

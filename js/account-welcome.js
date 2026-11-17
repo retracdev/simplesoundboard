@@ -54,6 +54,10 @@
     showWelcomePill(state.username);
   }
 
-  window.RetracAccount.subscribe(greet);
-  greet(window.RetracAccount.getState());
+  // Not until the loading screen has gone, so the pill isn't hidden behind it.
+  const splash = window.SoundboardSplash;
+  (splash ? splash.whenDone : (fn) => fn())(() => {
+    window.RetracAccount.subscribe(greet);
+    greet(window.RetracAccount.getState());
+  });
 })();

@@ -49,6 +49,79 @@ button { cursor: pointer; }
 a { color: inherit; }
 kbd { font: inherit; }
 
+/* ---------- Loading screen ---------- */
+html.is-splashing { overflow: hidden; }
+
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 34px;
+  background: #000;
+  transition: opacity .55s var(--ease) .1s, visibility 0s linear .65s;
+}
+.splash__icon {
+  width: 112px;
+  height: 112px;
+  filter: drop-shadow(0 10px 34px rgba(171, 143, 255, 0.35));
+  animation: splash-pop .6s cubic-bezier(.2, 1.4, .4, 1) .08s backwards;
+  transition: transform .55s cubic-bezier(.5, 0, .2, 1), opacity .45s ease-in;
+}
+.splash__track {
+  width: min(200px, 56vw);
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  animation: splash-fade .4s ease-out .3s backwards;
+  transition: opacity .25s ease-in;
+}
+.splash__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #6442c9, #ab8fff);
+  box-shadow: 0 0 12px rgba(171, 143, 255, 0.7);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform .3s var(--ease);
+}
+.splash__fill.is-running { transition: none; }
+
+.splash.is-leaving { opacity: 0; visibility: hidden; pointer-events: none; }
+.splash.is-leaving .splash__icon { animation: none; transform: scale(1.6); opacity: 0; }
+.splash.is-leaving .splash__track { animation: none; opacity: 0; }
+
+@keyframes splash-pop {
+  from { opacity: 0; transform: scale(.3); }
+  60% { opacity: 1; }
+  to { transform: scale(1); }
+}
+@keyframes splash-fade { from { opacity: 0; } }
+
+/* The board rises in as the loading screen fades. */
+html.is-revealing .topbar,
+html.is-revealing .hero,
+html.is-revealing .deck,
+html.is-revealing .ranks,
+html.is-revealing .footer {
+  animation: site-in .8s cubic-bezier(.2, .9, .3, 1) .1s backwards;
+}
+html.is-revealing .hero { animation-delay: .16s; }
+html.is-revealing .deck, html.is-revealing .ranks { animation-delay: .24s; }
+@keyframes site-in {
+  from { opacity: 0; transform: translateY(26px) scale(.985); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash { transition: opacity .2s linear, visibility 0s linear .2s; }
+  .splash__icon, .splash__track { animation: splash-fade .2s linear backwards; }
+  .splash.is-leaving .splash__icon { transform: none; }
+  html.is-revealing :is(.topbar, .hero, .deck, .ranks, .footer) { animation: none; }
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
