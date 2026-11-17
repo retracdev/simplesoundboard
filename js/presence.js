@@ -90,7 +90,32 @@
   let suspended = false;
   indicator.hidden = false;
 
+  // The last successful visitor list, used to announce status changes. Reset
+  // whenever the list goes stale so a reconnect does not replay old changes.
+  let lastStatuses = null;
+
+  function notify(name, icon, text) {
+    if (window.SoundboardToasts) window.SoundboardToasts.show({ name, icon, text });
+  }
+
+  function announceChanges(statuses, ownKey) {
+    const previous = lastStatuses;
+    lastStatuses = statuses;
+    // The first list is a baseline, and a hidden tab has no one to tell.
+    if (!previous || document.visibilityState !== 'visible') return;
+    statuses.forEach(({ name, status }, key) => {
+      if (key === ownKey) return;
+      const before = previous.get(key);
+      if (status === 'online' && (!before || before.status === 'idle')) notify(name, 'online', ' is now online!');
+      else if (status === 'idle' && before && before.status === 'online') notify(name, 'idle', ' has gone idle.');
+    });
+    previous.forEach(({ name }, key) => {
+      if (key !== ownKey && !statuses.has(key)) notify(name, 'offline', ' is now offline.');
+    });
+  }
+
   function show(state, text) {
+    if (state !== 'online') lastStatuses = null;
     indicator.dataset.state = state;
     label.textContent = text;
     if (state !== 'online' && idleIndicator) idleIndicator.hidden = true;
@@ -163,6 +188,15 @@
             visitors.push(visitor);
           } else visitors.push({ name, status });
         });
+        // One status per name for announcements, online taking precedence.
+        const statuses = new Map();
+        visitors.forEach(({ name, status }) => {
+          const key = name.toLowerCase();
+          const known = statuses.get(key);
+          if (!known) statuses.set(key, { name, status });
+          else if (status === 'online') known.status = 'online';
+        });
+        announceChanges(statuses, ownName);
         let markedSelf = false;
         const names = { online: [], idle: [] };
         visitors.forEach(({ name, status }) => {
