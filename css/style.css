@@ -1329,6 +1329,12 @@ kbd { font: inherit; }
 .sound-request__check path { fill: none; stroke: #83e8b3; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
 .sound-request__success h3 { font-family: var(--display); font-weight: 400; font-size: 2rem; }
 .sound-request__success p { margin-top: 8px; color: #b9b4d0; }
+.human-check__countdown {
+  color: #cbb5ff;
+  font-family: var(--display);
+  font-size: 3.5rem;
+  line-height: 1;
+}
 @media (max-width: 640px) {
   .sound-request__header { gap: 10px; padding: 20px 16px; }
   .sound-request__body { margin: 0 8px 8px; }
