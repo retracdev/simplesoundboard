@@ -18,7 +18,12 @@
   const stringEditor = window.StringEditor;
   const tuneCore = window.TuneCore;
   const tuneEditor = window.TuneEditor;
-  const counter = window.SoundCounter || { hit() {} }; // counter.js may be blocked.
+  const counter = window.SoundCounter || { // counter.js may be blocked.
+    hit() {},
+    value: () => null,
+    refresh() {},
+    subscribe: () => () => {},
+  };
 
   const PRESS_MS = 70; // How fast a key sinks when hit.
   const MIN_RISE_SECONDS = 0.22; // Very short sounds still get a visible pop back up.
@@ -839,6 +844,11 @@
   const infoBodyEl = $('soundInfoBody');
   const infoCloseEl = $('soundInfoClose');
   let infoTrigger = null;
+  let unsubscribeInfoCount = () => {};
+
+  if (window.SoundboardLiveUpdate) {
+    window.SoundboardLiveUpdate.onDispose(() => unsubscribeInfoCount());
+  }
 
   async function loadCredit(userId, target) {
     const controller = new AbortController();
@@ -898,8 +908,22 @@
     if (sound.dateAdded) {
       infoBodyEl.appendChild(el('p', '', 'Date Added: ' + sound.dateAdded));
     }
+    const playsRow = el('p');
+    playsRow.setAttribute('role', 'status');
+    infoBodyEl.appendChild(playsRow);
+    const paintPlays = () => {
+      const count = counter.value(id);
+      playsRow.hidden = !(count > 0);
+      playsRow.textContent = count > 0 ? 'Total Plays: ' + count.toLocaleString() : '';
+    };
+    unsubscribeInfoCount();
+    unsubscribeInfoCount = counter.subscribe((ids) => {
+      if (ids.includes(id)) paintPlays();
+    });
+    paintPlays();
     infoDialog.showModal();
     infoCloseEl.focus({ preventScroll: true });
+    counter.refresh([id]);
     creditTargets.forEach(({ userId, target }) => loadCredit(userId, target));
   }
 
@@ -909,6 +933,7 @@
   });
   infoDialog.addEventListener('keydown', (event) => event.stopPropagation());
   infoDialog.addEventListener('close', () => {
+    unsubscribeInfoCount();
     if (infoTrigger && infoTrigger.isConnected) infoTrigger.focus({ preventScroll: true });
     infoTrigger = null;
   });
