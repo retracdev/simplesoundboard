@@ -312,6 +312,58 @@ html.is-revealing .deck, html.is-revealing .ranks { animation-delay: .24s; }
   50% { transform: translateY(-.11em) rotate(var(--tw)); }
 }
 
+/* ---------- Message of the day ----------
+ * A speech bubble the logo "says". On wide screens it sits in the gap to the right of
+ * "Simple", above the end of "Soundboard", with its tail pointing back at the word.
+ * --simple-size matches .title__line--small; "Simple" is about 3.2em wide in Bagel Fat One.
+ */
+.hero__brand {
+  --simple-size: clamp(2.25rem, 9vw, 5.25rem);
+  --motd-left: calc(50% + var(--simple-size) * 1.62);
+  position: relative;
+}
+.motd {
+  position: absolute;
+  z-index: 2;
+  top: calc(var(--simple-size) * .5);
+  left: var(--motd-left);
+  width: max-content;
+  max-width: min(15rem, calc(100% - var(--motd-left) - var(--gutter)));
+  margin: 0;
+  padding: 10px 15px 11px;
+  border-radius: 18px;
+  color: #1b1728;
+  background: #f3f0ff;
+  box-shadow: 0 4px 0 #8b86a3, 0 12px 22px rgba(0, 0, 0, .5);
+  font-size: .9375rem;
+  font-weight: 700;
+  line-height: 1.3;
+  text-align: left;
+  transform: translateY(-50%) rotate(-3deg);
+  transform-origin: 0 50%;
+  animation: motd-float 3.4s ease-in-out infinite;
+}
+.motd:empty { display: none; }
+/* The tail, pointing down and left at the "e" of "Simple". */
+.motd::before {
+  content: "";
+  position: absolute;
+  left: -13px;
+  bottom: 9px;
+  width: 18px;
+  height: 18px;
+  background: inherit;
+  clip-path: polygon(100% 0, 0 100%, 100% 62%);
+}
+@keyframes motd-float {
+  0%, 100% { transform: translateY(-50%) rotate(-3deg); }
+  50% { transform: translateY(calc(-50% - 5px)) rotate(-1.5deg); }
+}
+/* Phones have no room beside "Simple", so the bubble only shows on tablets and computers. */
+@media (max-width: 719px) {
+  .motd { display: none; }
+}
+
 .hero__tag {
   position: relative;
   z-index: 1;
@@ -1258,7 +1310,7 @@ html.is-revealing .deck, html.is-revealing .ranks { animation-delay: .24s; }
  * feature, and it shows how much of the sound is left.
  */
 @media (prefers-reduced-motion: reduce) {
-  .letter, .hero-note, .ribbon__track { animation: none; }
+  .letter, .hero-note, .ribbon__track, .motd { animation: none; }
   .letter { transform: none; }
   .ribbon__track { width: 100%; }
   .key__tilt, .key__heart-layer { transition: none; }
