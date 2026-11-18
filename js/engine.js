@@ -260,6 +260,17 @@
     return result;
   }
 
+  // A live update is replacing the app: fade out whatever is playing, then let the audio go.
+  if (window.SoundboardLiveUpdate) {
+    window.SoundboardLiveUpdate.onDispose(() => {
+      if (!context) return undefined;
+      const ctx = context;
+      stopAll();
+      master.gain.setTargetAtTime(0, ctx.currentTime, 0.015);
+      return new Promise((resolve) => setTimeout(resolve, 90)).then(() => ctx.close()).catch(() => {});
+    });
+  }
+
   window.SoundEngine = {
     supported: Boolean(AudioCtx && OfflineCtx),
     unlock,
