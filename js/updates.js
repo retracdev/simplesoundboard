@@ -1,24 +1,18 @@
 /*
  * The footer's "Check for Updates" button.
  *
- * This page runs inside the kernel (index.html). The kernel fetches the newest copy of this
- * page and every file it loads, then restarts the app in place, so the tab itself never
- * reloads. Opened outside the kernel, there's nothing to ask, and the button stays hidden.
+ * It asks the live updater (js/live-update.js) to fetch the newest copy of the app and restart
+ * it in this same page, even when the version hasn't changed, so the tab never reloads. The
+ * updater shows the toast that follows. Without the updater there's nothing to ask, and the
+ * button stays hidden.
  */
 (function () {
   'use strict';
 
   const button = document.getElementById('checkUpdates');
   const label = document.getElementById('checkUpdatesLabel');
-  if (!button || !label) return;
-
-  let kernel = null;
-  try {
-    if (window.parent !== window) kernel = window.parent.SoundboardKernel || null;
-  } catch (error) {
-    kernel = null; // Framed by another site.
-  }
-  if (!kernel || typeof kernel.checkForUpdates !== 'function') return;
+  const updater = window.SoundboardLiveUpdate;
+  if (!button || !label || !updater || typeof updater.refresh !== 'function') return;
 
   function busy(on) {
     button.disabled = on;
@@ -32,10 +26,9 @@
     if (button.disabled) return;
     busy(true);
     try {
-      // On success the kernel restarts the app, and this page goes away with it.
-      await kernel.checkForUpdates();
+      // When the app restarts, this button goes away with the rest of the old page.
+      await updater.refresh();
     } catch (error) {
-      busy(false);
       if (window.SoundboardToasts) {
         window.SoundboardToasts.show({
           text: "Couldn't check for updates. Try again in a moment.",
@@ -43,6 +36,8 @@
           key: 'check-updates',
         });
       }
+    } finally {
+      if (button.isConnected) busy(false);
     }
   });
 })();

@@ -26,7 +26,7 @@ const respond = (status, body) => ({
 });
 
 function openPage({ session = null, save, saveStatus } = {}) {
-  const html = read('index-data.html').replace(/<script[^>]*><\/script>/g, '').replace(/<link[^>]*>/g, '');
+  const html = read('index.html').replace(/<script[^>]*><\/script>/g, '').replace(/<link[^>]*>/g, '');
   const dom = new JSDOM(html, { url: 'https://soundboard.retrac.space/', runScripts: 'outside-only', pretendToBeVisual: true });
   const { window } = dom;
   const { document } = window;

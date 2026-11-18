@@ -32,6 +32,26 @@ There is "Request a Sound Effect" button at the top of the page. You can press t
 ### 2. Submit it in a PR.
 If you understand the codebase (or know how to use an AI Development Tool like [Claude Code](https://claude.com/claude-code), you can create a branch, add the sound effect, and then create a PR.
 
+## Publishing Updates
+Simple Soundboard updates itself in open tabs without a page refresh.
+
+1. Change the site.
+2. Bump the version: `npm run set-version -- 1.2.0`. This sets `version.yml` and the matching `<meta name="soundboard-version">` in `index.html`.
+3. Deploy to GitHub Pages (merge to `main`).
+
+Every open tab reads `version.yml` every 30 seconds. When it finds a newer version, it downloads the new `index.html` and every script and stylesheet the page loads, and checks that they're all there and that the page really is that version. Then it plays the loading screen again, shuts the old app down, swaps in the new HTML, CSS and JavaScript, and starts the app as if it were a fresh visit. A green toast confirms the update. The address, your sign-in and your saved settings stay as they were.
+
+The **Check for Updates** button at the bottom of the page does the same restart on demand, even when the version hasn't changed. It never installs an older version than the one you're running.
+
+If an update can't be downloaded completely, which can happen while GitHub Pages is still deploying, the running app carries on and tabs try again later, waiting longer each time (up to 10 minutes). If a new version fails to start, the previous one is started again.
+
+Limitations:
+- Automatic updates wait while the tab is hidden, the app is loading, or a dialog is open, so nobody loses a half-filled form.
+- An update restarts the app, so sounds that are playing fade out, and unsaved typing (like a search) is cleared, just like a reload.
+- `js/live-update.js` is never replaced by a live update. Changes to it reach visitors on their next real page load.
+- Images, fonts and sounds that change while keeping the same file name may stay cached until a real reload. Give changed files a new name.
+- Scripts are run again in the same page, so every file in `js/` must stay wrapped in a function with no top-level `let`, `const` or `class`.
+
 ## retrac.space Accounts
 [retrac.space](retrac.space) are required to use some features on the soundboard. This requirement is in place so your data can cloud sync across your devices, free of charge.
 You can create an account [here](https://accounts.retrac.space), and you'll be automatically logged in on Simple Soundboard and other retrac.space projects.

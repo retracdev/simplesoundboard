@@ -1,14 +1,15 @@
 /* Toasts: small glass pills that rise into the bottom-right corner and stack.
  *
- *   SoundboardToasts.show({ text, name, icon, duration, until, key })
+ *   SoundboardToasts.show({ text, name, icon, duration, until, key, wrap })
  *
  * - text: the message. name: optional bold prefix that truncates first (user names).
  * - icon: optional leading icon: status dots 'online' | 'idle' | 'offline',
- *   or 'warning' for a yellow warning sign.
+ *   'warning' for a yellow warning sign, or 'success' for a green checkmark.
  * - until: a timestamp; shows a live "12s" countdown and closes when it ends.
  * - duration: milliseconds before closing when there is no countdown (default 4500).
  * - key: showing a key that is already on screen updates that toast in place
  *   instead of stacking a new one.
+ * - wrap: let a longer message wrap onto more lines instead of staying on one.
  *
  * Returns { dismiss() }. All text is set with textContent, never as HTML.
  */
@@ -18,8 +19,10 @@
   const DEFAULT_DURATION = 4500;
   const MAX_VISIBLE = 4;
   const LEAVE_MS = 320;
-  const ICONS = ['online', 'idle', 'offline', 'warning'];
+  const ICONS = ['online', 'idle', 'offline', 'warning', 'success'];
   const WARNING_SVG = '<svg viewBox="0 0 16 16" focusable="false"><path d="M8 1.6c.5 0 .95.27 1.2.7l5.9 10.3c.5.9-.15 2-1.2 2H2.1c-1.05 0-1.7-1.1-1.2-2L6.8 2.3c.25-.43.7-.7 1.2-.7Z" fill="currentColor"/><path d="M8 5.6v4" stroke="#1a1408" stroke-width="1.7" stroke-linecap="round"/><circle cx="8" cy="12.1" r="1" fill="#1a1408"/></svg>';
+  const SUCCESS_SVG = '<svg viewBox="0 0 16 16" focusable="false"><circle cx="8" cy="8" r="7.2" fill="currentColor"/><path d="m4.9 8.2 2.1 2.1 4.1-4.3" fill="none" stroke="#0b1d13" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const SVGS = { warning: WARNING_SVG, success: SUCCESS_SVG };
   const keyed = new Map();
   const visible = [];
   let region = null;
@@ -61,8 +64,9 @@
     const kind = ICONS.includes(options.icon) ? options.icon : null;
     icon.className = 'toast__icon' + (kind ? ' toast__icon--' + kind : '');
     // Static, trusted markup only; never caller-supplied HTML.
-    icon.innerHTML = kind === 'warning' ? WARNING_SVG : '';
+    icon.innerHTML = SVGS[kind] || '';
     icon.hidden = !kind;
+    node.classList.toggle('toast--wrap', Boolean(options.wrap));
     const name = node.querySelector('.toast__name');
     name.textContent = options.name || '';
     name.hidden = !options.name;

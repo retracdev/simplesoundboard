@@ -254,11 +254,14 @@
     show('unavailable', 'Online visitors unavailable');
   });
   window.addEventListener('online', refresh);
-  window.addEventListener('pagehide', () => {
+  function leave() {
     suspended = true;
     publishTab();
     pause();
-  });
+  }
+  window.addEventListener('pagehide', leave);
+  // A live update is replacing the app: give up this run's tab, like closing it.
+  if (window.SoundboardLiveUpdate) window.SoundboardLiveUpdate.onDispose(leave);
   window.addEventListener('pageshow', () => {
     suspended = false;
     resume();

@@ -457,6 +457,23 @@
   }, HEARTBEAT_MS);
   window.addEventListener('pagehide', savePending);
 
+  // A live update is replacing the app: hand unsent plays to the next run, marked as already
+  // quiet so it adopts them as soon as it starts.
+  if (window.SoundboardLiveUpdate) {
+    window.SoundboardLiveUpdate.onDispose(() => {
+      const store = storage();
+      if (!store || !hitQueue.length) {
+        savePending();
+        return;
+      }
+      try {
+        store.setItem(pendingKey, JSON.stringify({ at: 0, hits: hitQueue }));
+      } catch (error) {
+        // They just won't carry over.
+      }
+    });
+  }
+
   // Another tab read some counts, so this one can use them too.
   window.addEventListener('storage', (event) => {
     if (event.key === LIMIT_KEY) {
