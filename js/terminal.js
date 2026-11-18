@@ -3,6 +3,7 @@
  *
  *   startupdate  plays a full app update (loading screen, restart, "updated" toast), even
  *                when there's no new version
+ *   version      shows the running version
  *   logs [n]     shows the last n console messages (default 50), including failed updates
  *   copylogs     copies every console message to the clipboard
  *   help         lists the commands
@@ -14,12 +15,19 @@
 
   const COMMANDS = {
     help: () => [
+      'version      show the running version',
       'startupdate  play a full app update',
       'logs [n]     show the last n console messages (default 50)',
       'copylogs     copy every console message to the clipboard',
       'clear        empty the screen',
       'exit         close the terminal',
     ],
+    version: () => {
+      const updater = window.SoundboardLiveUpdate;
+      const meta = document.querySelector('meta[name="soundboard-version"]');
+      const version = (updater && updater.version) || (meta && meta.content);
+      return [version ? 'Simple Soundboard version ' + version : 'The version isn’t known here.'];
+    },
     logs: (count) => {
       const all = readLogs();
       if (!all) return ['Logs aren’t available here.'];
