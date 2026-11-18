@@ -13,7 +13,14 @@
 
   const { categories, sounds } = window.SOUND_CATALOG;
   const engine = window.SoundEngine;
-  const counter = window.SoundCounter;
+  const counter = window.SoundCounter || {
+    // counter.js is sometimes refused by content blockers. Then there are no counts, not a crash.
+    hit() {},
+    value: () => null,
+    status: () => ({ reading: 0, unsent: 0, offline: true }),
+    subscribe: () => () => {},
+    refresh() {},
+  };
 
   const VOLUME_KEY = 'simple-soundboard:volume'; // Shared with the board.
   const PRESS_MS = 70;

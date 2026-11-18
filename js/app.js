@@ -18,7 +18,7 @@
   const stringEditor = window.StringEditor;
   const tuneCore = window.TuneCore;
   const tuneEditor = window.TuneEditor;
-  const counter = window.SoundCounter;
+  const counter = window.SoundCounter || { hit() {} }; // counter.js may be blocked.
 
   const PRESS_MS = 70; // How fast a key sinks when hit.
   const MIN_RISE_SECONDS = 0.22; // Very short sounds still get a visible pop back up.

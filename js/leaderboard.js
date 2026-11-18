@@ -11,7 +11,14 @@
   'use strict';
 
   const { categories, sounds } = window.SOUND_CATALOG;
-  const counter = window.SoundCounter;
+  const counter = window.SoundCounter || {
+    // counter.js is sometimes refused by content blockers. Then there are no counts, not a crash.
+    hit() {},
+    value: () => null,
+    status: () => ({ reading: 0, unsent: 0, offline: true }),
+    subscribe: () => () => {},
+    refresh() {},
+  };
   const board = window.SoundBoard;
 
   const MIN_PLAYS = 2; // A sound needs more than one play to be ranked.
