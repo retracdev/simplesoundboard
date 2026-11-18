@@ -10,6 +10,8 @@
  *   src       the file, relative to index.html
  *   info      optional: a few words about the sound, shown under "Sound Effect Information"
  *   requestedBy optional: retrac.space user ID or array of IDs, looked up when sound information opens
+ *   voicedBy  optional: voice credit, using the same user ID format as requestedBy
+ *   recordedBy optional: recording credit, using the same user ID format as requestedBy
  *   dateAdded optional: permanent date shown in sound information, independent of the NEW label
  *   isNew     optional: show a NEW label beside the name until manually removed
  *
@@ -140,6 +142,10 @@
       src: 'sounds/no-no-wait-wait.mp3', requestedBy: '93fH6HGyFnR6ONjpZLgfO3SFQrtUDu3O', isNew: true, dateAdded: 'November 10, 2026' },
     { id: 'rehehehe', name: 'REHEHEHE', category: 'internet', tags: 'rehehehe laugh laughing meme',
       src: 'sounds/rehehehe.mp3', requestedBy: 'f6zHbQSsHYmjZORQYT4fCP64iCbDkxz0', isNew: true, dateAdded: 'November 10, 2026' },
+    { id: 'tucano', name: 'Tucano', category: 'internet', tags: 'tucano meme',
+      src: 'sounds/tucano.mp3', requestedBy: 'jgbyQiDsUlFN17uD2mIiHsYSbsjsYDRN',
+      voicedBy: 'jgbyQiDsUlFN17uD2mIiHsYSbsjsYDRN', recordedBy: 'WHwsJZpf4joElKVtsaAOEfTQ2zHHQFJD',
+      isNew: true, dateAdded: 'November 17, 2026' },
     { id: 'get-out', name: 'Get Out!', category: 'tv-movies', tags: 'tuco breaking bad yell quote',
       src: 'sounds/tuco-get-out.mp3' },
     { id: 'spongebob-failure', name: 'SpongeBob Failure', category: 'tv-movies', tags: 'fail cartoon sad lose',

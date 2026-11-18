@@ -832,7 +832,7 @@
 
   // ---------- Sound effect information ----------
 
-  // A panel that rises from the bottom over a blurred board. Requester usernames are
+  // A panel that rises from the bottom over a blurred board. Credited usernames are
   // looked up on each open so they reflect the user's current retrac.space name.
   const infoDialog = $('soundInfoDialog');
   const infoNameEl = $('soundInfoName');
@@ -840,7 +840,7 @@
   const infoCloseEl = $('soundInfoClose');
   let infoTrigger = null;
 
-  async function loadRequester(userId, target) {
+  async function loadCredit(userId, target) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
     try {
@@ -867,35 +867,40 @@
     infoTrigger = trigger || null;
     infoNameEl.textContent = sound.name;
     const text = typeof sound.info === 'string' ? sound.info.trim() : '';
+    const credits = [
+      ['Requested By', sound.requestedBy],
+      ['Voiced By', sound.voicedBy],
+      ['Recorded By', sound.recordedBy],
+    ];
     infoBodyEl.replaceChildren();
-    if (text || (!sound.requestedBy && !sound.dateAdded)) {
+    if (text || (!credits.some(([, value]) => value && value.length) && !sound.dateAdded)) {
       infoBodyEl.appendChild(el('p', text ? '' : 'sound-info__empty',
         text || 'There is no information available for this sound effect.'));
     }
-    const requesterIds = Array.isArray(sound.requestedBy)
-      ? sound.requestedBy : (sound.requestedBy ? [sound.requestedBy] : []);
-    const requesterTargets = [];
-    if (requesterIds.length) {
-      const requester = el('p', '', 'Requested By: ');
-      requester.setAttribute('role', 'status');
-      requesterIds.forEach((userId, index) => {
-        if (index) requester.appendChild(document.createTextNode(' and '));
+    const creditTargets = [];
+    credits.forEach(([label, value]) => {
+      const ids = Array.isArray(value) ? value : (value ? [value] : []);
+      if (!ids.length) return;
+      const row = el('p', '', label + ': ');
+      row.setAttribute('role', 'status');
+      ids.forEach((userId, index) => {
+        if (index) row.appendChild(document.createTextNode(' and '));
         const target = el('span');
         const spinner = icon('icon-loader');
         spinner.classList.add('sound-info__spinner');
         spinner.setAttribute('aria-hidden', 'true');
-        target.append(spinner, el('span', 'sr-only', 'Loading requester'));
-        requester.appendChild(target);
-        requesterTargets.push({ userId, target });
+        target.append(spinner, el('span', 'sr-only', 'Loading ' + label.toLowerCase()));
+        row.appendChild(target);
+        creditTargets.push({ userId, target });
       });
-      infoBodyEl.appendChild(requester);
-    }
+      infoBodyEl.appendChild(row);
+    });
     if (sound.dateAdded) {
       infoBodyEl.appendChild(el('p', '', 'Date Added: ' + sound.dateAdded));
     }
     infoDialog.showModal();
     infoCloseEl.focus({ preventScroll: true });
-    requesterTargets.forEach(({ userId, target }) => loadRequester(userId, target));
+    creditTargets.forEach(({ userId, target }) => loadCredit(userId, target));
   }
 
   infoCloseEl.addEventListener('click', () => infoDialog.close());
