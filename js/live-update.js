@@ -525,10 +525,34 @@
   }
 
   // Runs the new version's scripts in the order a page load would.
+  // Loads a script with a real <script src>, the way a page load does.
+  function loadTag(url, module) {
+    return new Promise((resolve, reject) => {
+      const element = document.createElement('script');
+      if (module) element.type = 'module';
+      element.src = url;
+      element.async = false;
+      native.addEventListener.call(element, 'load', resolve);
+      native.addEventListener.call(element, 'error', () => reject(new Error('Could not load ' + url)));
+      document.head.append(element);
+    });
+  }
+
   async function run(pkg) {
     const order = [...pkg.scripts.filter((script) => !script.late), ...pkg.scripts.filter((script) => script.late)];
     for (const [index, script] of order.entries()) {
-      if (script.skip) continue;
+      if (script.skip) {
+        // Some content blockers refuse a script when it's fetched, but allow it as a <script>
+        // tag, which is how a page load gets it. Try the fresh copy first, then the plain one.
+        const fresh = new URL(script.url);
+        fresh.searchParams.set('live', Date.now().toString(36));
+        try {
+          await loadTag(fresh.href, script.module).catch(() => loadTag(script.url, script.module));
+        } catch (error) {
+          console.warn('Simple Soundboard: skipped ' + script.url + ', which was blocked.', error);
+        }
+        continue;
+      }
       if (script.module && script.url) {
         const url = new URL(script.url);
         url.searchParams.set('live', Date.now().toString(36)); // A fresh module instance.
