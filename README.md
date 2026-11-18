@@ -36,7 +36,7 @@ If you understand the codebase (or know how to use an AI Development Tool like [
 Simple Soundboard updates itself in open tabs without a page refresh.
 
 1. Change the site.
-2. Bump the version: `npm run set-version -- 1.2.0`. This sets `version.yml` and the matching `<meta name="soundboard-version">` in `index.html`.
+2. Raise the version in `version.yml` (for example to `1.2.0`). You can do this right on github.com. The "Sync version" workflow copies it into `index.html` for you.
 3. Deploy to GitHub Pages (merge to `main`).
 
 Every open tab reads `version.yml` every 30 seconds. When it finds a newer version, it downloads the new `index.html` and every script and stylesheet the page loads, and checks that they're all there and that the page really is that version. Then it plays the loading screen again, shuts the old app down, swaps in the new HTML, CSS and JavaScript, and starts the app as if it were a fresh visit. A green toast confirms the update. The address, your sign-in and your saved settings stay as they were.

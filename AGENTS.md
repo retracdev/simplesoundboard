@@ -6,7 +6,7 @@ After adding, renaming or removing a sound effect, run `npm run build:social`. I
 
 The app's markup lives in `index.html`. Open tabs update themselves in place, without reloading, through `js/live-update.js`:
 
-- When you ship a change to the site, bump the version with `npm run set-version -- <version>`. It updates `version.yml` and the `<meta name="soundboard-version">` in `index.html` together. Live updates only install a page whose meta matches `version.yml`, so never change one without the other.
+- When you ship a change to the site, raise the version in `version.yml`. The "Sync version" workflow copies it into `<meta name="soundboard-version">` in `index.html` on `main` (locally, `npm run set-version` does the same). Live updates only install a page whose meta matches `version.yml`.
 - Keep every file in `js/` wrapped in a function, and share things between files through `window` properties. Don't add top-level `let`, `const` or `class`, because updates run each script again in the same page.
 - Anything that must be put away when the app is replaced (audio, unsent work) registers `window.SoundboardLiveUpdate.onDispose(fn)`. Listeners on `window`/`document`, timers, observers, fetches and Web Locks are cleaned up automatically.
 - `js/live-update.js` itself is never replaced by a live update. Changes to it reach visitors on their next real page load.

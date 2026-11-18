@@ -375,11 +375,23 @@
       .map((link) => new URL(link.getAttribute('href'), url).href);
     await Promise.all([
       ...scripts.filter((script) => script.url).map(async (script) => {
-        script.code = await load(script.url);
+        try {
+          script.code = await load(script.url);
+        } catch (error) {
+          // A content blocker refusing a file (no response at all) skips it, just as a page load
+          // would. A missing file (an HTTP error) means the deployment isn't finished.
+          if (!(error instanceof TypeError)) throw error;
+          script.skip = true;
+          return;
+        }
         if (!script.module) new Function(script.code); // Throws on a syntax error. Nothing runs.
       }),
       ...sheets.map(async (href) => styles.set(href, rebase(await load(href), href))),
     ]);
+    // More than a few refused files is a network problem, not a blocker.
+    if (scripts.filter((script) => script.skip).length > Math.max(2, scripts.length / 4)) {
+      throw new Error('Too many files could not be fetched');
+    }
     return { version, url, doc, scripts, styles };
   }
 
@@ -471,6 +483,7 @@
   async function run(pkg) {
     const order = [...pkg.scripts.filter((script) => !script.late), ...pkg.scripts.filter((script) => script.late)];
     for (const [index, script] of order.entries()) {
+      if (script.skip) continue;
       if (script.module && script.url) {
         const url = new URL(script.url);
         url.searchParams.set('live', Date.now().toString(36)); // A fresh module instance.

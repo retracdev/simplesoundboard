@@ -1,0 +1,40 @@
+# Copies the version in version.yml into <meta name="soundboard-version"> in index.html, so
+# raising version.yml on its own is enough to publish an update. Open tabs only install a page
+# whose meta matches version.yml.
+name: Sync version
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - version.yml
+      - index.html
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-version
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/set-version.cjs
+      - name: Commit changes
+        run: |
+          git add index.html
+          if git diff --cached --quiet; then
+            echo "index.html already matches version.yml."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Sync index.html with version.yml"
+          git push
