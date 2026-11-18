@@ -138,6 +138,39 @@
     });
   }
 
+  // The message-of-the-day bubble sits in the space right of "Simple", above the end of
+  // "Soundboard". That space changes with the window and the font, so it's measured, not
+  // guessed: the bubble keeps clear of the word, takes the width it has, scales with the
+  // logo, and hides when there isn't room. Layout offsets ignore the letters' bobbing.
+  function placeMotd() {
+    const bubble = $('motd');
+    const brand = bubble && bubble.parentElement;
+    const title = brand && brand.querySelector('.title');
+    const word = document.querySelector('#titleArt .title__line--small');
+    if (!bubble || !title || !word || !bubble.textContent.trim()) return;
+    const letters = word.querySelectorAll('.letter');
+    if (!letters.length) return;
+
+    function place() {
+      const last = letters[letters.length - 1];
+      const wordSize = parseFloat(getComputedStyle(word).fontSize) || 64;
+      const textSize = Math.min(18, Math.max(14, wordSize * .21));
+      // Clears the "e" plus the tail, which reaches .8em out from the bubble.
+      const left = title.offsetLeft + last.offsetLeft + last.offsetWidth + wordSize * .12 + textSize * .8;
+      const edge = brand.clientWidth - (parseFloat(getComputedStyle(title).paddingRight) || 0);
+      const width = Math.min(textSize * 19, edge - left);
+      bubble.style.setProperty('--motd-size', textSize + 'px');
+      bubble.style.setProperty('--motd-left', left + 'px');
+      bubble.style.setProperty('--motd-top', (title.offsetTop + word.offsetTop + word.offsetHeight * .45) + 'px');
+      bubble.style.setProperty('--motd-width', width + 'px');
+      bubble.dataset.fit = width >= textSize * 11 ? 'yes' : 'no';
+    }
+
+    place();
+    if ('ResizeObserver' in window) new ResizeObserver(place).observe(brand);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(place);
+  }
+
   function buildHeroNotes() {
     const layout = [
       [4, 12, 40, 8.5], [14, 62, 26, 11], [22, 8, 22, 7.5], [9, 80, 30, 10],
@@ -2079,6 +2112,7 @@
   // ---------- Start up ----------
 
   buildTitle();
+  placeMotd();
   buildHeroNotes();
   buildRibbon();
   buildBoard();
