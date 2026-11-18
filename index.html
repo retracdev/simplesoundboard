@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <!-- Copied from version.yml by the "Sync version" workflow. Edit version.yml, not this. -->
-  <meta name="soundboard-version" content="1.2">
+  <meta name="soundboard-version" content="1.2.1">
   <!-- Live updates. Loads first so it can track and shut down everything the app starts. -->
   <script src="js/live-update.js" data-live-update></script>
   <title>Simple Soundboard · retrac.space</title>
@@ -91,10 +91,15 @@
 
   <section class="hero" data-home-view>
     <div class="hero__notes" id="heroNotes" aria-hidden="true"></div>
-    <h1 class="title">
-      <span class="sr-only">Simple Soundboard</span>
-      <span class="title__art" id="titleArt" aria-hidden="true"></span>
-    </h1>
+    <div class="hero__brand">
+      <h1 class="title">
+        <span class="sr-only">Simple Soundboard</span>
+        <span class="title__art" id="titleArt" aria-hidden="true"></span>
+      </h1>
+      <!-- Message of the day: a speech bubble beside the logo. Change the text to update it,
+           or delete the paragraph to hide it. -->
+      <p class="motd" id="motd">To be honest, it's not very simple anymore...</p>
+    </div>
     <p class="hero__tag">Fun sound effects without the bloat.</p>
     <button class="changelog-pill" id="changelogOpen" type="button" aria-haspopup="dialog">
       <span class="changelog-pill__badge">NEW</span>
