@@ -3,6 +3,8 @@
  *
  *   startupdate  plays a full app update (loading screen, restart, "updated" toast), even
  *                when there's no new version
+ *   logs [n]     shows the last n console messages (default 50), including failed updates
+ *   copylogs     copies every console message to the clipboard
  *   help         lists the commands
  *   clear        empties the screen
  *   exit         closes the terminal (so does Escape, or ` with an empty line)
@@ -11,7 +13,33 @@
   'use strict';
 
   const COMMANDS = {
-    help: () => ['startupdate  play a full app update', 'clear        empty the screen', 'exit         close the terminal'],
+    help: () => [
+      'startupdate  play a full app update',
+      'logs [n]     show the last n console messages (default 50)',
+      'copylogs     copy every console message to the clipboard',
+      'clear        empty the screen',
+      'exit         close the terminal',
+    ],
+    logs: (count) => {
+      const all = readLogs();
+      if (!all) return ['Logs aren’t available here.'];
+      if (!all.length) return ['Nothing has been logged.'];
+      const shown = all.slice(-Math.max(1, Number.parseInt(count, 10) || 50));
+      if (shown.length < all.length) print('Showing the last ' + shown.length + ' of ' + all.length + '. Use "logs ' + all.length + '" for all.', 'muted');
+      shown.forEach((entry) => print(formatLog(entry), entry.level));
+      return [];
+    },
+    copylogs: () => {
+      const all = readLogs();
+      if (!all || !all.length) return ['Nothing to copy.'];
+      const text = all.map(formatLog).join('\n');
+      if (!navigator.clipboard) return ['Copying isn’t available here. Use "logs" instead.'];
+      navigator.clipboard.writeText(text).then(
+        () => print('Copied ' + all.length + ' messages.'),
+        () => print('Couldn’t copy. Use "logs" instead.'),
+      );
+      return [];
+    },
     clear: () => {
       output.textContent = '';
       return [];
@@ -23,8 +51,9 @@
     startupdate: () => {
       const updater = window.SoundboardLiveUpdate;
       if (!updater || typeof updater.simulateUpdate !== 'function') return ['Live updates aren’t available here.'];
-      updater.simulateUpdate().catch(() => {
-        print('Couldn’t start the update. Check your connection and try again.');
+      updater.simulateUpdate().catch((error) => {
+        console.warn('Simple Soundboard: startupdate failed.', error);
+        print('Couldn’t start the update: ' + (error && error.message ? error.message : error));
       });
       return ['Starting update…'];
     },
@@ -57,6 +86,16 @@
 
   let returnFocus = null;
 
+  function readLogs() {
+    const updater = window.SoundboardLiveUpdate;
+    return updater && typeof updater.logs === 'function' ? updater.logs() : null;
+  }
+
+  function formatLog(entry) {
+    const time = new Date(entry.time).toTimeString().slice(0, 8);
+    return time + ' ' + entry.level.toUpperCase().padEnd(5) + ' ' + entry.text;
+  }
+
   function print(text, kind) {
     const line = document.createElement('div');
     line.className = 'terminal__text' + (kind ? ' terminal__text--' + kind : '');
@@ -84,12 +123,13 @@
     input.value = '';
     if (!command) return;
     print('> ' + command, 'muted');
-    const run = COMMANDS[command.toLowerCase()];
+    const [name, ...args] = command.split(/\s+/);
+    const run = Object.prototype.hasOwnProperty.call(COMMANDS, name.toLowerCase()) && COMMANDS[name.toLowerCase()];
     if (!run) {
-      print('Unknown command: ' + command + '. Type "help" for commands.');
+      print('Unknown command: ' + name + '. Type "help" for commands.');
       return;
     }
-    run().forEach((text) => print(text));
+    run(...args).forEach((text) => print(text));
   });
 
   input.addEventListener('keydown', (event) => {

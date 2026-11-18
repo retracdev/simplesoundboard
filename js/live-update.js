@@ -62,6 +62,51 @@
   ]);
   const never = () => new Promise(() => {});
 
+  // ---------- Logs: what reached the console, for the ` terminal's "logs" command ----------
+  // Kept here because this file outlives every update, so a failed update's errors survive it.
+
+  const LOG_LIMIT = 300;
+  const logs = [];
+
+  function describe(value) {
+    if (value instanceof Error) {
+      const stack = value.stack || '';
+      return stack.includes(value.message) ? stack : value.name + ': ' + value.message + (stack ? '\n' + stack : '');
+    }
+    if (typeof value === 'string') return value;
+    try {
+      const json = JSON.stringify(value);
+      if (json !== undefined) return json;
+    } catch (error) { /* Circular or otherwise unprintable. */ }
+    return String(value);
+  }
+
+  function record(level, values) {
+    logs.push({ time: Date.now(), level, text: Array.from(values, describe).join(' ') });
+    if (logs.length > LOG_LIMIT) logs.splice(0, logs.length - LOG_LIMIT);
+  }
+
+  ['log', 'info', 'warn', 'error', 'debug'].forEach((level) => {
+    const original = console[level];
+    if (typeof original !== 'function') return;
+    console[level] = function (...values) {
+      record(level, values);
+      return original.apply(this, values);
+    };
+  });
+  // Uncaught errors, plus files that failed to load (those don't bubble, so listen while capturing).
+  native.addEventListener.call(window, 'error', (event) => {
+    const target = event.target;
+    if (target && target !== window && (target.src || target.href)) {
+      record('error', ['Failed to load ' + (target.src || target.href)]);
+    } else {
+      record('error', [event.error || event.message + (event.filename ? ' (' + event.filename + ':' + event.lineno + ')' : '')]);
+    }
+  }, true);
+  native.addEventListener.call(window, 'unhandledrejection', (event) => {
+    record('error', ['Unhandled promise rejection:', event.reason]);
+  });
+
   // ---------- Generations: one run of the app and everything it holds ----------
 
   // Between generations nothing is alive, so stale code that tries to start something is ignored.
@@ -560,7 +605,9 @@
   }
 
   async function apply(pkg, outcome) {
+    console.info('Simple Soundboard: switching from ' + running.version + ' to ' + pkg.version + ' (' + outcome + ').');
     const previous = running.pkg || await captureRunning();
+    if (!previous) console.warn('Simple Soundboard: no copy of the running version to fall back on.');
     try {
       await activate(pkg);
     } catch (error) {
@@ -581,6 +628,7 @@
     running.version = pkg.version;
     running.pkg = pkg;
     if (failedVersion === pkg.version) failedVersion = null;
+    console.info('Simple Soundboard: now running ' + pkg.version + '.');
     toast('success', MESSAGES[outcome]);
     return outcome;
   }
@@ -730,6 +778,8 @@
     check,
     refresh,
     simulateUpdate,
+    // What reached the console since the page loaded (newest last): { time, level, text }.
+    logs: () => logs.slice(),
     // Runs fn when this run of the app is shut down for an update. It may return a promise.
     onDispose(fn) {
       if (typeof fn === 'function' && current.alive) current.disposers.push(fn);
