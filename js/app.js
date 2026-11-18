@@ -883,10 +883,7 @@
       ['Recorded By', sound.recordedBy],
     ];
     infoBodyEl.replaceChildren();
-    if (text || (!credits.some(([, value]) => value && value.length) && !sound.dateAdded)) {
-      infoBodyEl.appendChild(el('p', text ? '' : 'sound-info__empty',
-        text || 'There is no information available for this sound effect.'));
-    }
+    if (text) infoBodyEl.appendChild(el('p', '', text));
     const creditTargets = [];
     credits.forEach(([label, value]) => {
       const ids = Array.isArray(value) ? value : (value ? [value] : []);
@@ -908,6 +905,10 @@
     if (sound.dateAdded) {
       infoBodyEl.appendChild(el('p', '', 'Date Added: ' + sound.dateAdded));
     }
+    const emptyRow = !text && !creditTargets.length && !sound.dateAdded
+      ? el('p', 'sound-info__empty', 'There is no information available for this sound effect.')
+      : null;
+    if (emptyRow) infoBodyEl.appendChild(emptyRow);
     const playsRow = el('p');
     playsRow.setAttribute('role', 'status');
     infoBodyEl.appendChild(playsRow);
@@ -915,6 +916,7 @@
       const count = counter.value(id);
       playsRow.hidden = !(count > 0);
       playsRow.textContent = count > 0 ? 'Total Plays: ' + count.toLocaleString() : '';
+      if (emptyRow) emptyRow.hidden = count > 0;
     };
     unsubscribeInfoCount();
     unsubscribeInfoCount = counter.subscribe((ids) => {
