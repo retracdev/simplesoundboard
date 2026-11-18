@@ -248,10 +248,13 @@ html.is-revealing .deck, html.is-revealing .ranks { animation-delay: .24s; }
   animation: toast-rise .4s cubic-bezier(.2, 1.25, .4, 1) both;
 }
 .terminal[hidden] { display: none; }
-.terminal__output { max-height: 180px; overflow-y: auto; padding: 10px 12px 0; }
+.terminal__output { max-height: min(320px, 50vh); overflow-y: auto; padding: 10px 12px 0; }
 .terminal__output:empty { display: none; }
 .terminal__text { white-space: pre-wrap; overflow-wrap: anywhere; }
 .terminal__text--muted { opacity: .6; }
+.terminal__text--warn { color: #ffc93c; }
+.terminal__text--error { color: #ff8a8a; }
+.terminal__text--debug { opacity: .75; }
 .terminal__line { display: flex; align-items: center; gap: 8px; margin: 0; padding: 8px 12px 10px; }
 .terminal__prompt { color: #5fdc93; font-weight: 700; }
 .terminal__input { flex: 1; min-width: 0; padding: 0; border: 0; outline: none; background: none; font: inherit; caret-color: #5fdc93; }

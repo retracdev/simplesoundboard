@@ -29,6 +29,7 @@
       // When the app restarts, this button goes away with the rest of the old page.
       await updater.refresh();
     } catch (error) {
+      console.warn('Simple Soundboard: Check for Updates failed.', error);
       if (window.SoundboardToasts) {
         window.SoundboardToasts.show({
           text: "Couldn't check for updates. Try again in a moment.",
