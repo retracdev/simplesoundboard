@@ -354,6 +354,18 @@ html.is-revealing .deck, html.is-revealing .ranks { animation-delay: .24s; }
   background: inherit;
   clip-path: polygon(100% 0, 0 100%, 100% 62%);
 }
+.motd__link {
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: none;
+  font: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: .12em;
+  text-underline-offset: .16em;
+  cursor: pointer;
+}
+.motd__link:hover { color: #5b3fd6; }
 @keyframes motd-float {
   0%, 100% { transform: translateY(-50%) rotate(-3deg); }
   50% { transform: translateY(calc(-50% - 5px)) rotate(-1.5deg); }
@@ -1689,6 +1701,13 @@ html.is-revealing .deck, html.is-revealing .ranks { animation-delay: .24s; }
   transition: transform .25s var(--ease), background .15s, border-color .15s;
 }
 .changelog-pill:hover { transform: translateY(-2px); background: rgba(171, 143, 255, .2); border-color: rgba(203, 181, 255, .45); }
+/* "Check out Toptext" sits on its own line under the changelog pill. */
+.changelog-pill--promotion {
+  display: flex;
+  width: fit-content;
+  margin: 10px auto 0;
+  padding: 6px 14px;
+}
 .changelog-pill__badge {
   padding: 2px 8px;
   border-radius: 999px;
