@@ -1652,6 +1652,23 @@ html.is-revealing .deck, html.is-revealing .ranks { animation-delay: .24s; }
   .sound-info { margin-bottom: 24px; }
 }
 
+/* ---------- Online services outage notice ---------- */
+.service-outage .sound-info__header { align-items: center; }
+.service-outage .sound-info__header h2 { margin-top: 0; color: #ffc93c; }
+.service-outage__icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  color: #ffc93c;
+  background: rgba(255, 201, 60, .14);
+}
+.service-outage__icon svg { width: 26px; height: 26px; }
+.service-outage .sound-info__body { white-space: normal; }
+.service-outage__actions { display: flex; justify-content: flex-end; margin-top: 18px; }
+
 /* ---------- Changelog ----------
  * A pill under the tagline, and a sheet that slides in on first visit per version.
  */

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <!-- Copied from version.yml by the "Sync version" workflow. Edit version.yml, not this. -->
-  <meta name="soundboard-version" content="1.2.2">
+  <meta name="soundboard-version" content="1.2.3">
   <!-- Live updates. Loads first so it can track and shut down everything the app starts. -->
   <script src="js/live-update.js" data-live-update></script>
   <title>Simple Soundboard · retrac.space</title>
@@ -240,6 +240,30 @@
     <div class="sound-request__body" id="soundRequestBody"></div>
   </dialog>
 
+  <dialog class="sound-info service-outage" id="serviceOutageDialog" aria-labelledby="serviceOutageTitle" aria-describedby="serviceOutageDescription">
+    <div class="sound-info__panel">
+      <header class="sound-info__header">
+        <span class="service-outage__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"></path>
+            <path d="M12 9v4"></path>
+            <path d="M12 17h.01"></path>
+          </svg>
+        </span>
+        <div>
+          <h2 id="serviceOutageTitle">retrac.space online services are unavailable.</h2>
+        </div>
+        <button class="sound-request__close" id="serviceOutageClose" type="button" aria-label="Close">&times;</button>
+      </header>
+      <div class="sound-info__body">
+        <p id="serviceOutageDescription">We're working on fixing errors in our backend. Your saves, strings, and other features are currently unavailable. Your tab will automatically update once we've fixed this. Thank you for your patience.</p>
+        <div class="service-outage__actions">
+          <button class="signin-button" id="serviceOutageOk" type="button">Got it</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
   <dialog class="sound-info" id="soundInfoDialog" aria-labelledby="soundInfoTitle">
     <div class="sound-info__panel">
       <header class="sound-info__header">
@@ -378,5 +402,6 @@
   <script src="js/sound-notifications.js"></script>
   <script src="js/updates.js"></script>
   <script src="js/terminal.js"></script>
+  <script src="js/service-outage.js"></script>
 </body>
 </html>
