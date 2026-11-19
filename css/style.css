@@ -1771,6 +1771,16 @@ html.is-revealing .deck, html.is-revealing .ranks { animation-delay: .24s; }
 .changelog__body hr { margin: 28px 0 20px; border: 0; border-top: 1px solid var(--line); }
 .changelog__signoff { color: #cbb5ff; font-family: var(--display); font-size: 1.4rem; }
 .changelog__actions { display: flex; justify-content: center; margin-top: 24px; }
+/* A promotion reuses the changelog sheet, with a looping video and a "Visit" link under it. */
+.promotion__video { margin-bottom: 18px; background: var(--panel-deep); }
+.promotion__visit-row { display: flex; justify-content: center; margin-bottom: 22px; }
+.changelog__body .promotion__visit {
+  display: inline-flex;
+  align-items: center;
+  color: var(--ink);
+  text-decoration: none;
+}
+.promotion__visit:hover { background: #fff; }
 .sound-updates__body { padding: 20px 24px 24px; }
 .sound-updates__list { display: grid; gap: 14px; margin: 0; padding: 0; list-style: none; }
 .sound-updates__card {
