@@ -31,7 +31,7 @@
   const $ = (id) => document.getElementById(id);
   const viewEl = $('leaderboardView');
   const homeEls = Array.from(document.querySelectorAll('[data-home-view]'));
-  const tabs = Array.from(document.querySelectorAll('.viewtab'));
+  const tabs = Array.from(document.querySelectorAll('.viewtab[data-view]'));
   const podiumEl = $('podium');
   const listEl = $('ranksList');
   const emptyEl = $('ranksEmpty');

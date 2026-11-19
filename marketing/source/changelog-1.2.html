@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Changelog 1.2</title>
+<style>
+  @font-face { font-family: "Bagel Fat One"; src: url("/assets/fonts/bagel-fat-one-latin.woff2") format("woff2"); }
+  @font-face { font-family: "Space Grotesk"; src: url("/assets/fonts/space-grotesk-latin-variable.woff2") format("woff2"); font-weight: 300 700; }
+
+  :root {
+    --bg: #07060d;
+    --ink: #171029;
+    --fg: #f3f0ff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1600px; height: 900px; overflow: hidden; }
+  body {
+    position: relative;
+    background:
+      radial-gradient(ellipse 70% 45% at 50% 0%, rgba(171, 143, 255, .10), transparent 70%),
+      radial-gradient(ellipse at 50% 50%, #0d0b16 0%, var(--bg) 75%);
+    color: var(--ink);
+    font-family: "Space Grotesk", system-ui, sans-serif;
+  }
+  body::before {
+    content: "";
+    position: absolute; inset: 0;
+    background-image: radial-gradient(rgba(255, 255, 255, .055) 1px, transparent 1.4px);
+    background-size: 22px 22px;
+    mask-image: radial-gradient(ellipse at 50% 40%, #000 30%, transparent 85%);
+  }
+
+  /* ---------- Title ---------- */
+  .title {
+    position: absolute; top: 34px; left: 0; right: 0;
+    text-align: center;
+    font-family: "Bagel Fat One", sans-serif;
+    font-weight: 400;
+    line-height: .98;
+  }
+  .title__line { display: block; white-space: nowrap; }
+  .title__line--small { font-size: 52px; }
+  .title__line--big { font-size: 92px; margin-top: 2px; }
+  .title__gap { display: inline-block; width: .24em; }
+  .letter {
+    display: inline-block;
+    color: var(--c);
+    text-shadow:
+      0 .012em 0 var(--d), 0 .024em 0 var(--d), 0 .036em 0 var(--d),
+      0 .048em 0 var(--d), 0 .06em 0 var(--d), 0 .072em 0 var(--d),
+      0 .12em .1em rgba(0, 0, 0, .55);
+    transform: translateY(var(--y)) rotate(var(--tw));
+  }
+
+  /* ---------- Grid ---------- */
+  .grid {
+    position: absolute;
+    left: 56px; right: 56px; top: 212px; bottom: 54px;
+    display: grid;
+    grid-template-columns: 604px 1fr 352px;
+    grid-template-rows: 1fr 182px;
+    gap: 30px 28px;
+  }
+
+  .card {
+    --side-h: 11px;
+    position: relative;
+    border-radius: 26px;
+    padding: 40px 42px;
+    margin-bottom: var(--side-h);
+    background:
+      radial-gradient(ellipse 90% 70% at 18% 0%, var(--hi), transparent 70%),
+      linear-gradient(170deg, var(--base) 0%, var(--base2) 100%);
+    box-shadow:
+      inset 0 2px 0 rgba(255, 255, 255, .45),
+      inset 0 0 0 1.5px rgba(255, 255, 255, .18),
+      0 var(--side-h) 0 var(--side),
+      0 calc(var(--side-h) + 14px) 34px rgba(0, 0, 0, .55);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .card::after {
+    content: "";
+    position: absolute; inset: 7px;
+    border-radius: 20px;
+    border: 1.5px solid rgba(255, 255, 255, .16);
+    pointer-events: none;
+  }
+  .card--teal   { --base: #4fd6c9; --base2: #35c7b9; --hi: rgba(170, 240, 232, .75); --side: #12877c; }
+  .card--green  { --base: #a3e886; --base2: #8bda6b; --hi: rgba(215, 248, 200, .75); --side: #479c2c; }
+  .card--yellow { --base: #f6d36b; --base2: #ecbd3a; --hi: rgba(252, 236, 190, .8); --side: #bd8406; }
+  .card--purple { --base: #b8a2ff; --base2: #a28aff; --hi: rgba(226, 216, 255, .8); --side: #6442c9; }
+
+  .icon {
+    width: 80px; height: 80px;
+    flex: none;
+    display: grid; place-items: center;
+    border-radius: 22px;
+    background: var(--ink);
+    color: var(--glyph);
+    box-shadow: 0 6px 14px rgba(23, 16, 41, .25);
+  }
+  .icon svg { width: 40px; height: 40px; }
+  .icon--big { width: 116px; height: 116px; border-radius: 30px; }
+  .icon--big svg { width: 58px; height: 58px; }
+  .icon--small { width: 66px; height: 66px; border-radius: 18px; }
+  .icon--small svg { width: 34px; height: 34px; }
+  .card--teal   .icon { --glyph: #35d6c8; }
+  .card--green  .icon { --glyph: #93e571; }
+  .card--yellow .icon { --glyph: #ffc93c; }
+  .card--purple .icon { --glyph: #ab8fff; }
+
+  h2 {
+    font-weight: 700;
+    letter-spacing: -.015em;
+    line-height: 1.04;
+    color: var(--ink);
+  }
+  p.desc {
+    margin-top: 12px;
+    color: rgba(23, 16, 41, .78);
+    font-weight: 500;
+    line-height: 1.38;
+  }
+  .spacer { flex: 1; }
+
+  /* ---------- Leaderboard card ---------- */
+  .lead { grid-row: 1 / 3; }
+  .lead h2 { font-size: 66px; }
+  .lead p.desc { font-size: 25px; max-width: 520px; }
+  .ranks { display: grid; gap: 12px; margin-top: 18px; margin-bottom: 26px; }
+  .rank {
+    display: flex; align-items: center; gap: 14px;
+    padding: 10px 16px 10px 10px;
+    border-radius: 16px;
+    border: 2px solid rgba(23, 16, 41, .22);
+    background: rgba(23, 16, 41, .07);
+    font-weight: 700;
+    font-size: 21px;
+  }
+  .rank__place {
+    width: 40px; height: 40px;
+    display: grid; place-items: center;
+    border-radius: 12px;
+    background: var(--ink);
+    color: var(--pc);
+    font-family: "Bagel Fat One", sans-serif;
+    font-weight: 400;
+    font-size: 20px;
+  }
+  .rank__name { width: 170px; }
+  .rank__bar {
+    flex: 1;
+    height: 12px;
+    border-radius: 6px;
+    background: rgba(23, 16, 41, .12);
+    overflow: hidden;
+  }
+  .rank__bar i {
+    display: block; height: 100%; width: var(--w);
+    border-radius: 6px;
+    background: var(--ink);
+  }
+  .rank:nth-child(1) { background: rgba(23, 16, 41, .12); border-color: rgba(23, 16, 41, .3); }
+
+  /* ---------- Presence cards ---------- */
+  .pres h2 { font-size: 44px; }
+  .pres p.desc { font-size: 20px; }
+  .card--yellow.pres h2 { font-size: 40px; }
+  .card--yellow.pres p.desc { font-size: 18px; }
+  .presence {
+    display: inline-flex; align-items: center; gap: 10px;
+    width: fit-content;
+    margin-top: 24px;
+    padding: 11px 18px;
+    border-radius: 20px;
+    background: var(--ink);
+    color: #e4dbff;
+    font-size: 18px;
+    font-weight: 500;
+    white-space: nowrap;
+    box-shadow: 0 6px 16px rgba(23, 16, 41, .22);
+  }
+  .presence__dot { width: 11px; height: 11px; border-radius: 50%; flex: none; }
+  .presence--online .presence__dot { background: #9de5bc; box-shadow: 0 0 10px rgba(157, 229, 188, .7); }
+  .presence--idle .presence__dot { background: #ffc93c; box-shadow: 0 0 10px rgba(255, 201, 60, .6); }
+  .presence b { color: #fff; font-weight: 700; }
+
+  /* ---------- Auto update card ---------- */
+  .auto {
+    grid-column: 2 / 4;
+    flex-direction: row;
+    align-items: center;
+    gap: 26px;
+    padding: 30px 36px;
+  }
+  .auto__text { flex: 1; min-width: 0; }
+  .auto h2 { font-size: 38px; }
+  .auto p.desc { margin-top: 8px; font-size: 19px; }
+  .tab {
+    flex: none;
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px 12px 14px;
+    border-radius: 16px;
+    background: var(--ink);
+    color: #e4dbff;
+    font-size: 17px;
+    font-weight: 600;
+    box-shadow: 0 6px 16px rgba(23, 16, 41, .22);
+  }
+  .tab svg { width: 22px; height: 22px; color: #ab8fff; }
+  .tab__ver { color: rgba(228, 219, 255, .55); }
+  .tab__arrow { color: rgba(228, 219, 255, .55); }
+  .tab__new {
+    padding: 3px 9px;
+    border-radius: 8px;
+    background: #ab8fff;
+    color: var(--ink);
+    font-weight: 700;
+  }
+</style>
+</head>
+<body>
+  <h1 class="title" id="title"></h1>
+
+  <main class="grid">
+    <!-- Leaderboard -->
+    <section class="card card--teal lead">
+      <div class="icon icon--big">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+      </div>
+      <div class="spacer"></div>
+      <div class="ranks">
+        <div class="rank"><span class="rank__place" style="--pc:#ffc93c">1</span><span class="rank__name">MLG Airhorn</span><span class="rank__bar"><i style="--w:100%"></i></span></div>
+        <div class="rank"><span class="rank__place" style="--pc:#e4dbff">2</span><span class="rank__name">Bruh</span><span class="rank__bar"><i style="--w:78%"></i></span></div>
+        <div class="rank"><span class="rank__place" style="--pc:#ff8360">3</span><span class="rank__name">Boom (Vine)</span><span class="rank__bar"><i style="--w:61%"></i></span></div>
+      </div>
+      <div class="spacer"></div>
+      <h2>Leaderboard</h2>
+      <p class="desc">See which sounds get played the most, counted live from everyone.</p>
+    </section>
+
+    <!-- Online -->
+    <section class="card card--green pres">
+      <div class="icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      </div>
+      <span class="presence presence--online"><span class="presence__dot"></span><span>Online now (3): <b>Ava, Milo (you), Jules</b></span></span>
+      <div class="spacer"></div>
+      <h2>See Who's Online</h2>
+      <p class="desc">See everyone on the soundboard right now, by name.</p>
+    </section>
+
+    <!-- Idle -->
+    <section class="card card--yellow pres">
+      <div class="icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+      </div>
+      <span class="presence presence--idle"><span class="presence__dot"></span><span>Idle (1): <b>Sam</b></span></span>
+      <div class="spacer"></div>
+      <h2>See Who's Idle</h2>
+      <p class="desc">See who has it open in a background tab.</p>
+    </section>
+
+    <!-- Automatic updates -->
+    <section class="card card--purple auto">
+      <div class="icon icon--small">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+      </div>
+      <div class="auto__text">
+        <h2>Automatic Updates</h2>
+        <p class="desc">Your tab updates itself in place. No refresh needed.</p>
+      </div>
+      <div class="tab">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        <span class="tab__ver">v1.1</span><span class="tab__arrow">→</span><span class="tab__new">v1.2</span>
+      </div>
+    </section>
+  </main>
+
+<script>
+  (function () {
+    var CANDY = [
+      ['#35d6c8', '#12877c'], ['#ab8fff', '#6442c9'], ['#ff7eb6', '#c0407b'],
+      ['#ffc93c', '#bd8406'], ['#ff8360', '#bf4526'], ['#93e571', '#479c2c'],
+    ];
+    var VERSION = [['#93e571', '#479c2c'], ['#35d6c8', '#12877c'], ['#ab8fff', '#6442c9']];
+    var BOB = [.02, -.05, .01, -.07, .03, -.04, .0, -.06, .02, -.03, .01, -.05, .02];
+    var title = document.getElementById('title');
+    var index = 0;
+    function line(cls) {
+      var el = document.createElement('span');
+      el.className = 'title__line ' + cls;
+      title.appendChild(el);
+      return el;
+    }
+    function letter(parent, ch, pair) {
+      var el = document.createElement('span');
+      el.className = 'letter';
+      el.textContent = ch;
+      el.style.setProperty('--c', pair[0]);
+      el.style.setProperty('--d', pair[1]);
+      el.style.setProperty('--y', BOB[index % BOB.length] + 'em');
+      el.style.setProperty('--tw', (index % 2 ? 2.6 : -2.6) + 'deg');
+      parent.appendChild(el);
+      index++;
+    }
+    var small = line('title__line--small');
+    Array.from('Simple').forEach(function (ch) { letter(small, ch, ['#f3f0ff', '#8b86a3']); });
+    var big = line('title__line--big');
+    Array.from('Soundboard').forEach(function (ch, i) { letter(big, ch, CANDY[i % CANDY.length]); });
+    var gap = document.createElement('span');
+    gap.className = 'title__gap';
+    big.appendChild(gap);
+    Array.from('1.2').forEach(function (ch, i) { letter(big, ch, VERSION[i]); });
+  })();
+</script>
+</body>
+</html>

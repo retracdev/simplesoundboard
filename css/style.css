@@ -2390,7 +2390,7 @@ html.is-revealing .deck, html.is-revealing .ranks { animation-delay: .24s; }
   .string-editor__zoom { margin-left: 0; }
 }
 
-/* ---------- Top bar tabs: Home and Leaderboard ---------- */
+/* ---------- Top bar tabs: Home, Leaderboard and the account ---------- */
 .topbar { justify-content: space-between; gap: 12px; }
 .viewtabs {
   display: inline-flex;
@@ -2438,6 +2438,17 @@ html.is-revealing .deck, html.is-revealing .ranks { animation-delay: .24s; }
   .topbar__logo img { width: 112px; }
   .viewtab { padding: 0 11px; gap: 0; }
   .viewtab svg { display: none; }
+  /* Three tabs don't fit beside the logo, so the account tab shrinks to its icon. */
+  .viewtab--account { padding: 0 10px; }
+  .viewtab--account svg { display: block; width: 18px; height: 18px; }
+  .viewtab--account span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
 }
 
 /* ---------- Sound Leaderboard ---------- */
