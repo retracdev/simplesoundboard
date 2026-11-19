@@ -91,14 +91,19 @@
 
   <section class="hero" data-home-view>
     <div class="hero__notes" id="heroNotes" aria-hidden="true"></div>
-    <h1 class="title">
-      <span class="sr-only">Simple Soundboard</span>
-      <span class="title__art" id="titleArt" aria-hidden="true"></span>
-    </h1>
+    <div class="hero__brand">
+      <h1 class="title">
+        <span class="sr-only">Simple Soundboard</span>
+        <span class="title__art" id="titleArt" aria-hidden="true"></span>
+      </h1>
+      <!-- Message of the day: a speech bubble beside the logo. Change the text to update it,
+           or delete the paragraph to hide it. -->
+      <p class="motd" id="motd">To be honest, it's not very simple anymore...</p>
+    </div>
     <p class="hero__tag">Fun sound effects without the bloat.</p>
     <button class="changelog-pill" id="changelogOpen" type="button" aria-haspopup="dialog">
       <span class="changelog-pill__badge">NEW</span>
-      View v1.1 changelog
+      View v1.2 changelog
     </button>
     <p class="presence" id="presence" role="status" aria-atomic="true" title="Visitors with a visible tab count as online; background tabs stay connected as idle. Multiple tabs share one session. Visitors drop off within 90 seconds after their last heartbeat." hidden>
       <span class="presence__dot" aria-hidden="true"></span>
@@ -326,46 +331,43 @@
     <div class="changelog__panel">
       <header class="changelog__header">
         <div>
-          <p class="changelog__version">Version 1.1</p>
-          <h2 id="changelogTitle">Simple Soundboard's Biggest Update Yet: Version 1.1 is Here</h2>
+          <p class="changelog__version">Version 1.2</p>
+          <h2 id="changelogTitle">Simple Soundboard Got Even Better: Version 1.2 is Here</h2>
         </div>
         <button class="sound-request__close" id="changelogClose" type="button" aria-label="Close changelog">&times;</button>
       </header>
       <div class="changelog__body">
-        <img class="changelog__image" src="assets/changelog-1.1.png" alt="Simple Soundboard 1.1: Strings, Loop Sound, Edit Speed and Pitch, NEW Tag, and the Three-Dot Menu" width="1600" height="900" loading="lazy">
+        <img class="changelog__image" src="assets/changelog-1.2.png" alt="Simple Soundboard 1.2: Leaderboard, See Who's Online, See Who's Idle, and Automatic Updates" width="1600" height="900" loading="lazy">
 
         <p>Hi everyone,</p>
-        <p>I've been working hard on getting this update out ASAP, and I think everybody will really enjoy it. I've added a bunch of new features and sound effects, so enjoy!</p>
+        <p>Version 1.1 was a huge update, and I didn't want to slow down after it. This update is all about making Simple Soundboard feel more alive, so you can see what everyone else is playing and who's on the site with you. I also added a bunch of new sound effects, so enjoy!</p>
 
-        <h3><span>1.</span> <strong>Strings</strong></h3>
-        <p>This is probably the best feature I've added yet. Strings let you combine any sounds you want into one sound. You can add as many sounds as you want, duplicate them, and even use strings inside other strings. It's really fun to play around with.</p>
-        <p>There is no limit for how many strings you make, you just need a retrac.space account. Your strings will save across all your devices, just like your favorites.</p>
-        <p>To get started with your first string, find any sound effect, press the 3-Dot-Menu button and select "Create string with this sound."</p>
+        <h3><span>1.</span> <strong>Leaderboard</strong></h3>
+        <p>This is probably my favorite feature in this update. The Leaderboard shows which sound effects get played the most, counted live from everyone on the site. The top three get a podium with trophies, and everything after that gets a bar showing how close it is to first place.</p>
+        <p>To keep things fair, a play only counts once the sound plays all the way through, and there's a short cooldown if you spam the same sound. Looping a sound counts every repeat, so go ahead and loop your favorite to help it climb.</p>
+        <p>To check out the Leaderboard, press the Leaderboard tab at the top of the page. You can also see any sound effect's total plays by pressing its About button.</p>
 
-        <h3><span>2.</span> <strong>Loop Sound</strong></h3>
-        <p>This one was needed. Sometimes you just really want to play a sound effect, over and over again. At first, I was creating Strings with the same sound duplicated, and that got tedious, so that is how Loop Sound was added!</p>
-        <p>To loop any sound effect, press the 3-Dot-Menu button and select "Loop sound." To stop a sound from looping, you can press 3-Dot-Menu button and select "Stop loop sound," or press the Stop All button.</p>
+        <h3><span>2.</span> <strong>See Who's Online</strong></h3>
+        <p>This one is pretty cool. Right under the title, you can now see everyone who's on the soundboard right now, by name. Your own name shows up with "(you)" next to it, and if you have Simple Soundboard open in a few tabs, you'll still only show up once.</p>
 
-        <h3><span>3.</span> <strong>Edit Speed and Pitch</strong></h3>
-        <p>This one's just fun. You can now edit any sound effect's Speed and Pitch! You could make "Enrique" faster, "Get Out!" slower, "I got this" deeper, and just about anything. The best part? It saves across your devices, just like Strings and Favorites.</p>
-        <p>To edit a sound effect's speed and pitch, press the 3-Dot-Menu button and select "Edit Speed and Pitch." A menu will open where you can drag sliders to change how a sound sounds. If you ever want to go back to the original sound, press the 3-Dot-Menu button, select "Edit Speed and Pitch," and press "Reset to normal."</p>
+        <h3><span>3.</span> <strong>See Who's Idle</strong></h3>
+        <p>This goes right along with See Who's Online. If someone has Simple Soundboard open in a background tab, they'll show up as Idle instead of Online. That way you can tell who's actually playing sounds and who just left the tab open.</p>
 
-        <h3><span>4.</span> <strong>New Tag</strong></h3>
-        <p>This one is pretty simple. Now, when new sound effects are added to the site, they'll have a NEW tag on them for a few days or weeks. You can also filter sound effects to only show new ones at the top, in the same place as the other filters.</p>
+        <h3><span>4.</span> <strong>Automatic Updates</strong></h3>
+        <p>This one was needed. Before, if I added new sound effects or fixed something, you had to refresh the page to get it. Now, your tab updates itself in place, usually within about 30 seconds of me publishing something. No refresh needed!</p>
+        <p>If you ever want to check for an update yourself, scroll to the bottom of the page and press "Check for Updates."</p>
 
-        <h3><span>5.</span> <strong>3-Dot-Menu</strong></h3>
-        <p>I probably have said the word "3-Dot-Menu" a lot in this change log. But what is the 3-Dot-Menu? The 3-Dot-Menu is a new button on every sound effect that lets you open more options for the sound effect, like creating a String, Looping the sound, and more. I added this because originally you had to right-click a sound effect to open the menu, but that was complicated and impossible to do on mobile and touchscreen.</p>
+        <h3><span>5.</span> <strong>Share Sounds</strong></h3>
+        <p>You can now share any sound effect with a link! Press the 3-Dot-Menu button and select "Share." You'll see a preview of how your link will look when you send it, with its own card image. If you're signed in, the share page will show your name so your friends know who sent it.</p>
 
-        <h3><span>6.</span> <strong>The About Button</strong></h3>
-        <p>I've added an About button to every sound effect, where you can see who requested it, when it was added, and more information.</p>
+        <h3><span>6.</span> <strong>Sound Request Updates</strong></h3>
+        <p>If you've requested a sound effect with your retrac.space account, Simple Soundboard will now let you know when there's an update on your request.</p>
 
         <hr>
 
-        <p>Version 1.1 is a very big update, and I hope everybody enjoys it.<br>
-        Some people did have Beta access to certain features before they were published to everyone, but now anyone can try out Strings, Looping, Speed changing, and more!</p>
+        <p>Version 1.2 is another big update, and I hope everybody has fun with it.<br>
+        I've also added over 20 new sound effects since 1.1, including a bunch of your requests, Tucano, and two new Fortnite sounds!</p>
         <p>Thank you to everybody who chose to use Simple Soundboard, it really means the world to me.</p>
-        <p>By the way, I've published <a href="https://glowstudio.retrac.space/" target="_blank" rel="noopener">Glow</a>, a fun light studio where you can make glowing tubes, neon braids, and more.</p>
-        <p>Glow is a pretty simple website, but I have a few Projects that I'm cooking up, which will be available in a couple of weeks.</p>
         <p>Thanks everyone! :)</p>
         <p class="changelog__signoff">Retrac</p>
 

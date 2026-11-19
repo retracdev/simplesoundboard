@@ -7,7 +7,7 @@
 (function () {
   'use strict';
 
-  const CHANGELOG_VERSION = '1.1';
+  const CHANGELOG_VERSION = '1.2';
   const COOKIE = 'ssb_changelog_dismissed';
   const ONE_YEAR = 60 * 60 * 24 * 365;
 
