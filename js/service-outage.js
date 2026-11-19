@@ -1,10 +1,15 @@
 /*
  * Tells visitors that retrac.space online services are down. Shown every time the page
  * opens, once the loading screen has gone. Esc, the × button, the "Got it" button or a
- * click on the backdrop closes it. Remove this file (and its dialog) once the backend is back.
+ * click on the backdrop closes it.
  */
 (function () {
   'use strict';
+
+  // Turned off: online services are working again. Set to true (and raise the version)
+  // to show the notice again during a future outage.
+  const ENABLED = false;
+  if (!ENABLED) return;
 
   const dialog = document.getElementById('serviceOutageDialog');
   if (!dialog) return;
