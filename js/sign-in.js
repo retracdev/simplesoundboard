@@ -110,6 +110,14 @@
         screen.description = 'Choose a username at retrac.space to start editing speed and pitch, then come back here.';
       }
     }
+    if (purpose === 'account') {
+      if (next === 'confirm') {
+        screen.title = 'Unlock the full Simple Soundboard experience';
+        screen.description = 'Login or create a retrac.space account to get started.';
+      } else if (next === 'incomplete') {
+        screen.description = 'Choose a username at retrac.space to finish setting up your account, then come back here.';
+      }
+    }
     const waiting = next === 'waiting' || next === 'checking';
     dialog.innerHTML = `<section class="signin-panel">
       <div class="signin-brand"><img src="assets/alt-favicon.png" alt=""><span>retrac.space</span></div>

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <!-- Copied from version.yml by the "Sync version" workflow. Edit version.yml, not this. -->
-  <meta name="soundboard-version" content="1.2.5">
+  <meta name="soundboard-version" content="1.2.6">
   <!-- Live updates. Loads first so it can track and shut down everything the app starts. -->
   <script src="js/live-update.js" data-live-update></script>
   <title>Simple Soundboard · retrac.space</title>
@@ -70,6 +70,9 @@
     <symbol id="icon-trophy" viewBox="0 0 24 24"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></symbol>
     <!-- A solid trophy for the podium. -->
     <symbol id="icon-cup" viewBox="0 0 64 64"><path class="cup__body" fill-rule="evenodd" d="M16 6h32v4h8a2 2 0 0 1 2 2v6c0 8-6 13-13 13.6A16 16 0 0 1 35 39v7h7a3 3 0 0 1 3 3v3H19v-3a3 3 0 0 1 3-3h7v-7a16 16 0 0 1-10-7.4C12 31 6 26 6 18v-6a2 2 0 0 1 2-2h8zM10 14h6v8c0 1.8.3 3.5.8 5.1C13 25.8 10 22.6 10 18zM54 14h-6v8c0 1.8-.3 3.5-.8 5.1C51 25.8 54 22.6 54 18z"/><path class="cup__base" d="M14 54h36a2 2 0 0 1 2 2v4H12v-4a2 2 0 0 1 2-2z"/><path class="cup__star" d="M32 11.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z"/></symbol>
+    <!-- Lucide "circle-user-round" and "log-in", ISC License, Copyright (c) Lucide Icons and Contributors -->
+    <symbol id="icon-account" viewBox="0 0 24 24"><path d="M18 20a6 6 0 0 0-12 0"/><circle cx="12" cy="10" r="4"/><circle cx="12" cy="12" r="10"/></symbol>
+    <symbol id="icon-sign-in" viewBox="0 0 24 24"><path d="m10 17 5-5-5-5"/><path d="M15 12H3"/><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/></symbol>
     <symbol id="icon-heart" viewBox="0 0 24 24"><path d="M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5"/></symbol>
   </svg>
 
@@ -86,6 +89,11 @@
         <svg aria-hidden="true"><use href="#icon-trophy"/></svg>
         <span>Leaderboard</span>
       </a>
+      <!-- Signed out, this opens the sign-in popup. Signed in, it's a link to the account. -->
+      <a class="viewtab viewtab--account" id="accountTab" href="https://accounts.retrac.space/" target="_blank" rel="noopener" aria-haspopup="dialog">
+        <svg aria-hidden="true"><use href="#icon-sign-in"/></svg>
+        <span id="accountTabLabel">Sign In</span>
+      </a>
     </nav>
   </header>
 
@@ -98,15 +106,12 @@
       </h1>
       <!-- Message of the day: a speech bubble beside the logo. Change the text to update it,
            or delete the paragraph to hide it. -->
-      <p class="motd" id="motd">Also try <button class="motd__link" id="motdToptext" type="button" aria-haspopup="dialog">Toptext</button>!</p>
+      <p class="motd" id="motd">To be honest, it's not very simple anymore...</p>
     </div>
     <p class="hero__tag">Fun sound effects without the bloat.</p>
     <button class="changelog-pill" id="changelogOpen" type="button" aria-haspopup="dialog">
       <span class="changelog-pill__badge">NEW</span>
       View v1.2 changelog
-    </button>
-    <button class="changelog-pill changelog-pill--promotion" id="promotionOpen" type="button" aria-haspopup="dialog">
-      Check out Toptext
     </button>
     <p class="presence" id="presence" role="status" aria-atomic="true" title="Visitors with a visible tab count as online; background tabs stay connected as idle. Multiple tabs share one session. Visitors drop off within 90 seconds after their last heartbeat." hidden>
       <span class="presence__dot" aria-hidden="true"></span>
@@ -418,6 +423,7 @@
   <script src="js/strings-core.js"></script>
   <script src="js/favorites.js"></script>
   <script src="js/sign-in.js"></script>
+  <script src="js/account-tab.js"></script>
   <script src="js/rearrange.js"></script>
   <script src="js/strings-access.js"></script>
   <script src="js/string-editor.js"></script>
