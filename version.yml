@@ -1,4 +1,4 @@
 # The published version of Simple Soundboard. Open tabs read this every 30 seconds and switch
 # to a newer version in place, without reloading. To publish a change, raise this number.
 # The "Sync version" workflow copies it into <meta name="soundboard-version"> in index.html.
-version: "1.2.7"
+version: "1.2.8"
