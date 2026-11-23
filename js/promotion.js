@@ -3,8 +3,8 @@
  * opens once the loading screen has gone and no other dialog is up, until the visitor
  * dismisses it (Dismiss, the × button, Escape or a click on the backdrop), which is
  * remembered in a cookie. "Visit Toptext" opens the site in a new tab and leaves the
- * sheet open, so it does not count as dismissing. The MOTD's "Toptext" link and the
- * "Check out Toptext" pill under the changelog pill reopen it any time. For the next promotion, change
+ * sheet open, so it does not count as dismissing. The "Check out Toptext" pill under the
+ * changelog pill (and a #motdToptext link in the MOTD, when there is one) reopens it any time. For the next promotion, change
  * PROMOTION_ID (and the dialog's content) and everyone sees it once more. To retire it,
  * remove this file and #promotionDialog.
  */
