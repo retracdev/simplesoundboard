@@ -10,6 +10,9 @@
   const CHANGELOG_VERSION = '1.2';
   const COOKIE = 'ssb_changelog_dismissed';
   const ONE_YEAR = 60 * 60 * 24 * 365;
+  // The 1.2 changelog no longer slides in on load (the Reaction Arena promotion has the
+  // spotlight); the pill still opens it. Bumping CHANGELOG_VERSION turns auto-open back on.
+  const QUIET_VERSIONS = ['1.2'];
 
   const dialog = document.getElementById('changelogDialog');
   const openButton = document.getElementById('changelogOpen');
@@ -49,7 +52,7 @@
   doneButton.addEventListener('click', close);
   openButton.addEventListener('click', open);
 
-  if (dismissedVersion() !== CHANGELOG_VERSION) {
+  if (!QUIET_VERSIONS.includes(CHANGELOG_VERSION) && dismissedVersion() !== CHANGELOG_VERSION) {
     // Wait out the loading screen, then let the board rise in so the sheet slides over it.
     const splash = window.SoundboardSplash;
     (splash ? splash.whenDone : (fn) => fn())(() => setTimeout(() => {
