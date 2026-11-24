@@ -1,12 +1,19 @@
 /*
- * The small sign-in dialog, following BasketSmash's flow: sign in at retrac.space in a new
- * tab, and this page notices when the visitor comes back and checks their session again.
+ * The small sign-in dialog. Its main button goes to the retrac.space guided sign-in page in
+ * this tab, which sends the visitor back here with ?signed-in, and a "You're signed in" popup
+ * greets them. The other screens still open accounts in a new tab, and this page notices
+ * when the visitor comes back and checks their session again.
  */
 (function () {
   'use strict';
 
   const account = window.RetracAccount;
   const ACCOUNTS_URL = 'https://accounts.retrac.space';
+  const GUIDED_URL = ACCOUNTS_URL + '/guided-setup';
+  const SITE_URL = 'https://soundboard.retrac.space/';
+  // 960x1200, made by `npm run build:cards`. Guided setup only shows art from retrac.space.
+  const GUIDED_IMAGE = SITE_URL + 'assets/social/guided-setup.jpg';
+  const RETURN_PARAM = 'signed-in';
 
   // What each reason from accounts means for the visitor. Any other reason gets no sentence.
   const ACTION_REASONS = {
@@ -20,8 +27,8 @@
   const screens = {
     confirm: {
       title: 'Save your favorite sounds',
-      description: 'Sign in with your retrac.space account to keep your favorites. We’ll open it in a new tab, then pick up right here when you’re back.',
-      actions: [['open', 'Continue to retrac.space'], ['cancel', 'Not now']],
+      description: 'Sign in with your retrac.space account to keep your favorites. We’ll bring you right back here when you’re done.',
+      actions: [['guided', 'Sign in or create account'], ['cancel', 'Not now']],
     },
     waiting: {
       title: 'Finish signing in',
@@ -81,7 +88,7 @@
     if (purpose === 'request') {
       if (next === 'confirm') {
         screen.title = 'Request a sound effect';
-        screen.description = 'Sign in with your retrac.space account to send a sound request. We’ll open it in a new tab, then pick up right here when you’re back.';
+        screen.description = 'Sign in with your retrac.space account to send a sound request. We’ll bring you right back here when you’re done.';
       } else if (next === 'incomplete') {
         screen.description = 'Choose a username at retrac.space to send your sound request, then come back here.';
       }
@@ -89,7 +96,7 @@
     if (purpose === 'strings') {
       if (next === 'confirm') {
         screen.title = 'Make your own strings';
-        screen.description = 'Sign in with your retrac.space account to combine sounds into strings and keep them. We’ll open it in a new tab, then pick up right here when you’re back.';
+        screen.description = 'Sign in with your retrac.space account to combine sounds into strings and keep them. We’ll bring you right back here when you’re done.';
       } else if (next === 'incomplete') {
         screen.description = 'Choose a username at retrac.space to start making strings, then come back here.';
       }
@@ -97,7 +104,7 @@
     if (purpose === 'loop') {
       if (next === 'confirm') {
         screen.title = 'Loop your sound effects';
-        screen.description = 'Sign in with your retrac.space account to loop your sound effects over and over. We’ll open it in a new tab, then pick up right here when you’re back.';
+        screen.description = 'Sign in with your retrac.space account to loop your sound effects over and over. We’ll bring you right back here when you’re done.';
       } else if (next === 'incomplete') {
         screen.description = 'Choose a username at retrac.space to start looping your sound effects, then come back here.';
       }
@@ -105,7 +112,7 @@
     if (purpose === 'tune') {
       if (next === 'confirm') {
         screen.title = 'Edit speed and pitch';
-        screen.description = 'Sign in with your retrac.space account to change a sound’s speed and pitch and sync it across your devices. We’ll open it in a new tab, then pick up right here when you’re back.';
+        screen.description = 'Sign in with your retrac.space account to change a sound’s speed and pitch and sync it across your devices. We’ll bring you right back here when you’re done.';
       } else if (next === 'incomplete') {
         screen.description = 'Choose a username at retrac.space to start editing speed and pitch, then come back here.';
       }
@@ -124,11 +131,36 @@
       <h2 id="signin-title">${screen.title}</h2>
       <p id="signin-description">${screen.description}</p>
       ${waiting ? '<p class="signin-waiting" role="status"><span aria-hidden="true"></span>Waiting for your account</p>' : ''}
-      <div class="signin-actions">${screen.actions.map(([action, label], i) =>
-        `<button type="button" class="${i ? 'signin-button signin-button--quiet' : 'signin-button'}" data-action="${action}">${label}</button>`).join('')}
+      <div class="signin-actions">${screen.actions.map(([action, label], i) => {
+        const cls = i ? 'signin-button signin-button--quiet' : 'signin-button';
+        // A plain link: an ordinary trip to accounts and back, in this tab.
+        if (action === 'guided') return `<a class="${cls}" data-action="guided" href="${escapeAttr(guidedUrl())}">${label}</a>`;
+        return `<button type="button" class="${cls}" data-action="${action}">${label}</button>`;
+      }).join('')}
       </div>
     </section>`;
-    if (dialog.open) dialog.querySelector('button').focus({ preventScroll: true });
+    if (dialog.open) dialog.querySelector('[data-action]').focus({ preventScroll: true });
+  }
+
+  function escapeAttr(text) {
+    return text.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  }
+
+  // Guided setup only sends people back to retrac.space sites and localhost, so anywhere
+  // else (a preview host, say) comes back to the real site instead.
+  function returnUrl() {
+    const here = new URL(window.location.href);
+    const host = here.hostname;
+    const allowed = /^https?:$/.test(here.protocol)
+      && (host === 'retrac.space' || host.endsWith('.retrac.space') || host === 'localhost');
+    const url = allowed ? here : new URL(SITE_URL);
+    url.searchParams.set(RETURN_PARAM, '1');
+    return url.href;
+  }
+
+  function guidedUrl() {
+    const params = new URLSearchParams({ app: 'Simple Soundboard', redirect: returnUrl(), image: GUIDED_IMAGE });
+    return GUIDED_URL + '?' + params;
   }
 
   function restoreFocus() {
@@ -203,7 +235,8 @@
       return;
     }
     const button = event.target.closest('[data-action]');
-    if (!button) return;
+    // The link leaves for accounts on its own, and the dialog stays as it is until then.
+    if (!button || button.dataset.action === 'guided') return;
     if (button.dataset.action === 'open') openAccounts();
     else if (button.dataset.action === 'resolve') resolveIssue();
     else if (button.dataset.action === 'verify') verify();
@@ -224,8 +257,73 @@
   window.addEventListener('blur', markAway);
   window.addEventListener('focus', onReturn);
 
+  // ---------- Back from guided setup ----------
+
+  // Read once, then taken out of the address so a reload or a copied link doesn't repeat it.
+  function takeReturnFlag() {
+    try {
+      const url = new URL(window.location.href);
+      if (!url.searchParams.has(RETURN_PARAM)) return false;
+      url.searchParams.delete(RETURN_PARAM);
+      window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  const returned = takeReturnFlag();
+
+  const done = document.createElement('dialog');
+  done.className = 'signin-dialog signed-in-dialog';
+  done.setAttribute('aria-labelledby', 'signed-in-title');
+  done.setAttribute('aria-describedby', 'signed-in-description');
+  done.innerHTML = `<section class="signin-panel signed-in-panel">
+      <svg class="signed-in-check" viewBox="0 0 52 52" aria-hidden="true">
+        <circle class="signed-in-check__ring" cx="26" cy="26" r="23"></circle>
+        <path class="signed-in-check__mark" d="m15.5 27 7 7 14-15"></path>
+      </svg>
+      <h2 id="signed-in-title">You’re signed in</h2>
+      <p id="signed-in-description"></p>
+      <div class="signin-actions"><button type="button" class="signin-button" data-action="done">Done</button></div>
+    </section>`;
+  document.body.append(done);
+
+  done.addEventListener('click', (event) => {
+    if (event.target === done || event.target.closest('[data-action="done"]')) done.close();
+  });
+  done.addEventListener('keydown', (event) => event.stopPropagation());
+
+  function showSignedIn(username) {
+    if (dialog.open || done.open) return;
+    // Usernames come from the account, so they must never be treated as HTML.
+    done.querySelector('#signed-in-description').textContent =
+      'Welcome, ' + username + '. Your favorites, strings and settings now save to your retrac.space account.';
+    done.showModal();
+    done.querySelector('button').focus({ preventScroll: true });
+  }
+
+  async function welcomeBack() {
+    const state = await account.check();
+    if (state.status === 'authenticated') showSignedIn(state.username);
+    // An account that needs action gets its own popup from app.js.
+    else if (state.status !== 'action' && !dialog.open) {
+      window.SoundSignIn.open({ stage: screens[state.status] ? state.status : 'error' });
+    }
+  }
+
+  if (returned) {
+    // After the loading screen, so the popup isn't hidden behind it.
+    const splash = window.SoundboardSplash;
+    if (splash) splash.whenDone(welcomeBack);
+    else Promise.resolve().then(welcomeBack);
+  }
+
   window.SoundSignIn = {
     isOpen: () => dialog.open,
+
+    // True when this page load came straight back from guided setup.
+    returnedFromSignIn: returned,
 
     // options: { stage, trigger, onCancel, onSuccess, purpose }
     open(options) {
@@ -239,7 +337,7 @@
       purpose = options.purpose || 'favorites';
       render(screens[options.stage] ? options.stage : 'confirm');
       dialog.showModal();
-      dialog.querySelector('button').focus({ preventScroll: true });
+      dialog.querySelector('[data-action]').focus({ preventScroll: true });
     },
 
     // Called once the visitor is signed in. The dialog's job is done.

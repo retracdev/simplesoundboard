@@ -25,9 +25,9 @@ const respond = (status, body) => ({
   json: async () => body,
 });
 
-function openPage({ session = null, save, saveStatus } = {}) {
+function openPage({ session = null, save, saveStatus, url = 'https://soundboard.retrac.space/', intent } = {}) {
   const html = read('index.html').replace(/<script[^>]*><\/script>/g, '').replace(/<link[^>]*>/g, '');
-  const dom = new JSDOM(html, { url: 'https://soundboard.retrac.space/', runScripts: 'outside-only', pretendToBeVisual: true });
+  const dom = new JSDOM(html, { url, runScripts: 'outside-only', pretendToBeVisual: true });
   const { window } = dom;
   const { document } = window;
 
@@ -111,6 +111,9 @@ function openPage({ session = null, save, saveStatus } = {}) {
   dialogProto.close = function close() { this.removeAttribute('open'); };
   Object.defineProperty(dialogProto, 'open', { get() { return this.hasAttribute('open'); } });
 
+  // A sound clicked before leaving for the guided sign-in page, kept for this tab.
+  if (intent) window.sessionStorage.setItem('simple-soundboard:favorite-after-sign-in', JSON.stringify({ id: intent, at: Date.now() }));
+
   SCRIPTS.forEach((file) => window.eval(read(file)));
 
   // The sound's own button in its category, as opposed to its copy in the Favorites row.
@@ -133,6 +136,7 @@ function openPage({ session = null, save, saveStatus } = {}) {
     .map((slot) => slot.querySelector('.key').dataset.id);
   world.dialog = () => document.querySelector('dialog.signin-dialog');
   world.dialogTitle = () => world.dialog().querySelector('h2').textContent;
+  world.doneDialog = () => document.querySelector('dialog.signed-in-dialog');
   world.action = (name) => world.dialog().querySelector(`[data-action="${name}"]`);
   world.click = (element) => element.dispatchEvent(new window.MouseEvent('click', { bubbles: true, detail: 0 }));
   world.search = (text) => {
@@ -269,45 +273,66 @@ test('a signed-out click opens the dialog, without favoriting anything locally',
   assert.equal(page.window.localStorage.length, 0, 'no local-only favorites');
   assert.equal(page.opened.length, 0, 'no new tab until asked for');
 
-  page.click(page.action('open'));
-  assert.deepEqual(page.opened[0], ['https://accounts.retrac.space', '_blank', 'noopener']);
-  assert.equal(page.dialogTitle(), 'Finish signing in');
+  const link = page.action('guided');
+  assert.equal(link.tagName, 'A', 'an ordinary link, in this tab');
+  assert.equal(link.textContent, 'Sign in or create account');
+  const guided = new URL(link.href);
+  assert.equal(guided.origin + guided.pathname, 'https://accounts.retrac.space/guided-setup');
+  assert.equal(guided.searchParams.get('app'), 'Simple Soundboard');
+  assert.equal(guided.searchParams.get('redirect'), 'https://soundboard.retrac.space/?signed-in=1');
+  assert.equal(guided.searchParams.get('image'), 'https://soundboard.retrac.space/assets/social/guided-setup.jpg');
+  page.click(link);
+  assert.equal(page.opened.length, 0, 'no new tab');
+  assert.equal(page.dialog().open, true, 'the dialog stays while the page leaves');
   page.close();
 });
 
-test('after signing in, the clicked sound is favorited on top of existing cloud favorites', async () => {
-  const page = openPage();
+test('guided setup comes back to the same page, and other hosts come back to the real site', async () => {
+  const local = openPage({ url: 'http://localhost:8080/?q=1#top' });
   await wait(30);
-  page.click(page.heart('bruh'));
+  local.click(local.heart('bruh'));
   await wait(10);
-  page.click(page.action('open'));
+  assert.equal(new URL(local.action('guided').href).searchParams.get('redirect'), 'http://localhost:8080/?q=1&signed-in=1#top');
+  local.close();
 
-  page.session = alice;
-  page.save = { version: 1, favorites: ['rizz', 'retired-sound'] };
-  page.returnToTab();
-  await wait(260);
+  const elsewhere = openPage({ url: 'https://example.com/' });
+  await wait(30);
+  elsewhere.click(elsewhere.heart('bruh'));
+  await wait(10);
+  assert.equal(new URL(elsewhere.action('guided').href).searchParams.get('redirect'), 'https://soundboard.retrac.space/?signed-in=1');
+  elsewhere.close();
+});
 
-  assert.equal(page.dialog().open, false, 'the dialog closes itself');
+test('back from guided setup, it says you are signed in and favorites the clicked sound', async () => {
+  const page = openPage({
+    url: 'https://soundboard.retrac.space/?signed-in=1', session: alice, intent: 'bruh',
+    save: { version: 1, favorites: ['rizz', 'retired-sound'] },
+  });
+  assert.equal(page.window.location.href, 'https://soundboard.retrac.space/', 'the flag leaves the address');
+  await wait(40);
+
+  assert.equal(page.doneDialog().open, true);
+  assert.equal(page.doneDialog().querySelector('h2').textContent, 'You’re signed in');
+  assert.match(page.doneDialog().querySelector('p').textContent, /alice/);
+  assert.equal(page.dialog().open, false);
   assert.equal(page.pressed('bruh'), true);
   assert.equal(page.pressed('rizz'), true, 'existing favorites loaded');
   await wait(DEBOUNCE);
   assert.deepEqual(page.save, { version: 1, favorites: ['rizz', 'retired-sound', 'bruh'] });
   await wait(300);
-  assert.ok(page.document.querySelector('.welcome-pill'), 'and they get the greeting');
+  assert.equal(page.document.querySelector('.welcome-pill'), null, 'the popup greets them instead');
+
+  page.click(page.doneDialog().querySelector('[data-action="done"]'));
+  assert.equal(page.doneDialog().open, false);
   page.close();
 });
 
 test('signing in does not toggle off a sound that was already a favorite', async () => {
-  const page = openPage();
-  await wait(30);
-  page.click(page.heart('bruh'));
-  await wait(10);
-  page.click(page.action('open'));
-
-  page.session = alice;
-  page.save = { version: 1, favorites: ['bruh'] };
-  page.returnToTab();
-  await wait(260 + DEBOUNCE);
+  const page = openPage({
+    url: 'https://soundboard.retrac.space/?signed-in=1', session: alice, intent: 'bruh',
+    save: { version: 1, favorites: ['bruh'] },
+  });
+  await wait(40 + DEBOUNCE);
 
   assert.equal(page.pressed('bruh'), true);
   assert.deepEqual(page.save.favorites, ['bruh']);
@@ -315,14 +340,10 @@ test('signing in does not toggle off a sound that was already a favorite', async
   page.close();
 });
 
-test('returning without signing in offers a retry, and retrying works', async () => {
-  const page = openPage();
-  await wait(30);
-  page.click(page.heart('bruh'));
-  await wait(10);
-  page.click(page.action('open'));
-  page.returnToTab();
-  await wait(260);
+test('back from guided setup without a session offers a retry, and retrying works', async () => {
+  const page = openPage({ url: 'https://soundboard.retrac.space/?signed-in=1', intent: 'bruh' });
+  await wait(40);
+  assert.equal(page.doneDialog().open, false);
   assert.equal(page.dialog().open, true);
   assert.equal(page.dialogTitle(), 'Not signed in yet');
 
@@ -330,6 +351,22 @@ test('returning without signing in offers a retry, and retrying works', async ()
   page.click(page.action('verify'));
   await wait(40);
   assert.equal(page.dialog().open, false);
+  assert.equal(page.pressed('bruh'), true);
+  page.close();
+});
+
+test('the other screens still open accounts in a new tab and pick up on return', async () => {
+  const page = openPage({ url: 'https://soundboard.retrac.space/?signed-in=1', intent: 'bruh' });
+  await wait(40);
+  page.click(page.action('open'));
+  assert.deepEqual(page.opened[0], ['https://accounts.retrac.space', '_blank', 'noopener']);
+  assert.equal(page.dialogTitle(), 'Finish signing in');
+
+  page.session = alice;
+  page.save = { version: 1, favorites: [] };
+  page.returnToTab();
+  await wait(260);
+  assert.equal(page.dialog().open, false, 'the dialog closes itself');
   assert.equal(page.pressed('bruh'), true);
   page.close();
 });
