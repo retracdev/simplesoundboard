@@ -1517,8 +1517,35 @@ html.is-revealing .deck, html.is-revealing .ranks { animation-delay: .24s; }
 .signin-button--quiet { color: var(--fg); background: #262138; box-shadow: 0 4px 0 #15121f, inset 0 1px 0 rgba(255, 255, 255, .1); }
 .signin-button--quiet:hover { background: #2f2945; }
 .signin-button--quiet:active { box-shadow: 0 1px 0 #15121f, inset 0 1px 0 rgba(255, 255, 255, .1); }
+a.signin-button { display: inline-flex; align-items: center; text-decoration: none; }
+
+/* Back from the guided sign-in page. */
+.signed-in-panel { padding: 30px 26px 24px; text-align: center; }
+.signed-in-panel h2 { margin-top: 16px; }
+.signed-in-panel .signin-actions { justify-content: center; }
+.signed-in-panel .signin-button { min-width: 140px; justify-content: center; }
+.signed-in-check { display: block; width: 76px; height: 76px; margin: 0 auto; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.signed-in-check__ring {
+  fill: #93e571;
+  stroke: #479c2c;
+  stroke-width: 2;
+  transform-origin: center;
+  animation: signed-in-pop .45s var(--ease) both;
+}
+.signed-in-check__mark {
+  stroke: var(--ink);
+  stroke-width: 5;
+  stroke-dasharray: 34;
+  stroke-dashoffset: 34;
+  animation: signed-in-draw .35s .3s ease-out forwards;
+}
+@keyframes signed-in-pop { from { transform: scale(.4); opacity: 0; } 70% { transform: scale(1.08); opacity: 1; } }
+@keyframes signed-in-draw { to { stroke-dashoffset: 0; } }
+
 @media (prefers-reduced-motion: reduce) {
   .signin-waiting span { animation: none; }
+  .signed-in-check__ring { animation: none; }
+  .signed-in-check__mark { animation: none; stroke-dashoffset: 0; }
 }
 
 /* ---------- Request a sound ---------- */

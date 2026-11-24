@@ -47,7 +47,8 @@
   }
 
   // Covers both arriving signed in and signing in later, but only ever greets once.
-  let greeted = false;
+  // Coming straight back from the guided sign-in page shows "You're signed in" instead.
+  let greeted = Boolean(window.SoundSignIn && window.SoundSignIn.returnedFromSignIn);
   function greet(state) {
     if (greeted || state.status !== 'authenticated') return;
     greeted = true;

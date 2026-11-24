@@ -12,7 +12,7 @@
     --key: #ab8fff; --key-side: #6442c9;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { width: 1200px; height: 630px; overflow: hidden; }
+  html, body { width: var(--w, 1200px); height: var(--h, 630px); overflow: hidden; }
   body {
     position: relative;
     color: var(--fg);
@@ -126,6 +126,52 @@
     box-shadow: inset 0 3px 0 rgba(255,255,255,.5), 0 8px 0 var(--d);
     font-family: var(--display); font-size: 64px;
   }
+  /* ---------- Guided sign-in art (960x1200) ---------- */
+  .guided { overflow: hidden; }
+  .guided__rows {
+    position: absolute; inset: -14% -40%;
+    display: flex; flex-direction: column; justify-content: center; gap: 30px;
+    transform: rotate(-9deg);
+  }
+  .guided__row { display: flex; gap: 24px; }
+  .guided__row:nth-child(even) { transform: translateX(-104px); }
+  .tile {
+    flex: none;
+    display: flex; flex-direction: column; justify-content: space-between;
+    width: 200px; height: 122px; padding: 14px 16px 13px;
+    border-radius: 20px; color: var(--ink);
+    background: radial-gradient(120% 85% at 28% 0%, rgba(255,255,255,.36), transparent 58%), var(--c);
+    box-shadow: 0 11px 0 var(--d), 0 20px 24px rgba(0,0,0,.6), inset 0 2px 0 rgba(255,255,255,.6);
+  }
+  .tile__name {
+    display: -webkit-box; overflow: hidden;
+    font-size: 19px; font-weight: 700; line-height: 1.15;
+    -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  }
+  .tile__foot { display: flex; align-items: center; gap: 9px; }
+  .tile__foot svg { width: 16px; height: 16px; fill: var(--ink); flex: none; }
+  .tile__bar {
+    flex: 1; height: 14px; opacity: .28;
+    background: repeating-linear-gradient(90deg, var(--ink) 0 2px, transparent 2px 7px);
+    -webkit-mask: linear-gradient(180deg, transparent 20%, #000 20% 80%, transparent 80%);
+  }
+  /* Darkens the middle so the icon stands out, and the edges a little. */
+  .guided__shade {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(circle 330px at 50% 50%, rgba(7,6,13,.9) 35%, rgba(7,6,13,.55) 70%, rgba(7,6,13,.18)),
+      linear-gradient(180deg, rgba(7,6,13,.5), transparent 22%, transparent 78%, rgba(7,6,13,.5));
+  }
+  .guided__glow {
+    position: absolute; left: 50%; top: 50%; width: 520px; height: 520px;
+    transform: translate(-50%, -50%); border-radius: 50%;
+    background: radial-gradient(circle, rgba(171,143,255,.45), rgba(171,143,255,.12) 45%, transparent 70%);
+  }
+  .guided__icon {
+    position: absolute; left: 50%; top: 50%; width: 300px; height: 300px;
+    transform: translate(-50%, -50%);
+    filter: drop-shadow(0 26px 40px rgba(0,0,0,.65));
+  }
 </style>
 </head>
 <body>
@@ -200,6 +246,8 @@
 
   window.renderCard = async function (card) {
     const root = document.getElementById('root');
+    document.documentElement.style.setProperty('--w', (card.width || 1200) + 'px');
+    document.documentElement.style.setProperty('--h', (card.height || 630) + 'px');
     document.documentElement.style.setProperty('--key', card.color || '#ab8fff');
     document.documentElement.style.setProperty('--key-side', card.side || '#6442c9');
 
@@ -237,6 +285,21 @@
         + '<p class="ranks__tag">Every play from everyone, counted live.</p>'
         + '<div class="podium">' + step(2, 150, '#d9d5ea', '#8b86a3') + step(1, 220, '#ffc93c', '#bd8406') + step(3, 110, '#ff9d5c', '#bd6325') + '</div>'
         + brandbar('') + '</div>';
+      await document.fonts.ready;
+    } else if (card.kind === 'guided') {
+      // Rows of sound buttons, like the share page, with the app icon in the middle.
+      const tile = (t) => '<span class="tile" style="--c:' + t.color + ';--d:' + t.side + '"><span class="tile__name">' + esc(t.name)
+        + '</span><span class="tile__foot"><svg><use href="#play"/></svg><span class="tile__bar"></span></span></span>';
+      const ROWS = 10, PER_ROW = 8;
+      let rows = '';
+      for (let r = 0; r < ROWS; r++) {
+        let row = '';
+        for (let i = 0; i < PER_ROW; i++) row += tile(card.tiles[(r * PER_ROW + i) % card.tiles.length]);
+        rows += '<div class="guided__row">' + row + '</div>';
+      }
+      root.innerHTML = '<div class="card guided"><div class="guided__rows">' + rows + '</div>'
+        + '<div class="guided__shade"></div><div class="guided__glow"></div>'
+        + '<img class="guided__icon" src="/assets/app-icon.svg" alt=""></div>';
       await document.fonts.ready;
     }
     await Promise.all(Array.from(document.images).map((img) => img.complete ? null : new Promise((r) => { img.onload = img.onerror = r; })));

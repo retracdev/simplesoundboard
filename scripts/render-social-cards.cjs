@@ -4,6 +4,7 @@
  *   assets/social/home.jpg           the home page
  *   assets/social/leaderboard.jpg    /leaderboard
  *   assets/social/sounds/<id>.jpg    /sound/<id>, with that sound's real waveform
+ *   assets/social/guided-setup.jpg   960x1200 art for the retrac.space guided sign-in page
  *
  * Uses a locally installed Chrome (or Edge) through playwright-core. Cards whose inputs haven't
  * changed are skipped, using the hashes in assets/social/manifest.json; pass --all to redo every
@@ -69,6 +70,18 @@ async function launch() {
   const jobs = [
     { file: 'home.jpg', card: { kind: 'home', words: sounds.slice(0, 24).map((sound) => sound.name) } },
     { file: 'leaderboard.jpg', card: { kind: 'leaderboard' } },
+    {
+      file: 'guided-setup.jpg',
+      extra: path.join(ROOT, 'assets/app-icon.svg'),
+      card: {
+        kind: 'guided', width: 960, height: 1200,
+        // Every seventh sound, so neighbouring buttons come from different categories.
+        tiles: sounds.map((_, i) => sounds[(i * 7) % sounds.length]).map((sound) => {
+          const category = categoryById.get(sound.category);
+          return { name: sound.name, color: category.color, side: category.side };
+        }),
+      },
+    },
     ...sounds.map((sound) => {
       const category = categoryById.get(sound.category);
       return {
@@ -84,7 +97,8 @@ async function launch() {
 
   jobs.forEach((job) => {
     const audio = job.audio && fs.existsSync(job.audio) ? fs.readFileSync(job.audio) : '';
-    job.key = hash(base, JSON.stringify(job.card), audio);
+    const extra = job.extra ? fs.readFileSync(job.extra) : '';
+    job.key = hash(base, JSON.stringify(job.card), audio, extra);
   });
 
   const todo = jobs.filter((job) => all || manifest[job.file] !== job.key
@@ -109,6 +123,7 @@ async function launch() {
     await page.goto(HOST + '/card.html');
 
     for (const job of todo) {
+      await page.setViewportSize({ width: job.card.width || 1200, height: job.card.height || 630 });
       await page.evaluate((card) => window.renderCard(card), job.card);
       await page.screenshot({ path: path.join(OUT, job.file), type: 'jpeg', quality: 88 });
       next[job.file] = job.key;
