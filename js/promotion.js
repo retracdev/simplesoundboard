@@ -2,16 +2,16 @@
  * A promotion for another retrac.space site, shown in the changelog's sliding sheet. It
  * opens once the loading screen has gone and no other dialog is up, until the visitor
  * dismisses it (Dismiss, the × button, Escape or a click on the backdrop), which is
- * remembered in a cookie. "Visit Toptext" opens the site in a new tab and leaves the
- * sheet open, so it does not count as dismissing. The "Check out Toptext" pill under the
- * changelog pill (and a #motdToptext link in the MOTD, when there is one) reopens it any time. For the next promotion, change
+ * remembered in a cookie. "Check out Reaction Arena" opens the site in a new tab and leaves the
+ * sheet open, so it does not count as dismissing. The "Check out Reaction Arena" pill under the
+ * changelog pill (and a #motdPromotion link in the MOTD, when there is one) reopens it any time. For the next promotion, change
  * PROMOTION_ID (and the dialog's content) and everyone sees it once more. To retire it,
  * remove this file and #promotionDialog.
  */
 (function () {
   'use strict';
 
-  const PROMOTION_ID = '1';
+  const PROMOTION_ID = '2';
   const COOKIE = 'ssb_promotion_dismissed';
   const ONE_YEAR = 60 * 60 * 24 * 365;
 
@@ -67,7 +67,7 @@
   document.getElementById('promotionDismiss').addEventListener('click', close);
 
   // Reopen on demand, even after it was dismissed.
-  ['motdToptext', 'promotionOpen'].forEach((id) => {
+  ['motdPromotion', 'promotionOpen'].forEach((id) => {
     const trigger = document.getElementById(id);
     if (trigger) trigger.addEventListener('click', open);
   });
