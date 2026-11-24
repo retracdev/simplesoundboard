@@ -126,7 +126,7 @@ function leaderboardPage(count) {
   <meta name="twitter:description" content="${escapeHtml(description)}">
   <meta name="twitter:image" content="${cardImage('leaderboard')}">
   <meta name="twitter:image:alt" content="The Simple Soundboard Sound Leaderboard podium">
-  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/assets/app-icon.svg" type="image/svg+xml">
   <style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#07060d;color:#8b86a3;font:16px system-ui,sans-serif}a{color:#f3f0ff}</style>
   <script>window.location.replace('/' + window.location.search + '#leaderboard');</script>
 </head>

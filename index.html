@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <!-- Copied from version.yml by the "Sync version" workflow. Edit version.yml, not this. -->
-  <meta name="soundboard-version" content="1.2.8">
+  <meta name="soundboard-version" content="1.2.9">
   <!-- Live updates. Loads first so it can track and shut down everything the app starts. -->
   <script src="js/live-update.js" data-live-update></script>
   <title>Simple Soundboard · retrac.space</title>
@@ -26,7 +26,7 @@
   <meta name="twitter:description" content="Fun sound effects without the bloat. Free, no ads. Part of the retrac.space collection.">
   <meta name="twitter:image" content="https://soundboard.retrac.space/assets/social/home.jpg">
   <meta name="twitter:image:alt" content="Simple Soundboard: fun sound effects without the bloat">
-  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="assets/app-icon.svg" type="image/svg+xml">
   <link rel="preload" href="assets/fonts/bagel-fat-one-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="css/style.css">
   <noscript><style>.splash { display: none; } html.is-splashing { overflow: auto; }</style></noscript>
@@ -34,7 +34,7 @@
 <body>
   <!-- The loading screen. js/splash.js fills the bar and takes it away. Live updates show it again (data-update-splash). -->
   <div class="splash" id="splash" data-update-splash role="progressbar" aria-label="Loading Simple Soundboard" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-    <img class="splash__icon" src="assets/favicon.svg" alt="" width="112" height="112">
+    <img class="splash__icon" src="assets/app-icon.svg" alt="" width="112" height="112">
     <div class="splash__track"><div class="splash__fill"></div></div>
   </div>
 

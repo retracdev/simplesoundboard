@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="app-icon-base" x1="0" y1="14" x2="0" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7B58E6"/><stop offset="1" stop-color="#4E2FB0"/></linearGradient>
+    <linearGradient id="app-icon-base-rim" x1="0" y1="14" x2="0" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff" stop-opacity=".1"/><stop offset=".85" stop-color="#fff" stop-opacity=".1"/><stop offset="1" stop-color="#fff" stop-opacity=".35"/></linearGradient>
+    <linearGradient id="app-icon-top" x1="0" y1="4" x2="0" y2="52" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#CDBBFF"/><stop offset=".55" stop-color="#AB8FFF"/><stop offset="1" stop-color="#9373F2"/></linearGradient>
+    <linearGradient id="app-icon-top-rim" x1="0" y1="4" x2="0" y2="52" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff" stop-opacity=".75"/><stop offset=".5" stop-color="#fff" stop-opacity=".12"/><stop offset="1" stop-color="#fff" stop-opacity=".3"/></linearGradient>
+    <linearGradient id="app-icon-note" x1="0" y1="13" x2="0" y2="47" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3A2280"/><stop offset="1" stop-color="#1C1040"/></linearGradient>
+    <linearGradient id="app-icon-note-rim" x1="22" y1="13" x2="44" y2="47" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff" stop-opacity=".7"/><stop offset=".4" stop-color="#fff" stop-opacity="0"/></linearGradient>
+    <rect id="app-icon-b" x="6" y="12" width="52" height="48" rx="14"/>
+    <rect id="app-icon-t" x="6" y="4" width="52" height="48" rx="14"/>
+    <path id="app-icon-n" d="M29.6 15.2a1.6 1.6 0 0 1 1.6-1.6h10.4a1.6 1.6 0 0 1 1.6 1.6v6a1.6 1.6 0 0 1-1.6 1.6h-8.2V39A7.6 7.6 0 1 1 29.6 32.4Z"/>
+    <clipPath id="app-icon-clip-b"><use href="#app-icon-b"/></clipPath>
+    <clipPath id="app-icon-clip-t"><use href="#app-icon-t"/></clipPath>
+    <clipPath id="app-icon-clip-n"><use href="#app-icon-n"/></clipPath>
+    <mask id="app-icon-out-t" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64">
+      <rect width="64" height="64" fill="#fff"/><use href="#app-icon-t" fill="#000"/></mask>
+    <mask id="app-icon-out-n" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64">
+      <rect width="64" height="64" fill="#fff"/><use href="#app-icon-n" fill="#000" stroke="#000" stroke-width="1.6" stroke-linejoin="round"/></mask>
+    <filter id="app-icon-blur2" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="2"/></filter>
+    <filter id="app-icon-blur1" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="1.1"/></filter>
+  </defs>
+  <use href="#app-icon-b" fill="url(#app-icon-base)"/>
+  <g clip-path="url(#app-icon-clip-b)"><use href="#app-icon-b" fill="none" stroke="url(#app-icon-base-rim)" stroke-width="2"/></g>
+  <g clip-path="url(#app-icon-clip-b)"><g mask="url(#app-icon-out-t)">
+    <use href="#app-icon-t" transform="translate(0 2.5)" fill="#22105C" fill-opacity=".4" filter="url(#app-icon-blur2)"/>
+  </g></g>
+  <use href="#app-icon-t" fill="url(#app-icon-top)"/>
+  <g clip-path="url(#app-icon-clip-t)"><use href="#app-icon-t" fill="none" stroke="url(#app-icon-top-rim)" stroke-width="2.4"/></g>
+  <g clip-path="url(#app-icon-clip-t)"><g mask="url(#app-icon-out-n)">
+    <use href="#app-icon-n" transform="translate(0 1.5)" fill="#2A1670" fill-opacity=".35" stroke="#2A1670" stroke-opacity=".3" stroke-width="1.6" stroke-linejoin="round" filter="url(#app-icon-blur1)"/>
+  </g></g>
+  <use href="#app-icon-n" fill="url(#app-icon-note)" fill-opacity=".94" stroke="url(#app-icon-note)" stroke-opacity=".94" stroke-width="1.6" stroke-linejoin="round"/>
+  <use href="#app-icon-n" fill="none" stroke="url(#app-icon-note-rim)" stroke-width=".7" stroke-linejoin="round"/>
+</svg>
