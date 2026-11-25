@@ -425,6 +425,31 @@ html.is-revealing .deck, html.is-revealing .ranks { animation-delay: .24s; }
   box-shadow: 0 0 8px rgba(255, 201, 60, .3);
 }
 
+.github-link {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  max-width: calc(100% - var(--gutter) - var(--gutter));
+  margin: clamp(18px, 2.6vw, 26px) var(--gutter) 0;
+  padding: 10px 16px;
+  border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: 14px;
+  color: #d6d0ea;
+  background: rgba(7, 6, 13, .6);
+  font-size: .9375rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: transform .2s var(--ease), border-color .2s, color .2s;
+}
+.github-link:hover { transform: translateY(-2px); color: var(--fg); border-color: rgba(255, 255, 255, .32); }
+.github-link:focus-visible { outline: 2px solid #cbb5ff; outline-offset: 3px; }
+.github-link__mark { width: 20px; height: 20px; flex: none; fill: currentColor; }
+.github-link__arrow { width: 14px; height: 14px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: .8; }
+@media (prefers-reduced-motion: reduce) { .github-link:hover { transform: none; } }
+
 .hero__notes { position: absolute; inset: 0; pointer-events: none; }
 .hero-note {
   position: absolute;
